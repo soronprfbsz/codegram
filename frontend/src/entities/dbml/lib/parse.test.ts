@@ -166,7 +166,31 @@ describe('parseDbml — table groups', () => {
     const group = schema.tableGroups[0]
     expect(group.name).toBe('core')
     expect(group.color).toBe('#ff0000')
-    expect(group.tables.sort()).toEqual(['posts', 'users'])
+    // Members are qualified `schema.table` keys matching DbmlTable.id.
+    expect(group.tables.sort()).toEqual(['public.posts', 'public.users'])
+    const ids = schema.tables.map((t) => t.id).sort()
+    expect(group.tables.sort()).toEqual(ids)
+  })
+
+  it('qualifies members so same-named tables in different schemas stay distinct', () => {
+    const schema = parseOk(`
+      Table public.users {
+        id integer [pk]
+      }
+      Table audit.users {
+        id integer [pk]
+      }
+      TableGroup core {
+        public.users
+        audit.users
+      }
+    `)
+    const group = schema.tableGroups[0]
+    // Without schema qualification both would collapse to "users"; the keys
+    // must match each table's unique id.
+    expect(group.tables.sort()).toEqual(['audit.users', 'public.users'])
+    const ids = schema.tables.map((t) => t.id).sort()
+    expect(group.tables.sort()).toEqual(ids)
   })
 })
 

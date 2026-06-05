@@ -50,7 +50,15 @@ export interface DbmlTable {
  */
 export type DbmlRelation = '1-1' | '1-n' | 'n-1' | 'n-n'
 
-/** A relationship (foreign-key reference) between two tables. */
+/**
+ * A relationship (foreign-key reference) between two tables.
+ *
+ * `fromTable`/`toTable` and `relation` follow the PARSED endpoint order, NOT
+ * necessarily the FK-holding side: inline `[ref: > ...]` and standalone `Ref:`
+ * can order endpoints differently. `relation` always matches its OWN endpoints
+ * (`from` = endpoint 0, `to` = endpoint 1), so consumers must not assume
+ * `fromTable` is the FK side.
+ */
 export interface DbmlRef {
   /** Stable key derived from both endpoints. */
   id: string
@@ -91,7 +99,7 @@ export interface DbmlTableGroup {
   name: string
   /** Group color (hex), when set via [color: ...]. */
   color?: string
-  /** Member table names. */
+  /** Member table keys, qualified `${schema}.${table}` to match DbmlTable.id. */
   tables: string[]
   note?: string
 }

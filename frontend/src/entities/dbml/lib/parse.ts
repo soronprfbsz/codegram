@@ -49,6 +49,15 @@ function schemaName(model: NormalizedModel, schemaId: unknown): string {
   return typeof name === 'string' && name.length > 0 ? name : 'public'
 }
 
+/**
+ * Build a table's stable, schema-qualified id (`${schema}.${name}`). This is
+ * the single source of truth for DbmlTable.id; mapTableGroup reuses it so group
+ * members carry the exact same key (ADR-0004 name-based reconciliation).
+ */
+function tableId(model: NormalizedModel, table: Record<string, unknown>): string {
+  return `${schemaName(model, table.schemaId)}.${String(table.name)}`
+}
+
 function mapColumn(
   field: Record<string, unknown>,
   schema: string,
@@ -84,7 +93,7 @@ function mapTable(
   const schema = schemaName(model, table.schemaId)
   const fieldIds = Array.isArray(table.fieldIds) ? table.fieldIds : []
   return {
-    id: `${schema}.${name}`,
+    id: tableId(model, table),
     name,
     schema,
     note: optStr(table.note),
@@ -153,7 +162,7 @@ function mapTableGroup(
     note: optStr(group.note),
     tables: tableIds.map((tid) => {
       const table = model.tables[String(tid)] ?? {}
-      return String(table.name)
+      return tableId(model, table)
     }),
   }
 }
