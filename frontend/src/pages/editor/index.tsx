@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Button } from '@/shared/ui/button'
 import { useProject } from '@/entities/project'
-import { useProjectAutosave } from '@/features/project-autosave'
+import {
+  useProjectAutosave,
+  type AutosaveStatus,
+} from '@/features/project-autosave'
 
-const statusLabel: Record<string, string> = {
+const statusLabel: Record<AutosaveStatus, string> = {
   idle: 'All changes saved',
   saving: 'Saving…',
   saved: 'Saved',
@@ -22,12 +25,17 @@ export function EditorPage() {
   const navigate = useNavigate()
   const { data: project, isLoading, isError } = useProject(id)
   const [dbmlText, setDbmlText] = useState('')
-  const { status } = useProjectAutosave({ projectId: id, dbmlText })
+  // The last server-seeded value; autosave skips while dbmlText still equals it.
+  const [baseline, setBaseline] = useState('')
+  const { status } = useProjectAutosave({ projectId: id, dbmlText, baseline })
 
-  // Seed the textarea once the project loads (only when its id changes).
+  // Seed the textarea (and the autosave baseline) once the project loads, and
+  // re-seed when its id changes. Keying on project?.id avoids clobbering the
+  // user's in-progress text on each autosave-driven cache update.
   useEffect(() => {
     if (project) {
       setDbmlText(project.dbml_text)
+      setBaseline(project.dbml_text)
     }
   }, [project?.id])
 

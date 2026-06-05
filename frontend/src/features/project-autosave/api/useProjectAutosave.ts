@@ -8,6 +8,12 @@ interface UseProjectAutosaveOptions {
   projectId: string
   dbmlText: string
   layout?: Record<string, unknown>
+  /**
+   * The last server-seeded value. Autosave never fires while dbmlText still
+   * equals the baseline, so opening a project (the seed) and re-seeding on a
+   * project switch don't trigger a PATCH — only genuine user edits do.
+   */
+  baseline?: string
   delayMs?: number
 }
 
@@ -20,14 +26,16 @@ interface UseProjectAutosaveResult {
  * features layer: composes the project entity mutation + the shared debounce
  * hook (FSD downward imports).
  *
- * Watches dbmlText/layout; on change (NOT on mount) it debounces ~600ms then
- * PATCHes the project. Exposes a status the editor can show. It never saves on
- * the initial render: a mounted ref gates the watcher's first effect run.
+ * Saves ONLY on genuine user edits: it skips the mount render, skips while
+ * dbmlText equals the server baseline (so the seed and a project re-seed never
+ * save), and on a projectId change it cancels any pending save and re-arms so a
+ * stale PATCH can't fire against the previous project.
  */
 export function useProjectAutosave({
   projectId,
   dbmlText,
   layout,
+  baseline,
   delayMs = 600,
 }: UseProjectAutosaveOptions): UseProjectAutosaveResult {
   const updateMutation = useUpdateProject(projectId)
@@ -61,14 +69,28 @@ export function useProjectAutosave({
     )
   }, delayMs)
 
+  // Re-arm on project switch: drop any pending save (it would PATCH the old
+  // project) and treat the next render's seed as a fresh mount, not an edit.
   useEffect(() => {
-    // Skip the first run (mount): only autosave after the user edits a value.
+    mountedRef.current = false
+    return () => {
+      debouncedSave.cancel()
+    }
+  }, [projectId, debouncedSave])
+
+  useEffect(() => {
+    // Skip the first run after mount/switch: only autosave after a real edit.
     if (!mountedRef.current) {
       mountedRef.current = true
       return
     }
+    // Skip while the text still matches the server-seeded baseline (the seed
+    // itself, and any re-seed, should never trigger a save).
+    if (baseline !== undefined && dbmlText === baseline) {
+      return
+    }
     debouncedSave()
-  }, [dbmlText, layout, debouncedSave])
+  }, [dbmlText, layout, baseline, debouncedSave])
 
   return { status }
 }
