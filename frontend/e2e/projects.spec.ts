@@ -94,7 +94,8 @@ test.describe('Project CRUD & autosave', () => {
         resp.status() === 200,
     )
     await page.getByRole('button', { name: 'Rename' }).click()
-    const renameInput = page.getByDisplayValue('Before Rename')
+    const renameInput = page.getByRole('listitem').getByRole('textbox')
+    await expect(renameInput).toHaveValue('Before Rename')
     await renameInput.fill('After Rename')
     await page.getByRole('button', { name: 'Save' }).click()
     await renameResponse
