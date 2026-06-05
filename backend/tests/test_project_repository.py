@@ -1,7 +1,6 @@
 """Repository-layer tests against the in-memory sqlite test_session fixture."""
 import uuid
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
