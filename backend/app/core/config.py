@@ -1,5 +1,5 @@
 """Application configuration via pydantic-settings."""
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -26,7 +26,9 @@ class Settings(BaseSettings):
     jwt_lifetime_seconds: int = 3600
     # cookie_secure=False allows the cookie over http in dev; set True in prod (https).
     cookie_secure: bool = False
-    cookie_samesite: str = "lax"
+    # Literal so an invalid value (e.g. COOKIE_SAMESITE=foo) fails at config load
+    # rather than later when CookieTransport sets the cookie.
+    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
     # App.
     debug: bool = False
