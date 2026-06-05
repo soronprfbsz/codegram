@@ -6,6 +6,12 @@ import {
   useProjectAutosave,
   type AutosaveStatus,
 } from '@/features/project-autosave'
+import {
+  DbmlEditor,
+  ParseErrorPanel,
+  SchemaSummary,
+  useDbmlParse,
+} from '@/features/dbml-editor'
 
 const statusLabel: Record<AutosaveStatus, string> = {
   idle: 'All changes saved',
@@ -15,10 +21,12 @@ const statusLabel: Record<AutosaveStatus, string> = {
 }
 
 /**
- * Minimal editor shell (Plan 2): loads a project by :id and binds a plain
- * <textarea> to dbml_text with debounced autosave. No CodeMirror / diagram —
- * those are later plans. pages layer: composes the project entity + the
- * autosave feature (FSD downward imports).
+ * Editor page (Plan 3a): loads a project by :id and binds a CodeMirror 6
+ * editor to dbml_text with debounced autosave (Plan 2 contract preserved),
+ * plus live debounced parsing into the normalized model shown as a read-only
+ * status panel + schema summary. No diagram/canvas — that is Plan 3b.
+ * pages layer: composes the project entity + the autosave and dbml-editor
+ * features (FSD downward imports).
  */
 export function EditorPage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -28,8 +36,10 @@ export function EditorPage() {
   // The last server-seeded value; autosave skips while dbmlText still equals it.
   const [baseline, setBaseline] = useState('')
   const { status } = useProjectAutosave({ projectId: id, dbmlText, baseline })
+  // Live, debounced parse of the editor text into the normalized model.
+  const parse = useDbmlParse(dbmlText)
 
-  // Seed the textarea (and the autosave baseline) once the project loads, and
+  // Seed the editor (and the autosave baseline) once the project loads, and
   // re-seed when its id changes. Keying on project?.id avoids clobbering the
   // user's in-progress text on each autosave-driven cache update.
   useEffect(() => {
@@ -62,7 +72,9 @@ export function EditorPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <h1 className="text-xl font-bold">{project.name}</h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{statusLabel[status]}</span>
+            <span className="text-sm text-gray-600">
+              {statusLabel[status]}
+            </span>
             <Button variant="outline" onClick={() => navigate('/')}>
               Back
             </Button>
@@ -71,12 +83,15 @@ export function EditorPage() {
       </header>
 
       <main className="flex-1 p-4">
-        <textarea
-          value={dbmlText}
-          onChange={(e) => setDbmlText(e.target.value)}
-          className="h-[70vh] w-full rounded border p-4 font-mono text-sm"
-          placeholder="Enter DBML here…"
-        />
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-[1fr_20rem]">
+          <DbmlEditor value={dbmlText} onChange={setDbmlText} height="70vh" />
+          <aside className="flex flex-col gap-4">
+            <ParseErrorPanel status={parse.status} errors={parse.errors} />
+            <SchemaSummary
+              schema={parse.schema ?? parse.lastValidSchema}
+            />
+          </aside>
+        </div>
       </main>
     </div>
   )

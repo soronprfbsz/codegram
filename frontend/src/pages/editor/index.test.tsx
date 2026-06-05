@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EditorPage } from './index'
@@ -23,20 +22,22 @@ function renderEditor() {
 }
 
 describe('EditorPage', () => {
+  let autosaveSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({
-      status: 'idle',
-    })
+    autosaveSpy = vi
+      .spyOn(autosave, 'useProjectAutosave')
+      .mockReturnValue({ status: 'idle' })
   })
 
-  it('shows the project name and seeds the textarea with dbml_text', () => {
+  it('shows the project name and seeds the editor with dbml_text', () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
         user_id: 'u-1',
         name: 'My Project',
-        dbml_text: 'table users {}',
+        dbml_text: 'Table users {\n  id int [pk]\n}',
         layout: {},
         created_at: '2026-06-05T00:00:00Z',
         updated_at: '2026-06-05T00:00:00Z',
@@ -50,10 +51,44 @@ describe('EditorPage', () => {
     expect(
       screen.getByRole('heading', { name: 'My Project' }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('textbox')).toHaveValue('table users {}')
+
+    // CodeMirror replaces the textarea: assert on the editor wrapper and
+    // that it seeded the document text into the DOM.
+    const editor = screen.getByTestId('dbml-editor')
+    expect(editor).not.toBeEmptyDOMElement()
+    expect(editor.textContent).toContain('Table users')
   })
 
-  it('updates the textarea as the user types', async () => {
+  it('passes the preserved autosave contract { projectId, dbmlText, baseline }', () => {
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        name: 'My Project',
+        dbml_text: 'Table users {\n  id int [pk]\n}',
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof project.useProject>)
+
+    renderEditor()
+
+    // The seed effect runs after first render; the latest autosave call must
+    // carry the exact Plan 2 contract with the seeded text + baseline.
+    const lastCall = autosaveSpy.mock.calls.at(-1)?.[0] as {
+      projectId: string
+      dbmlText: string
+      baseline?: string
+    }
+    expect(lastCall.projectId).toBe('p-1')
+    expect(lastCall.dbmlText).toBe('Table users {\n  id int [pk]\n}')
+    expect(lastCall.baseline).toBe('Table users {\n  id int [pk]\n}')
+  })
+
+  it('renders the parse status and schema summary panels', () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -69,13 +104,9 @@ describe('EditorPage', () => {
     } as ReturnType<typeof project.useProject>)
 
     renderEditor()
-    const user = userEvent.setup()
 
-    const textarea = screen.getByRole('textbox')
-    // user-event treats { as a key-descriptor delimiter; escape it as {{ so a
-    // literal { is typed (} types literally). Result: "table t {}".
-    await user.type(textarea, 'table t {{}')
-    expect(textarea).toHaveValue('table t {}')
+    expect(screen.getByText(/parse status/i)).toBeInTheDocument()
+    expect(screen.getByText(/schema summary/i)).toBeInTheDocument()
   })
 
   it('shows a not-found message when the project query errors', () => {

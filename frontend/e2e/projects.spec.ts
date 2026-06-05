@@ -53,14 +53,18 @@ test.describe('Project CRUD & autosave', () => {
         resp.request().method() === 'PATCH' &&
         resp.status() === 200,
     )
-    await page.getByRole('textbox').fill(dbml)
+    const editor = page.getByTestId('dbml-editor')
+    await editor.locator('.cm-content').click()
+    await page.keyboard.type(dbml)
     const saved = await (await patchResponse).json()
     expect(saved.dbml_text).toContain('table users')
 
-    // Reload and confirm the textarea still holds the saved DBML.
+    // Reload and confirm the editor still holds the saved DBML.
     await page.reload()
     await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
-    await expect(page.getByRole('textbox')).toHaveValue(dbml)
+    await expect(
+      page.getByTestId('dbml-editor').locator('.cm-content'),
+    ).toContainText('table users')
   })
 
   test('rename a project from the dashboard and persist the new name', async ({
