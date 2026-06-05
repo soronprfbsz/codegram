@@ -1,5 +1,6 @@
 import { useCurrentUser } from '@/entities/session'
 import { LogoutButton } from '@/features/auth'
+import { ProjectList } from '@/features/project-list'
 
 export function HomePage() {
   const { data: user } = useCurrentUser()
@@ -21,9 +22,7 @@ export function HomePage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8">
-        <p className="text-gray-600">
-          Render, edit, and export ERDs from DBML text.
-        </p>
+        <ProjectList />
       </main>
     </div>
   )
