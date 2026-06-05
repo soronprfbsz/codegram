@@ -2,11 +2,16 @@
 from app.core.config import Settings
 
 
-def test_settings_defaults():
+def test_settings_defaults(monkeypatch):
+    # Hermetic: clear any ambient env (e.g. DEBUG=true injected by docker-compose)
+    # so this verifies the code defaults, not the surrounding environment.
+    for var in ("DATABASE_URL", "CORS_ORIGINS", "DEBUG", "ENVIRONMENT"):
+        monkeypatch.delenv(var, raising=False)
     settings = Settings(_env_file=None)
     assert settings.environment == "development"
     assert settings.debug is False
     assert settings.cors_origins == ["http://localhost:5173"]
+    assert settings.database_url.startswith("postgresql+asyncpg://")
 
 
 def test_env_overrides_defaults(monkeypatch):
