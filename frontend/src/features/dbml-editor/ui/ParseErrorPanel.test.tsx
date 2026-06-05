@@ -31,4 +31,15 @@ describe('ParseErrorPanel', () => {
       screen.getByText(/expected a closing brace/i),
     ).toBeInTheDocument()
   })
+
+  it('announces errors via a live region', () => {
+    render(
+      <ParseErrorPanel
+        status="error"
+        errors={[{ message: 'Unexpected end of input' }]}
+      />,
+    )
+    const region = screen.getByRole('alert')
+    expect(region).toHaveAttribute('aria-live', 'polite')
+  })
 })

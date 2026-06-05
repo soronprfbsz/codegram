@@ -54,7 +54,14 @@ export function useDbmlParse(text: string, delayMs = 300): DbmlParseState {
       setState((prev) => ({ status: 'idle', lastValidSchema: prev.lastValidSchema }))
       return
     }
-    setState((prev) => ({ ...prev, status: 'pending' }))
+    // Clear the current `schema` while pending so SchemaSummary
+    // (schema ?? lastValidSchema) does not show a definitively-stale schema
+    // during the debounce window after a project switch. lastValidSchema is
+    // retained as the fallback.
+    setState((prev) => ({
+      status: 'pending',
+      lastValidSchema: prev.lastValidSchema,
+    }))
     debouncedParse(text)
     return () => {
       debouncedParse.cancel()

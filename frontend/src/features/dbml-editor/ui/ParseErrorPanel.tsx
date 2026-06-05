@@ -33,7 +33,7 @@ export function ParseErrorPanel({ status, errors }: ParseErrorPanelProps) {
           <p className="text-sm text-green-700">Valid DBML</p>
         )}
         {status === 'error' && (
-          <ul className="flex flex-col gap-1">
+          <ul role="alert" aria-live="polite" className="flex flex-col gap-1">
             {(errors ?? []).map((err, i) => (
               <li key={i} className="text-sm text-red-700">
                 {err.message}

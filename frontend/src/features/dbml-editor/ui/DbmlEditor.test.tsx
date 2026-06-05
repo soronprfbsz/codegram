@@ -11,6 +11,10 @@ describe('DbmlEditor', () => {
     expect(wrapper).not.toBeEmptyDOMElement()
     // CodeMirror renders the document text into the contenteditable lines.
     expect(wrapper.textContent).toContain('Table users')
+    // The editing surface carries an accessible name.
+    expect(
+      wrapper.querySelector('.cm-content[aria-label="DBML editor"]'),
+    ).not.toBeNull()
   })
 
   it('calls onChange when the document content changes', () => {

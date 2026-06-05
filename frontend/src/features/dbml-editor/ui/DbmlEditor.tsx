@@ -2,6 +2,30 @@ import { forwardRef, useCallback } from 'react'
 import CodeMirror, {
   type ReactCodeMirrorRef,
 } from '@uiw/react-codemirror'
+import type { Extension } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
+
+// Hoisted so their identity is stable across EditorPage's per-keystroke and
+// per-status re-renders — otherwise @uiw/react-codemirror's reconfigure effect
+// (keyed on these props by reference) rebuilds the basic-setup extensions and
+// re-dispatches them every render, janking the typing hot path.
+const EDITOR_EXTENSIONS: Extension[] = [
+  EditorView.contentAttributes.of({ 'aria-label': 'DBML editor' }),
+]
+const EDITOR_BASIC_SETUP = {
+  lineNumbers: true,
+  highlightActiveLineGutter: true,
+  foldGutter: false,
+  dropCursor: true,
+  allowMultipleSelections: true,
+  indentOnInput: true,
+  bracketMatching: false,
+  closeBrackets: false,
+  autocompletion: false,
+  rectangularSelection: true,
+  highlightSelectionMatches: false,
+  searchKeymap: false,
+} as const
 
 export interface DbmlEditorProps {
   /** Editor document text (the project's dbml_text). Controlled value. */
@@ -38,21 +62,8 @@ export const DbmlEditor = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
           height={height}
           width="100%"
           theme="light"
-          extensions={[]}
-          basicSetup={{
-            lineNumbers: true,
-            highlightActiveLineGutter: true,
-            foldGutter: false,
-            dropCursor: true,
-            allowMultipleSelections: true,
-            indentOnInput: true,
-            bracketMatching: false,
-            closeBrackets: false,
-            autocompletion: false,
-            rectangularSelection: true,
-            highlightSelectionMatches: false,
-            searchKeymap: false,
-          }}
+          extensions={EDITOR_EXTENSIONS}
+          basicSetup={EDITOR_BASIC_SETUP}
         />
       </div>
     )
