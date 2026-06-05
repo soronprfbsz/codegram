@@ -12,9 +12,42 @@ export class UnauthorizedError extends Error {
 }
 
 /**
+ * An API error carrying the server's {detail} message and the HTTP status.
+ * Callers (e.g. CRUD forms) can show err.message and branch on err.status.
+ */
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+/**
+ * Read a FastAPI-style {detail} string from a non-ok response body.
+ * Falls back to the status line when the body is missing or not JSON.
+ * Clones the response so the body can still be consumed elsewhere.
+ */
+async function readErrorMessage(response: Response): Promise<string> {
+  const fallback = `API request failed: ${response.status} ${response.statusText}`
+  try {
+    const body = (await response.clone().json()) as { detail?: unknown }
+    if (typeof body.detail === 'string' && body.detail.length > 0) {
+      return body.detail
+    }
+    return fallback
+  } catch {
+    return fallback
+  }
+}
+
+/**
  * Minimal JSON fetch wrapper for the backend API with cookie auth support.
  * shared layer: depends only on shared/config (FSD rule).
  * Always sends credentials so the httpOnly JWT cookie is included.
+ * On non-ok responses it throws an ApiError carrying the server {detail}.
  */
 export async function apiFetch<T>(
   path: string,
@@ -37,9 +70,8 @@ export async function apiFetch<T>(
   }
 
   if (!response.ok) {
-    throw new Error(
-      `API request failed: ${response.status} ${response.statusText}`,
-    )
+    const message = await readErrorMessage(response)
+    throw new ApiError(message, response.status)
   }
 
   return (await response.json()) as T

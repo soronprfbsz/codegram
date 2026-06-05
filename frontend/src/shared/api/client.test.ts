@@ -44,4 +44,30 @@ describe('apiFetch', () => {
       'API request failed: 500 Server Error',
     )
   })
+
+  it('extracts the {detail} field from a JSON error body', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ detail: 'Project not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    await expect(apiFetch('/projects/missing')).rejects.toThrow(
+      'Project not found',
+    )
+  })
+
+  it('attaches the HTTP status to the thrown error', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ detail: 'Project not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    await expect(apiFetch('/projects/missing')).rejects.toMatchObject({
+      status: 404,
+    })
+  })
 })
