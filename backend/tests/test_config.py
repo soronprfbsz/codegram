@@ -37,3 +37,31 @@ def test_cors_origins_parsed_from_csv(monkeypatch):
         "http://localhost:5173",
         "http://localhost:3000",
     ]
+
+
+def test_auth_settings_defaults(monkeypatch):
+    # Hermetic: clear any ambient auth env that docker-compose / .env might inject.
+    for var in (
+        "SECRET_KEY",
+        "JWT_LIFETIME_SECONDS",
+        "COOKIE_SECURE",
+        "COOKIE_SAMESITE",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    settings = Settings(_env_file=None)
+    assert settings.secret_key == "change-me-dev-only-not-for-production"
+    assert settings.jwt_lifetime_seconds == 3600
+    assert settings.cookie_secure is False
+    assert settings.cookie_samesite == "lax"
+
+
+def test_auth_settings_env_override(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "super-secret")
+    monkeypatch.setenv("JWT_LIFETIME_SECONDS", "7200")
+    monkeypatch.setenv("COOKIE_SECURE", "true")
+    monkeypatch.setenv("COOKIE_SAMESITE", "strict")
+    settings = Settings(_env_file=None)
+    assert settings.secret_key == "super-secret"
+    assert settings.jwt_lifetime_seconds == 7200
+    assert settings.cookie_secure is True
+    assert settings.cookie_samesite == "strict"

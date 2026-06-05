@@ -32,6 +32,10 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       ENVIRONMENT: development
       DEBUG: "true"
+      SECRET_KEY: ${SECRET_KEY:-change-me-dev-only-not-for-production}
+      JWT_LIFETIME_SECONDS: ${JWT_LIFETIME_SECONDS:-3600}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
     volumes:
       - ./backend:/app
       - /app/.venv
