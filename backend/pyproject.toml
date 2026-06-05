@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "erd-dbml-backend"
+version = "0.1.0"
+description = "ERD-DBML Backend Service"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.136.3",
+    "uvicorn[standard]==0.49.0",
+    "sqlalchemy==2.0.50",
+    "asyncpg==0.31.0",
+    "alembic==1.18.4",
+    "pydantic==2.13",
+    "pydantic-settings==2.14.1",
+    "anyio>=4.13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio==1.4.0",
+    "httpx>=0.28.1",
+    "aiosqlite>=0.20.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
