@@ -22,8 +22,7 @@ export function useRegister() {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: sessionQueryKey })
-    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: sessionQueryKey }),
   })
 }

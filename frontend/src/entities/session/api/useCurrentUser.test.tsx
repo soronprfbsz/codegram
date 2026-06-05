@@ -7,7 +7,9 @@ import * as client from '@/shared/api/client'
 
 function makeWrapper() {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    // retryDelay: 0 so the retry-on-genuine-error test settles immediately
+    // instead of waiting out the default exponential backoff (~1s).
+    defaultOptions: { queries: { retryDelay: 0 } },
   })
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
@@ -55,7 +57,7 @@ describe('useCurrentUser', () => {
     expect(result.current.isError).toBe(false)
   })
 
-  it('does not retry on a 401', async () => {
+  it('does not retry a 401 (resolves null in one call, no error)', async () => {
     const spy = vi
       .spyOn(client, 'apiFetch')
       .mockRejectedValue(new client.UnauthorizedError())
@@ -65,6 +67,23 @@ describe('useCurrentUser', () => {
     })
 
     await waitFor(() => expect(result.current.data).toBeNull())
+    // A 401 is caught in fetchCurrentUser and resolves null, so the queryFn
+    // never throws and is invoked exactly once (the retry path is not hit).
     expect(spy).toHaveBeenCalledTimes(1)
+    expect(result.current.isError).toBe(false)
+  })
+
+  it('retries once on a genuine (non-401) error', async () => {
+    const spy = vi
+      .spyOn(client, 'apiFetch')
+      .mockRejectedValue(new Error('API request failed: 500 Server Error'))
+
+    const { result } = renderHook(() => useCurrentUser(), {
+      wrapper: makeWrapper(),
+    })
+
+    // retry: 1 means the queryFn runs the initial attempt + one retry = 2 calls.
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(spy).toHaveBeenCalledTimes(2)
   })
 })

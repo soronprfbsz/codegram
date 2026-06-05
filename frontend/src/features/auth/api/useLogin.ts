@@ -13,6 +13,10 @@ export interface LoginPayload {
  * Set-Cookie header (httpOnly JWT). On success, invalidate the session so
  * useCurrentUser refetches the now-authenticated user.
  *
+ * onSuccess RETURNS the invalidation promise so mutateAsync does not resolve
+ * until the ['session'] refetch settles — otherwise a caller that navigates on
+ * resolve would land on a guarded route while the session cache is still null.
+ *
  * Uses fetch directly (not apiFetch) because the body is form-encoded and
  * the 204 response has no JSON body to parse.
  */
@@ -38,8 +42,7 @@ export function useLogin() {
         throw new Error('Login failed')
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: sessionQueryKey })
-    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: sessionQueryKey }),
   })
 }

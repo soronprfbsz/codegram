@@ -22,18 +22,14 @@ async function fetchCurrentUser(): Promise<User | null> {
 
 /**
  * Track the current authenticated user. Returns null when logged out.
- * Never retries on a 401 (it is a normal logged-out state, not a failure).
+ * A 401 is handled inside fetchCurrentUser (resolves null), so the queryFn
+ * never throws it — only genuine errors reach retry, where one retry suffices.
  */
 export function useCurrentUser() {
   return useQuery({
     queryKey: sessionQueryKey,
     queryFn: fetchCurrentUser,
     staleTime: 5 * 60 * 1000,
-    retry: (failureCount, error) => {
-      if (error instanceof UnauthorizedError) {
-        return false
-      }
-      return failureCount < 3
-    },
+    retry: 1,
   })
 }

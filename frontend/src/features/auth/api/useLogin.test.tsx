@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useLogin } from './useLogin'
-import { sessionQueryKey } from '@/entities/session'
+import { sessionQueryKey, useCurrentUser } from '@/entities/session'
 
 function makeHarness() {
   const queryClient = new QueryClient({
@@ -55,11 +55,79 @@ describe('useLogin', () => {
       'password123',
     )
 
-    await waitFor(() =>
-      expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: sessionQueryKey,
-      }),
+    // No waitFor: mutateAsync has already resolved above, so invalidation must
+    // have happened by now. (If onSuccess did not return the promise, this
+    // would still pass — the dedicated regression test below proves the await.)
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: sessionQueryKey,
+    })
+  })
+
+  it('awaits the session refetch before mutateAsync resolves', async () => {
+    // invalidateQueries only refetches ACTIVE queries, so we mount
+    // useCurrentUser alongside useLogin — the production scenario where a
+    // guard/page observes ['session']. The first /me resolves immediately
+    // (401 → session null); the post-login refetch is held open so we can
+    // prove mutateAsync does not resolve until that refetch settles.
+    let releaseMe: ((value: Response) => void) | undefined
+    let meCallCount = 0
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes('/auth/jwt/login')) {
+        return Promise.resolve(new Response(null, { status: 204 }))
+      }
+      // GET /users/me
+      meCallCount += 1
+      if (meCallCount === 1) {
+        // Initial mount: logged out.
+        return Promise.resolve(new Response(null, { status: 401 }))
+      }
+      // Post-login refetch: held open until released below.
+      return new Promise<Response>((resolve) => {
+        releaseMe = resolve
+      })
+    })
+
+    const { wrapper } = makeHarness()
+
+    const { result } = renderHook(
+      () => ({ login: useLogin(), session: useCurrentUser() }),
+      { wrapper },
     )
+
+    // Initial session resolves to null (401 handled in fetchCurrentUser).
+    await waitFor(() => expect(result.current.session.data).toBeNull())
+
+    let resolved = false
+    const mutation = result.current.login
+      .mutateAsync({ email: 'a@example.com', password: 'password123' })
+      .then(() => {
+        resolved = true
+      })
+
+    // Wait until the invalidate-triggered second GET /users/me has fired
+    // (proving onSuccess kicked off the refetch). It is still held open.
+    await waitFor(() => expect(meCallCount).toBeGreaterThanOrEqual(2))
+
+    // The mutation must NOT have resolved yet: it is awaiting the refetch.
+    // (Without `return` in onSuccess, mutateAsync resolves here and this fails.)
+    expect(resolved).toBe(false)
+
+    // Release the /me response; only now may the mutation resolve.
+    releaseMe?.(
+      new Response(
+        JSON.stringify({
+          id: 'u-1',
+          email: 'a@example.com',
+          is_active: true,
+          is_superuser: false,
+          is_verified: false,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    await mutation
+    expect(resolved).toBe(true)
   })
 
   it('rejects when the backend returns 400 bad credentials', async () => {
