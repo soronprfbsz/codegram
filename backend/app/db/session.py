@@ -24,6 +24,17 @@ async_session_maker = async_sessionmaker(
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency: yield an AsyncSession per request."""
+    """FastAPI dependency: yield a session and commit the unit of work.
+
+    The repository/service/router only flush(); the request scope owns the
+    transaction, so this dependency commits on success and rolls back on
+    error. Without the commit, every per-request write would be discarded
+    when the session closes.
+    """
     async with async_session_maker() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

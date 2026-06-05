@@ -48,3 +48,55 @@ async def client(test_session) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+async def _register_and_login(
+    ac: AsyncClient, email: str, password: str
+) -> None:
+    """Register a user then log in so the AsyncClient carries the auth cookie."""
+    await ac.post(
+        "/api/auth/register",
+        json={"email": email, "password": password},
+    )
+    await ac.post(
+        "/api/auth/jwt/login",
+        data={"username": email, "password": password},
+    )
+
+
+@pytest.fixture
+async def authenticated_client(
+    test_session,
+) -> AsyncGenerator[AsyncClient, None]:
+    """An AsyncClient logged in as alice@example.com (own auth cookie)."""
+
+    async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+        yield test_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        await _register_and_login(ac, "alice@example.com", "password123")
+        yield ac
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def second_authenticated_client(
+    test_session,
+) -> AsyncGenerator[AsyncClient, None]:
+    """A second AsyncClient logged in as bob@example.com for isolation tests.
+
+    Shares the same test_session override as authenticated_client (one DB) but
+    carries its own auth cookie, so bob can attempt to reach alice's projects.
+    """
+
+    async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
+        yield test_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        await _register_and_login(ac, "bob@example.com", "password123")
+        yield ac
+    app.dependency_overrides.clear()
