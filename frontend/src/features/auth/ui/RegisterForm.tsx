@@ -57,7 +57,9 @@ export function RegisterForm() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>Sign up</CardTitle>
+        <CardTitle asChild>
+          <h2>Sign up</h2>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>

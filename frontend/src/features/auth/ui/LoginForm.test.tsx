@@ -35,8 +35,11 @@ describe('LoginForm', () => {
     navigate.mockReset()
   })
 
-  it('renders email and password fields', () => {
+  it('renders a "Log in" heading and email/password fields', () => {
     renderForm()
+    expect(
+      screen.getByRole('heading', { name: 'Log in' }),
+    ).toBeInTheDocument()
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
   })

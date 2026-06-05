@@ -41,8 +41,11 @@ describe('RegisterForm', () => {
     navigate.mockReset()
   })
 
-  it('renders email, password, and confirm-password fields', () => {
+  it('renders a "Sign up" heading and email/password/confirm fields', () => {
     renderForm()
+    expect(
+      screen.getByRole('heading', { name: 'Sign up' }),
+    ).toBeInTheDocument()
     expect(screen.getByLabelText(/^email$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument()
