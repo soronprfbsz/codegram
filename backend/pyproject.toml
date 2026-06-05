@@ -16,6 +16,7 @@ dependencies = [
     "pydantic==2.13",
     "pydantic-settings==2.14.1",
     "anyio>=4.13.0",
+    "fastapi-users[sqlalchemy]>=15.0.5",
 ]
 
 [project.optional-dependencies]
