@@ -12,10 +12,6 @@ dist/
 .vite/
 *.tsbuildinfo
 
-# Emitted from tsc -b composite config (tsconfig.node.json)
-frontend/*.config.js
-frontend/*.config.d.ts
-
 # Environment
 .env
 .env.*
