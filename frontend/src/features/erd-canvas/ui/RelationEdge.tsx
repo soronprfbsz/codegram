@@ -62,6 +62,18 @@ function RelationEdgeImpl({
     borderRadius: 8,
   })
 
+  // Column -> enum links are a type association, NOT a cardinality
+  // relationship: render them dashed and WITHOUT crow-foot markers.
+  if (data?.isEnumLink) {
+    return (
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        style={{ stroke: '#94a3b8', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+      />
+    )
+  }
+
   const relation = data?.relation ?? '1-n'
   const startKind = startMarkerKind(relation)
   const endKind = endMarkerKind(relation)

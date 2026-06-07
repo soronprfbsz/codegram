@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import type { DbmlSchema } from '@/entities/dbml'
-import { ErdCanvas } from './ErdCanvas'
+import { ErdCanvas, schemaSignature } from './ErdCanvas'
 
 const schema: DbmlSchema = {
   tables: [
@@ -74,5 +74,29 @@ describe('ErdCanvas', () => {
   it('shows an empty-state placeholder when no schema is provided', () => {
     render(<ErdCanvas schema={undefined} />)
     expect(screen.getByText(/no diagram yet/i)).toBeInTheDocument()
+  })
+})
+
+describe('schemaSignature (stable layout memo key)', () => {
+  it('is equal for two structurally-equal but distinct schema objects', () => {
+    // parseDbml returns a brand-new object on every successful parse, so a
+    // no-op edit (whitespace/comment/type-then-delete) yields a NEW object
+    // with identical structure. The signature must NOT change, so the layout
+    // memo does not recompute and the viewport does not re-fit.
+    const a = schema
+    const b = JSON.parse(JSON.stringify(schema)) as DbmlSchema
+    expect(b).not.toBe(a) // distinct identity
+    expect(schemaSignature(a)).toBe(schemaSignature(b))
+  })
+
+  it('changes when the schema actually changes structurally', () => {
+    const renamed = JSON.parse(JSON.stringify(schema)) as DbmlSchema
+    renamed.tables[0].name = 'accounts'
+    expect(schemaSignature(renamed)).not.toBe(schemaSignature(schema))
+  })
+
+  it('maps an undefined schema to a stable empty key', () => {
+    expect(schemaSignature(undefined)).toBe('')
+    expect(schemaSignature(undefined)).toBe(schemaSignature(undefined))
   })
 })

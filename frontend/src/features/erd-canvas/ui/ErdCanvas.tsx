@@ -21,6 +21,19 @@ export interface ErdCanvasProps {
   schema?: DbmlSchema
 }
 
+/**
+ * STABLE structural signature of a schema. parseDbml returns a brand-new
+ * object on every successful parse (no memoization), so two structurally
+ * IDENTICAL schemas have different object identities. Keying the layout memo
+ * on this signature (instead of identity) means a no-op edit — whitespace, a
+ * comment, type-then-delete — yields the SAME key and so does NOT trigger a
+ * dagre relayout / viewport re-fit. JSON.stringify is cheap relative to a
+ * relayout; the empty schema maps to '' so the empty case is stable too.
+ */
+export function schemaSignature(schema: DbmlSchema | undefined): string {
+  return schema ? JSON.stringify(schema) : ''
+}
+
 // Stable type maps — defined at module scope so React Flow does not warn
 // about new nodeTypes/edgeTypes object identities on every render.
 const nodeTypes: NodeTypes = {
@@ -34,14 +47,18 @@ const edgeTypes: EdgeTypes = {
 }
 
 function ErdCanvasInner({ schema }: ErdCanvasProps) {
-  // Pure adapter + dagre layout, recomputed only when the schema reference
-  // changes (i.e. per successful parse). No persistence in 3b — positions are
-  // auto-computed every time and never saved (that is Plan 4).
+  // STABLE structural signature (NOT the schema object identity) so a no-op
+  // edit does not re-run schemaToFlow + dagre and re-fit the viewport.
+  const schemaKey = useMemo(() => schemaSignature(schema), [schema])
+
+  // Pure adapter + dagre layout, recomputed only when the structural signature
+  // changes. No persistence in 3b — positions are auto-computed and never
+  // saved (that is Plan 4). Intentionally keyed on schemaKey, not schema.
   const { nodes, edges } = useMemo(() => {
     if (!schema) return { nodes: [], edges: [] }
     const flow = schemaToFlow(schema)
     return { nodes: autoLayout(flow.nodes, flow.edges), edges: flow.edges }
-  }, [schema])
+  }, [schemaKey])
 
   return (
     <ReactFlow

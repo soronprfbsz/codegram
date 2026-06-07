@@ -68,4 +68,27 @@ describe('RelationEdge', () => {
     expect(container.querySelector('marker#crowfoot-start-e1')).toBeTruthy()
     expect(container.querySelector('marker#crowfoot-end-e1')).toBeTruthy()
   })
+
+  it('renders an enum-link edge dashed and WITHOUT crow-foot markers', () => {
+    const { container } = renderEdge({
+      ...baseProps,
+      id: 'enumlink:public.users.role',
+      data: {
+        relation: 'n-1',
+        sourceMarker: 'many',
+        targetMarker: 'one',
+        isEnumLink: true,
+      },
+    } as RelationEdgeProps)
+
+    // The path still renders...
+    const path = container.querySelector('path.react-flow__edge-path')
+    expect(path).toBeTruthy()
+    // ...but dashed (a type association, not a cardinality relationship).
+    expect((path as SVGPathElement).style.strokeDasharray).not.toBe('')
+    // ...and with NO crow-foot marker defs (enum links carry no cardinality).
+    expect(
+      container.querySelector('marker[id^="crowfoot-"]'),
+    ).toBeNull()
+  })
 })
