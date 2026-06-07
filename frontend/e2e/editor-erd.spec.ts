@@ -75,7 +75,7 @@ test.describe('Editor ERD canvas', () => {
       })
       .toBeGreaterThanOrEqual(1)
     await expect(
-      page.locator('.react-flow__edge path').first(),
+      page.locator('.react-flow__edge-path').first(),
     ).toBeVisible()
   })
 })
