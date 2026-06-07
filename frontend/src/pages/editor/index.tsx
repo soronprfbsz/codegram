@@ -12,6 +12,7 @@ import {
   SchemaSummary,
   useDbmlParse,
 } from '@/features/dbml-editor'
+import { ErdCanvas } from '@/features/erd-canvas'
 
 const statusLabel: Record<AutosaveStatus, string> = {
   idle: 'All changes saved',
@@ -21,12 +22,17 @@ const statusLabel: Record<AutosaveStatus, string> = {
 }
 
 /**
- * Editor page (Plan 3a): loads a project by :id and binds a CodeMirror 6
+ * Editor page (Plan 3b): loads a project by :id and binds a CodeMirror 6
  * editor to dbml_text with debounced autosave (Plan 2 contract preserved),
- * plus live debounced parsing into the normalized model shown as a read-only
- * status panel + schema summary. No diagram/canvas — that is Plan 3b.
- * pages layer: composes the project entity + the autosave and dbml-editor
- * features (FSD downward imports).
+ * plus live debounced parsing into the normalized model. A split view shows
+ * the editor on the left and a read-only React Flow ERD canvas on the right,
+ * both fed by the same parse result; the canvas renders the last valid schema
+ * (parse.schema ?? parse.lastValidSchema) so a transient parse error does not
+ * blank the diagram. Auto-layout (dagre) positions nodes each parse; no
+ * layout persistence (Plan 4). The parse-status panel + a compact schema
+ * summary stay in a sidebar beside the canvas.
+ * pages layer: composes the project entity + the autosave, dbml-editor, and
+ * erd-canvas features (FSD downward imports).
  */
 export function EditorPage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -83,14 +89,19 @@ export function EditorPage() {
       </header>
 
       <main className="flex-1 p-4">
-        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-[1fr_20rem]">
-          <DbmlEditor value={dbmlText} onChange={setDbmlText} height="70vh" />
-          <aside className="flex flex-col gap-4">
-            <ParseErrorPanel status={parse.status} errors={parse.errors} />
-            <SchemaSummary
-              schema={parse.schema ?? parse.lastValidSchema}
-            />
-          </aside>
+        <div className="mx-auto flex max-w-[90rem] flex-col gap-4 lg:h-[80vh] lg:flex-row">
+          <div className="flex flex-col gap-4 lg:w-[40%]">
+            <DbmlEditor value={dbmlText} onChange={setDbmlText} height="70vh" />
+          </div>
+          <div className="flex flex-1 flex-col gap-4 lg:flex-row">
+            <div className="min-h-[60vh] flex-1">
+              <ErdCanvas schema={parse.schema ?? parse.lastValidSchema} />
+            </div>
+            <aside className="flex flex-col gap-4 lg:w-72">
+              <ParseErrorPanel status={parse.status} errors={parse.errors} />
+              <SchemaSummary schema={parse.schema ?? parse.lastValidSchema} />
+            </aside>
+          </div>
         </div>
       </main>
     </div>

@@ -109,6 +109,32 @@ describe('EditorPage', () => {
     expect(screen.getByText(/schema summary/i)).toBeInTheDocument()
   })
 
+  it('mounts the ERD canvas region in the editor split view', () => {
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        name: 'My Project',
+        dbml_text: 'Table users {\n  id int [pk]\n}',
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof project.useProject>)
+
+    renderEditor()
+
+    // The canvas is always mounted; before the debounced parse settles it
+    // shows the empty-state placeholder. Either testid proves the split view
+    // includes the ERD canvas region.
+    const canvas =
+      screen.queryByTestId('erd-canvas') ??
+      screen.queryByTestId('erd-canvas-empty')
+    expect(canvas).toBeInTheDocument()
+  })
+
   it('shows a not-found message when the project query errors', () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: undefined,
