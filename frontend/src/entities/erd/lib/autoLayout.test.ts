@@ -86,6 +86,42 @@ describe('autoLayout', () => {
     expect(out.find((n) => n.id === 'public.posts')!.parentId).toBe('group:core')
   })
 
+  it('re-bases member positions RELATIVE to the parent group so members sit INSIDE the group box', () => {
+    // Upstream ungrouped chain pushes the group away from the origin, so a
+    // bug that leaves member coords ABSOLUTE (parent offset double-counted)
+    // lands them outside the parent-relative [0, groupSize] box.
+    const nodes = [
+      tableNode('public.a'),
+      tableNode('public.b'),
+      groupNode('group:core'),
+      tableNode('public.users', 'group:core'),
+      tableNode('public.posts', 'group:core'),
+    ]
+    const edges = [
+      relEdge('public.a', 'public.b'),
+      relEdge('public.b', 'public.users'),
+      relEdge('public.users', 'public.posts'),
+    ]
+    const out = autoLayout(nodes, edges)
+    const group = out.find((n) => n.id === 'group:core')!
+    const groupW = Number(group.style?.width)
+    const groupH = Number(group.style?.height)
+    expect(groupW).toBeGreaterThan(0)
+    expect(groupH).toBeGreaterThan(0)
+    // Member size matches autoLayout's estimate for an empty-column table node:
+    // TABLE_WIDTH (240) x HEADER_HEIGHT (40, no rows).
+    const MEMBER_W = 240
+    const MEMBER_H = 40
+    for (const id of ['public.users', 'public.posts']) {
+      const m = out.find((n) => n.id === id)!
+      // Parent-relative coords (not absolute): inside [0, groupSize].
+      expect(m.position.x).toBeGreaterThanOrEqual(0)
+      expect(m.position.y).toBeGreaterThanOrEqual(0)
+      expect(m.position.x + MEMBER_W).toBeLessThanOrEqual(groupW)
+      expect(m.position.y + MEMBER_H).toBeLessThanOrEqual(groupH)
+    }
+  })
+
   it('does not crash on an empty graph', () => {
     expect(autoLayout([], [])).toEqual([])
   })

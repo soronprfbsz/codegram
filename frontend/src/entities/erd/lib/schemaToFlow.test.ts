@@ -363,3 +363,61 @@ describe('schemaToFlow — empty + counts', () => {
     expect(edges).toEqual([])
   })
 })
+
+describe('schemaToFlow — duplicate names get distinct node ids', () => {
+  it('two notes named TODO produce nodes with DISTINCT ids (no collision)', () => {
+    const schema = emptySchema({
+      notes: [
+        { name: 'TODO', content: 'first' },
+        { name: 'TODO', content: 'second' },
+      ],
+    })
+    const { nodes } = schemaToFlow(schema)
+    const sticky = nodes.filter((n) => n.type === 'sticky')
+    expect(sticky).toHaveLength(2)
+    const ids = sticky.map((n) => n.id)
+    expect(new Set(ids).size).toBe(2)
+  })
+
+  it('two same-named groups and two same-named enums get distinct ids; no global id collision', () => {
+    const schema = emptySchema({
+      tableGroups: [
+        { name: 'core', tables: [] },
+        { name: 'core', tables: [] },
+      ],
+      enums: [
+        { name: 'role', schema: 'public', values: [{ name: 'a' }] },
+        { name: 'role', schema: 'public', values: [{ name: 'b' }] },
+      ],
+    })
+    const { nodes } = schemaToFlow(schema)
+    const ids = nodes.map((n) => n.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(nodes.filter((n) => n.type === 'group')).toHaveLength(2)
+    expect(nodes.filter((n) => n.type === 'enum')).toHaveLength(2)
+  })
+})
+
+describe('schemaToFlow — dangling refs are dropped', () => {
+  it('a ref pointing at a missing table produces NO edge, while a valid ref still emits its edge', () => {
+    const schema = emptySchema({
+      tables: [
+        table('public', 'users', [col('public', 'users', 'id', { pk: true })]),
+        table('public', 'posts', [
+          col('public', 'posts', 'user_id', { isFk: true }),
+        ]),
+      ],
+      refs: [
+        // dangling: 'ghost' table does not exist
+        ref('users', ['id'], 'ghost', ['user_id'], '1-n'),
+        // valid
+        ref('users', ['id'], 'posts', ['user_id'], '1-n'),
+      ],
+    })
+    const { edges } = schemaToFlow(schema)
+    expect(edges).toHaveLength(1)
+    const e = edges[0]
+    expect(e.source).toBe('public.users')
+    expect(e.target).toBe('public.posts')
+  })
+})

@@ -101,17 +101,21 @@ export function autoLayout(
     }
   })
 
-  // Second pass: size each group node to the bounding box of its members.
-  const finalNodes = positioned.map((node) => {
+  // Second pass: size each group node to the bounding box of its members and
+  // record each group's final (absolute) top-left so children can be re-based.
+  const groupPos = new Map<string, { x: number; y: number }>()
+  const sized = positioned.map((node) => {
     if (!groupIds.has(node.id)) return node
     const laid = g.node(node.id)
     if (laid && typeof laid.width === 'number' && typeof laid.height === 'number') {
+      const position = {
+        x: laid.x - laid.width / 2 - GROUP_PADDING,
+        y: laid.y - laid.height / 2 - GROUP_PADDING,
+      }
+      groupPos.set(node.id, position)
       return {
         ...node,
-        position: {
-          x: laid.x - laid.width / 2 - GROUP_PADDING,
-          y: laid.y - laid.height / 2 - GROUP_PADDING,
-        },
+        position,
         style: {
           ...node.style,
           width: laid.width + GROUP_PADDING * 2,
@@ -119,7 +123,24 @@ export function autoLayout(
         },
       }
     }
+    groupPos.set(node.id, { x: 0, y: 0 })
     return { ...node, style: { ...node.style, width: 1, height: 1 } }
+  })
+
+  // Third pass: re-base grouped member nodes so their `position` is RELATIVE to
+  // the parent group (React Flow computes a child's absolute position as
+  // parentAbsolute + child.position; the first pass gave absolute coords).
+  const finalNodes = sized.map((node) => {
+    if (groupIds.has(node.id)) return node
+    const parent = node.parentId ? groupPos.get(node.parentId) : undefined
+    if (!parent) return node
+    return {
+      ...node,
+      position: {
+        x: node.position.x - parent.x,
+        y: node.position.y - parent.y,
+      },
+    }
   })
 
   return finalNodes

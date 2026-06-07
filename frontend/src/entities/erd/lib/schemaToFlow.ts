@@ -49,7 +49,11 @@ function sideMarker(side: '1' | 'n'): RelationEndpointMarker {
   return side === 'n' ? 'many' : 'one'
 }
 
-/** Split `${from}-${to}` into per-endpoint markers (NOT assuming from=many). */
+/**
+ * Split `${from}-${to}` into per-endpoint markers (NOT assuming from=many). The
+ * split is total over the four DbmlRelation values; the `as` cast assumes a
+ * well-typed DbmlRelation input.
+ */
 function relationMarkers(relation: DbmlRelation): {
   source: RelationEndpointMarker
   target: RelationEndpointMarker
@@ -137,23 +141,44 @@ function enumLinkEdges(schema: DbmlSchema): ErdFlowEdge[] {
 }
 
 /**
+ * Reserve a node id, suffixing (`#2`, `#3`, …) on collision so duplicate names
+ * (two notes "TODO", two same-name groups/enums) never emit colliding ids — a
+ * React Flow nodeLookup key collision. `used` is mutated in place; the function
+ * itself is a small local utility within the pure schemaToFlow call.
+ */
+function reserveId(used: Set<string>, base: string): string {
+  if (!used.has(base)) {
+    used.add(base)
+    return base
+  }
+  let n = 2
+  while (used.has(`${base}#${n}`)) n++
+  const id = `${base}#${n}`
+  used.add(id)
+  return id
+}
+
+/**
  * Convert a normalized DbmlSchema into React Flow nodes + edges. Group nodes are
  * emitted BEFORE their member tables so React Flow can establish the parent/child
  * hierarchy; grouped member tables receive parentId == the group node id.
  */
 export function schemaToFlow(schema: DbmlSchema): ErdFlow {
+  // Track every emitted node id so duplicate names get a unique suffix and so
+  // edges can be validated against existing endpoints below.
+  const usedNodeIds = new Set<string>()
+
   // Map each grouped table id -> its group node id (members get parentId).
   const parentOf = new Map<string, string>()
-  for (const group of schema.tableGroups) {
-    for (const tableId of group.tables) {
-      parentOf.set(tableId, groupNodeId(group.name))
-    }
-  }
 
   const groupNodes: ErdFlowNode[] = schema.tableGroups.map((group) => {
+    const id = reserveId(usedNodeIds, groupNodeId(group.name))
+    for (const tableId of group.tables) {
+      parentOf.set(tableId, id)
+    }
     const data: GroupNodeData = { groupName: group.name, color: group.color }
     return {
-      id: groupNodeId(group.name),
+      id,
       type: 'group',
       position: { ...ZERO },
       data,
@@ -161,6 +186,7 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
   })
 
   const tableNodes: ErdFlowNode[] = schema.tables.map((table) => {
+    const id = reserveId(usedNodeIds, table.id)
     const data: TableNodeData = {
       tableName: table.name,
       tableId: table.id,
@@ -168,7 +194,7 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
       columns: toErdColumns(table),
     }
     const node: ErdFlowNode = {
-      id: table.id,
+      id,
       type: 'table',
       position: { ...ZERO },
       data,
@@ -181,12 +207,13 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
   })
 
   const enumNodes: ErdFlowNode[] = schema.enums.map((e) => {
+    const id = reserveId(usedNodeIds, enumNodeId(e.schema, e.name))
     const data: EnumNodeData = {
       enumName: e.name,
       values: e.values.map((v) => v.name),
     }
     return {
-      id: enumNodeId(e.schema, e.name),
+      id,
       type: 'enum',
       position: { ...ZERO },
       data,
@@ -194,13 +221,14 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
   })
 
   const stickyNodes: ErdFlowNode[] = schema.notes.map((note) => {
+    const id = reserveId(usedNodeIds, noteNodeId(note.name))
     const data: StickyNodeData = {
       title: note.name,
       content: note.content,
       headerColor: note.headerColor,
     }
     return {
-      id: noteNodeId(note.name),
+      id,
       type: 'sticky',
       position: { ...ZERO },
       data,
@@ -216,10 +244,12 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
     ...stickyNodes,
   ]
 
+  // Drop edges to endpoints that aren't emitted nodes (dangling refs to missing
+  // tables/columns) — React Flow silently drops such edges; emit only valid ones.
   const edges: ErdFlowEdge[] = [
     ...schema.refs.flatMap(refToEdges),
     ...enumLinkEdges(schema),
-  ]
+  ].filter((e) => usedNodeIds.has(e.source) && usedNodeIds.has(e.target))
 
   return { nodes, edges }
 }
