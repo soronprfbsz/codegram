@@ -14,3 +14,46 @@ import '@testing-library/jest-dom'
 afterEach(() => {
   cleanup()
 })
+
+// --- React Flow (Plan 3b) jsdom mocks ---------------------------------------
+// @xyflow/react measures the DOM (ResizeObserver, getBoundingClientRect,
+// matchMedia) which jsdom does not implement. These minimal mocks let the
+// canvas mount and render its nodes; layout/positions are NOT asserted in
+// jsdom (those are covered by the pure layout unit test + Playwright E2E).
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver
+
+if (!window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  })
+}
+
+// jsdom returns a zero-size rect; give nodes a non-zero box so React Flow's
+// measurement step produces dimensions instead of NaN.
+Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+  return {
+    width: 200,
+    height: 120,
+    top: 0,
+    left: 0,
+    bottom: 120,
+    right: 200,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as DOMRect
+}
