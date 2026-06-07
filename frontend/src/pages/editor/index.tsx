@@ -94,7 +94,7 @@ export function EditorPage() {
             <DbmlEditor value={dbmlText} onChange={setDbmlText} height="70vh" />
           </div>
           <div className="flex flex-1 flex-col gap-4 lg:flex-row">
-            <div className="min-h-[60vh] flex-1">
+            <div className="h-[60vh] flex-1">
               <ErdCanvas schema={parse.schema ?? parse.lastValidSchema} />
             </div>
             <aside className="flex flex-col gap-4 lg:w-72">
