@@ -6,6 +6,13 @@ import { EditorPage } from './index'
 import * as project from '@/entities/project'
 import * as autosave from '@/features/project-autosave'
 import * as canvas from '@/features/erd-canvas'
+import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event'
+import * as dbmlEditor from '@/features/dbml-editor'
+import * as exportDiagram from '@/features/export-diagram'
+import * as exportDiagramLib from '@/features/export-diagram/lib/exportDiagram'
+import * as exportTableDoc from '@/features/export-table-doc'
+import * as download from '@/shared/lib/download'
+import type { DbmlSchema } from '@/entities/dbml'
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -209,5 +216,183 @@ describe('EditorPage', () => {
     }
     expect(props.savedPositions).toEqual({ 'public.users': { x: 1, y: 2 } })
     expect(typeof props.onLayoutChange).toBe('function')
+  })
+})
+
+describe('EditorPage — Export menu wiring', () => {
+  // A minimal normalized schema with a single `users` table carrying an
+  // `email` column, so the derived TableDocModel is non-empty and identifiable.
+  const usersSchema: DbmlSchema = {
+    tables: [
+      {
+        id: 'public.users',
+        name: 'users',
+        schema: 'public',
+        columns: [
+          {
+            id: 'public.users.id',
+            name: 'id',
+            type: 'integer',
+            pk: true,
+            notNull: true,
+            unique: false,
+            increment: false,
+            isFk: false,
+          },
+          {
+            id: 'public.users.email',
+            name: 'email',
+            type: 'varchar',
+            pk: false,
+            notNull: true,
+            unique: true,
+            increment: false,
+            isFk: false,
+          },
+        ],
+      },
+    ],
+    refs: [],
+    enums: [],
+    tableGroups: [],
+    notes: [],
+  }
+
+  function mockLoadedProject() {
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        name: 'My Project',
+        dbml_text:
+          'Table users {\n  id integer [pk]\n  email varchar [unique, not null]\n}',
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof project.useProject>)
+  }
+
+  // Open the radix dropdown despite JSDOM's missing layout/pointer support.
+  const setup = () =>
+    userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    // Make the parse SYNCHRONOUS + successful so `schema` is ready at first
+    // render: the Export trigger is enabled (not gated by the 300ms debounce)
+    // and the derived tableDoc is non-empty before any click.
+    vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
+      status: 'success',
+      schema: usersSchema,
+      lastValidSchema: usersSchema,
+    })
+    // Fire onCaptureReady immediately so the page mounts without a live canvas.
+    vi.spyOn(canvas, 'ErdCanvas').mockImplementation(
+      (props: { onCaptureReady?: (h: canvas.ErdCaptureHandle) => void }) => {
+        props.onCaptureReady?.({
+          fitView: () => {},
+          getInstance: () => null as never,
+        })
+        return <div data-testid="erd-canvas-stub" />
+      },
+    )
+  })
+
+  it('renders an Export trigger with all six items', async () => {
+    mockLoadedProject()
+    const user = setup()
+    renderEditor()
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    expect(
+      await screen.findByRole('menuitem', { name: 'Diagram PNG' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: 'Diagram SVG' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: 'Diagram PDF' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: 'Table Doc HTML' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: 'Table Doc Excel' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('menuitem', { name: 'Table Doc PDF' }),
+    ).toBeInTheDocument()
+  })
+
+  it('Diagram PNG/SVG/PDF call the matching diagram exporter', async () => {
+    mockLoadedProject()
+    // Spy on the lib module that ExportMenu imports from (same namespace reference).
+    // Also spy the barrel so both are restored on cleanup.
+    const png = vi.spyOn(exportDiagramLib, 'exportDiagramPng').mockResolvedValue()
+    vi.spyOn(exportDiagram, 'exportDiagramPng').mockResolvedValue()
+    const svg = vi.spyOn(exportDiagramLib, 'exportDiagramSvg').mockResolvedValue()
+    vi.spyOn(exportDiagram, 'exportDiagramSvg').mockResolvedValue()
+    const pdf = vi.spyOn(exportDiagramLib, 'exportDiagramPdf').mockResolvedValue()
+    vi.spyOn(exportDiagram, 'exportDiagramPdf').mockResolvedValue()
+    const user = setup()
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Diagram PNG' }))
+    expect(png).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Diagram SVG' }))
+    expect(svg).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Diagram PDF' }))
+    expect(pdf).toHaveBeenCalledTimes(1)
+  })
+
+  it('Table Doc Excel/PDF build from the derived model and download', async () => {
+    mockLoadedProject()
+    const xlsx = vi
+      .spyOn(exportTableDoc, 'buildTableDocXlsxBlob')
+      .mockReturnValue(new Blob(['xlsx']))
+    const pdf = vi
+      .spyOn(exportTableDoc, 'buildTableDocPdfBlob')
+      .mockReturnValue(new Blob(['pdf']))
+    const dl = vi.spyOn(download, 'downloadBlob').mockImplementation(() => {})
+    const user = setup()
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Table Doc Excel' }),
+    )
+    expect(xlsx).toHaveBeenCalledTimes(1)
+    // useDbmlParse is mocked to a ready `users` schema, so the derived model
+    // is non-empty at click time (no debounce race).
+    const xlsxModel = xlsx.mock.calls[0][0]
+    expect(xlsxModel.tables.map((t) => t.name)).toContain('users')
+    expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.xlsx')
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Table Doc PDF' }),
+    )
+    expect(pdf).toHaveBeenCalledTimes(1)
+    expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.pdf')
+  })
+
+  it('Table Doc HTML opens the in-app table-doc view', async () => {
+    mockLoadedProject()
+    const user = setup()
+    renderEditor()
+    expect(screen.queryByTestId('table-doc-view')).toBeNull()
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Table Doc HTML' }),
+    )
+    expect(screen.getByTestId('table-doc-view')).toBeInTheDocument()
   })
 })

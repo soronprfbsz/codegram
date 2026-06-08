@@ -7,11 +7,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/shared/ui/dropdown-menu'
-import {
-  exportDiagramPng,
-  exportDiagramSvg,
-  exportDiagramPdf,
-} from '../lib/exportDiagram'
+import * as exporters from '../lib/exportDiagram'
 import type { DiagramExportContext } from '../lib/exportDiagram'
 
 export interface ExportMenuProps {
@@ -50,13 +46,13 @@ export function ExportMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>Diagram</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={() => void exportDiagramPng(diagram)}>
+        <DropdownMenuItem onSelect={() => void exporters.exportDiagramPng(diagram)}>
           Diagram PNG
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void exportDiagramSvg(diagram)}>
+        <DropdownMenuItem onSelect={() => void exporters.exportDiagramSvg(diagram)}>
           Diagram SVG
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void exportDiagramPdf(diagram)}>
+        <DropdownMenuItem onSelect={() => void exporters.exportDiagramPdf(diagram)}>
           Diagram PDF
         </DropdownMenuItem>
         <DropdownMenuSeparator />

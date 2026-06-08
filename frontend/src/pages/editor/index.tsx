@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Button } from '@/shared/ui/button'
+import { downloadBlob } from '@/shared/lib/download'
 import { useProject } from '@/entities/project'
+import { deriveTableDoc, type TableDocModel } from '@/entities/table-doc'
 import {
   useProjectAutosave,
   type AutosaveStatus,
@@ -12,8 +14,17 @@ import {
   SchemaSummary,
   useDbmlParse,
 } from '@/features/dbml-editor'
-import { ErdCanvas } from '@/features/erd-canvas'
+import { ErdCanvas, type ErdCaptureHandle } from '@/features/erd-canvas'
 import { useLayoutPersistence } from '@/features/layout-persistence'
+import {
+  ExportMenu,
+  type DiagramExportContext,
+} from '@/features/export-diagram'
+import {
+  buildTableDocXlsxBlob,
+  buildTableDocPdfBlob,
+} from '@/features/export-table-doc'
+import { TableDocView } from '@/widgets/table-doc-view'
 
 const statusLabel: Record<AutosaveStatus, string> = {
   idle: 'All changes saved',
@@ -21,6 +32,8 @@ const statusLabel: Record<AutosaveStatus, string> = {
   saved: 'Saved',
   error: 'Save failed',
 }
+
+const EMPTY_TABLE_DOC: TableDocModel = { tables: [], enums: [] }
 
 /**
  * Editor page (Plan 3b): loads a project by :id and binds a CodeMirror 6
@@ -34,8 +47,17 @@ const statusLabel: Record<AutosaveStatus, string> = {
  * dagre — and round-trip through the existing debounced autosave (table drag +
  * Auto-arrange). The parse-status panel + a compact schema summary stay in a
  * sidebar beside the canvas.
- * pages layer: composes the project entity + the autosave, dbml-editor, and
- * erd-canvas features (FSD downward imports).
+ * Plan 5: the header carries an Export dropdown — diagram PNG/SVG/PDF capture
+ * the canvas via a handle surfaced from ErdCanvas (onCaptureReady), and the
+ * table-doc Excel/PDF builders + the in-app HTML view all consume the derived
+ * TableDocModel. pages is the only layer importing both export features. Note:
+ * onCaptureReady fires ONLY when the canvas has tables (ErdCanvas renders its
+ * inner ReactFlow only for a non-empty schema); the ExportMenu `disabled`
+ * predicate mirrors that exact gate (!schema || tables.length === 0) so the
+ * diagram exporters can never run while captureHandleRef is still null.
+ * pages layer: composes the project entity + the autosave, dbml-editor,
+ * erd-canvas, export-diagram, export-table-doc features + table-doc-view widget
+ * (FSD downward imports).
  */
 export function EditorPage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -62,6 +84,39 @@ export function EditorPage() {
   })
   // Live, debounced parse of the editor text into the normalized model.
   const parse = useDbmlParse(dbmlText)
+  const schema = parse.schema ?? parse.lastValidSchema
+
+  // Plan 5 — Export wiring (pages layer composes both export features).
+  // Capture-handle ref filled once by ErdCanvas.onCaptureReady; the canvas
+  // wrapper ref reaches the live .react-flow__viewport for snapshotting.
+  const captureHandleRef = useRef<ErdCaptureHandle | null>(null)
+  const canvasWrapperRef = useRef<HTMLDivElement>(null)
+  const [tableDocViewOpen, setTableDocViewOpen] = useState(false)
+
+  // Derive the 테이블 정의서 model once per schema change.
+  const tableDoc = useMemo<TableDocModel>(
+    () => (schema ? deriveTableDoc(schema) : EMPTY_TABLE_DOC),
+    [schema],
+  )
+
+  // The diagram capture context: viewport from the wrapper ref, instance +
+  // fitView from the handle ref. Memoized on identity-stable refs.
+  const diagramCtx = useMemo<DiagramExportContext>(
+    () => ({
+      getViewport: () =>
+        (canvasWrapperRef.current?.querySelector(
+          '.react-flow__viewport',
+        ) as HTMLElement | null) ?? null,
+      getInstance: () => captureHandleRef.current?.getInstance() ?? null,
+      fitView: () => captureHandleRef.current?.fitView(),
+    }),
+    [],
+  )
+
+  // Mirrors the ErdCanvas non-empty gate so the diagram capture path (which
+  // needs captureHandleRef, only set for a non-empty canvas) is unreachable
+  // while the handle is null. Do NOT loosen this without revisiting that gate.
+  const exportDisabled = !schema || schema.tables.length === 0
 
   // Seed the editor (and the autosave baseline) once the project loads, and
   // re-seed when its id changes. Keying on project?.id avoids clobbering the
@@ -99,6 +154,23 @@ export function EditorPage() {
             <span className="text-sm text-gray-600">
               {statusLabel[status]}
             </span>
+            <ExportMenu
+              diagram={diagramCtx}
+              disabled={exportDisabled}
+              onOpenTableDocView={() => setTableDocViewOpen(true)}
+              onExportTableDocExcel={() =>
+                downloadBlob(
+                  buildTableDocXlsxBlob(tableDoc),
+                  'table-definition.xlsx',
+                )
+              }
+              onExportTableDocPdf={() =>
+                downloadBlob(
+                  buildTableDocPdfBlob(tableDoc),
+                  'table-definition.pdf',
+                )
+              }
+            />
             <Button variant="outline" onClick={() => navigate('/')}>
               Back
             </Button>
@@ -112,20 +184,29 @@ export function EditorPage() {
             <DbmlEditor value={dbmlText} onChange={setDbmlText} height="70vh" />
           </div>
           <div className="flex flex-1 flex-col gap-4 lg:flex-row">
-            <div className="h-[60vh] flex-1">
+            <div ref={canvasWrapperRef} className="h-[60vh] flex-1">
               <ErdCanvas
-                schema={parse.schema ?? parse.lastValidSchema}
+                schema={schema}
                 savedPositions={positions}
                 onLayoutChange={(next) => setPositions(next.positions)}
+                onCaptureReady={(handle) => {
+                  captureHandleRef.current = handle
+                }}
               />
             </div>
             <aside className="flex flex-col gap-4 lg:w-72">
               <ParseErrorPanel status={parse.status} errors={parse.errors} />
-              <SchemaSummary schema={parse.schema ?? parse.lastValidSchema} />
+              <SchemaSummary schema={schema} />
             </aside>
           </div>
         </div>
       </main>
+
+      <TableDocView
+        model={tableDoc}
+        open={tableDocViewOpen}
+        onClose={() => setTableDocViewOpen(false)}
+      />
     </div>
   )
 }
