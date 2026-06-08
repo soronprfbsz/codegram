@@ -2172,8 +2172,16 @@ test.describe('Editor manual layout persistence', () => {
     await registerAndLogin(page, `layout-drag-${Date.now()}@example.com`)
     const projectId = await createProjectAndOpen(page, 'Layout Drag')
 
-    // Type a two-table schema and wait for the canvas to render both nodes.
+    // Arm the listener BEFORE typing: the debounced PATCH fires ~600ms after
+    // the edit (during the render asserts below), so the listener must already
+    // be live when it lands (mirrors projects.spec.ts).
+    const initPatch = waitForAutosavePatch(page, projectId)
     await typeDbml(page, TWO_TABLE_DBML)
+    // The initial DBML edit triggers an autosave; consume it so the next
+    // PATCH we wait for is the layout-only one caused by the drag.
+    await initPatch
+
+    // Wait for the canvas to render both nodes.
     await expect(page.locator('.react-flow')).toBeVisible()
     await expect
       .poll(async () => page.locator('.react-flow__node').count(), {
@@ -2184,19 +2192,15 @@ test.describe('Editor manual layout persistence', () => {
       page.locator('.react-flow__node[data-id="public.users"]'),
     ).toBeVisible()
 
-    // The initial DBML edit triggers an autosave; consume it so the next
-    // PATCH we wait for is the layout-only one caused by the drag.
-    await waitForAutosavePatch(page, projectId)
-
     // Record the node's screen position before dragging.
     const before = await transformOf(page, 'public.users')
 
     // Drag the users node down-right; this is a layout-only change
     // (dbml_text unchanged) and must trigger an autosave PATCH.
-    await dragNode(page, 'public.users', 160, 120)
-
     // Drag-stop lifts the full StoredLayout; autosave PATCHes within 600ms.
-    const dragBody = await waitForAutosavePatch(page, projectId)
+    const dragPatch = waitForAutosavePatch(page, projectId)
+    await dragNode(page, 'public.users', 160, 120)
+    const dragBody = await dragPatch
     expect(dragBody.layout).toBeTruthy()
     expect(dragBody.layout?.version).toBe(1)
     const savedPositions = dragBody.layout?.positions ?? {}
@@ -2231,8 +2235,9 @@ test.describe('Editor manual layout persistence', () => {
     // confirm the PATCH base position is the previously-persisted coord
     // (reconcile restored it), not dagre's.
     const beforeNudge = await transformOf(page, 'public.users')
+    const reloadPatch = waitForAutosavePatch(page, projectId)
     await dragNode(page, 'public.users', 8, 8)
-    const reloadBody = await waitForAutosavePatch(page, projectId)
+    const reloadBody = await reloadPatch
     const restored = reloadBody.layout?.positions?.['public.users']
     expect(restored).toBeTruthy()
     // The restored base position equals the persisted coord plus an ~8px nudge,
@@ -2246,6 +2251,8 @@ test.describe('Editor manual layout persistence', () => {
 })
 ```
 
+> **Why "arm before the action" for every `waitForAutosavePatch`?** `page.waitForResponse(predicate)` starts listening the moment it is CALLED, not when awaited. The autosave PATCH fires ~600ms after the triggering edit/drag/click — i.e. *during* the render assertions that follow it — so if the listener is registered AFTER the action it misses an already-fired PATCH and hangs to the 30s timeout. The fix (mirroring `projects.spec.ts`): create the `waitForAutosavePatch(...)` promise IMMEDIATELY BEFORE the one action that triggers the PATCH, then `await` it afterward. Arm exactly one listener per action and await it before arming the next, so each resolves on its own PATCH (no overlap); render-settle assertions can run after the relevant `await`.
+>
 > **Why the "small nudge after reload" instead of a raw pixel compare?** The `.react-flow__node` inline `transform` is **screen space** = `node.position` composed with the viewport (`fitView` zoom/pan), which differs across a reload. The persisted `layout.positions[id]` is the **pre-viewport** `node.position` that reconcile restores. An 8px drag forces a fresh `nodesToLayout` save whose base coord is the reconciled `node.position` plus the nudge — comparing *that* to the pre-reload persisted coord (within 20px) is viewport-independent and directly proves ADR-0004 restoration (vs. a dagre reset, which would be hundreds of px off). The nudge must be 8px, not 1px: React Flow only begins a drag once the move exceeds `nodeDragThreshold` (=1), so a 1px diagonal can net a ~0 position delta, leaving `layoutKey === layoutBaselineKey` (re-seeded from the persisted layout on reload) so the autosave guard SKIPS the save and `waitForAutosavePatch` hangs to the test timeout. 8px reliably clears the threshold and stays within the 20px tolerance.
 
 - [ ] **Step 2: Record expected pre-implementation (TDD red) state for the controller.** When run against a build that has NOT yet implemented Blocks A/B, this MUST FAIL: `waitForAutosavePatch` after the drag **times out** (current `useProjectAutosave` skips layout-only saves — the documented bug), so the test fails at `const dragBody = await waitForAutosavePatch(...)` with `Timeout 30000ms exceeded while waiting for event "response"`. After Blocks A + B land, the drag fires a `PATCH .../api/projects/<id>` with `{ layout: { version: 1, positions: { "public.users": {...}, ... } } }`, and the reload + nudge restores the coord — test goes green.
@@ -2275,19 +2282,21 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     await registerAndLogin(page, `layout-add-${Date.now()}@example.com`)
     const projectId = await createProjectAndOpen(page, 'Layout Add')
 
-    // Start with two tables.
+    // Start with two tables. Arm the listener before typing (debounced PATCH).
+    const initPatch = waitForAutosavePatch(page, projectId)
     await typeDbml(page, TWO_TABLE_DBML)
+    await initPatch // consume the initial-text save.
     await expect(page.locator('.react-flow')).toBeVisible()
     await expect
       .poll(async () => page.locator('.react-flow__node').count(), {
         timeout: 5000,
       })
       .toBeGreaterThanOrEqual(2)
-    await waitForAutosavePatch(page, projectId) // consume the initial-text save.
 
     // Manually position `users` so it has a persisted coordinate.
+    const placedPatch = waitForAutosavePatch(page, projectId)
     await dragNode(page, 'public.users', 200, 40)
-    const placedBody = await waitForAutosavePatch(page, projectId)
+    const placedBody = await placedPatch
     const placedUsers = placedBody.layout?.positions?.['public.users']
     expect(placedUsers).toBeTruthy()
     const placedX = placedUsers!.x
@@ -2302,7 +2311,11 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
       '  label varchar',
       '}',
     ].join('\n')
+    // The DBML change triggers a save; arm before typing, read it back below.
+    const addPatch = waitForAutosavePatch(page, projectId)
     await typeDbml(page, threeTableDbml)
+    const addBody = await addPatch
+    const positions = addBody.layout?.positions ?? {}
 
     // Parse settles; three nodes now render.
     await expect
@@ -2313,10 +2326,6 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     await expect(
       page.locator('.react-flow__node[data-id="public.tags"]'),
     ).toBeVisible()
-
-    // The DBML change triggers a save; read back the reconciled layout.
-    const addBody = await waitForAutosavePatch(page, projectId)
-    const positions = addBody.layout?.positions ?? {}
 
     // The new table got a dagre position (NOT stacked at origin {0,0}).
     const tags = await transformOf(page, 'public.tags')
@@ -2360,18 +2369,21 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     await registerAndLogin(page, `layout-rename-${Date.now()}@example.com`)
     const projectId = await createProjectAndOpen(page, 'Layout Rename')
 
+    // Arm the listener before typing (debounced PATCH).
+    const initPatch = waitForAutosavePatch(page, projectId)
     await typeDbml(page, TWO_TABLE_DBML)
+    await initPatch // consume the initial-text save.
     await expect(page.locator('.react-flow')).toBeVisible()
     await expect
       .poll(async () => page.locator('.react-flow__node').count(), {
         timeout: 5000,
       })
       .toBeGreaterThanOrEqual(2)
-    await waitForAutosavePatch(page, projectId) // consume the initial-text save.
 
     // Place `posts` at a distinctive manual position far from any dagre slot.
+    const placedPatch = waitForAutosavePatch(page, projectId)
     await dragNode(page, 'public.posts', 260, 220)
-    await waitForAutosavePatch(page, projectId)
+    await placedPatch
     // Capture the on-screen position of the manually-placed `posts` node. The
     // renamed node must NOT end up here. (We read the rendered transform, not
     // the PATCH body, because a dbml-only rename never calls onLayoutChange and
@@ -2389,7 +2401,13 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
       '  user_id integer [ref: > users.id]',
       '}',
     ].join('\n')
+    // The rename is a dbml change -> autosave fires; arm before typing and wait
+    // for it as a settle point. Its body carries the orphan `public.posts`
+    // entry (the new node is never pushed into positions state), so we do NOT
+    // read the new node's coord from the PATCH body.
+    const renamePatch = waitForAutosavePatch(page, projectId)
     await typeDbml(page, renamedDbml)
+    await renamePatch
 
     // The renamed node now exists under a NEW id; the old id is gone.
     await expect(
@@ -2398,12 +2416,6 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     await expect(
       page.locator('.react-flow__node[data-id="public.posts"]'),
     ).toHaveCount(0)
-
-    // The rename is a dbml change -> autosave fires; wait for it as a settle
-    // point. Its body carries the orphan `public.posts` entry (the new node is
-    // never pushed into positions state), so we do NOT read the new node's
-    // coord from the PATCH body.
-    await waitForAutosavePatch(page, projectId)
 
     // ADR-0004 on-screen: `articles` is treated as a brand-new node (no stored
     // entry under the new id), so reconcile dagre-places it. Prove it LOST the
@@ -2452,28 +2464,31 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
     await registerAndLogin(page, `layout-auto-${Date.now()}@example.com`)
     const projectId = await createProjectAndOpen(page, 'Layout Auto')
 
+    // Arm the listener before typing (debounced PATCH).
+    const initPatch = waitForAutosavePatch(page, projectId)
     await typeDbml(page, TWO_TABLE_DBML)
+    await initPatch // initial-text save.
     await expect(page.locator('.react-flow')).toBeVisible()
     await expect
       .poll(async () => page.locator('.react-flow__node').count(), {
         timeout: 5000,
       })
       .toBeGreaterThanOrEqual(2)
-    await waitForAutosavePatch(page, projectId) // initial-text save.
 
     // Manually move `users` so we have a non-dagre position to discard.
+    const placedPatch = waitForAutosavePatch(page, projectId)
     await dragNode(page, 'public.users', 220, 160)
-    const placedBody = await waitForAutosavePatch(page, projectId)
+    const placedBody = await placedPatch
     const placedUsers = placedBody.layout?.positions?.['public.users']
     expect(placedUsers).toBeTruthy()
     const placedX = placedUsers!.x
     const placedY = placedUsers!.y
 
     // Click Auto-arrange (one-shot dagre over all nodes, discards saved coords).
-    await page.getByRole('button', { name: 'Auto-arrange' }).click()
-
     // Auto-arrange lifts a fresh StoredLayout -> autosave PATCHes.
-    const autoBody = await waitForAutosavePatch(page, projectId)
+    const autoPatch = waitForAutosavePatch(page, projectId)
+    await page.getByRole('button', { name: 'Auto-arrange' }).click()
+    const autoBody = await autoPatch
     const positions = autoBody.layout?.positions ?? {}
     expect(positions['public.users']).toBeTruthy()
     expect(positions['public.posts']).toBeTruthy()
