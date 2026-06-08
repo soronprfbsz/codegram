@@ -8,7 +8,6 @@ import * as autosave from '@/features/project-autosave'
 import * as canvas from '@/features/erd-canvas'
 import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event'
 import * as dbmlEditor from '@/features/dbml-editor'
-import * as exportDiagram from '@/features/export-diagram'
 import * as exportDiagramLib from '@/features/export-diagram/lib/exportDiagram'
 import * as exportTableDoc from '@/features/export-table-doc'
 import * as download from '@/shared/lib/download'
@@ -330,13 +329,9 @@ describe('EditorPage — Export menu wiring', () => {
   it('Diagram PNG/SVG/PDF call the matching diagram exporter', async () => {
     mockLoadedProject()
     // Spy on the lib module that ExportMenu imports from (same namespace reference).
-    // Also spy the barrel so both are restored on cleanup.
     const png = vi.spyOn(exportDiagramLib, 'exportDiagramPng').mockResolvedValue()
-    vi.spyOn(exportDiagram, 'exportDiagramPng').mockResolvedValue()
     const svg = vi.spyOn(exportDiagramLib, 'exportDiagramSvg').mockResolvedValue()
-    vi.spyOn(exportDiagram, 'exportDiagramSvg').mockResolvedValue()
     const pdf = vi.spyOn(exportDiagramLib, 'exportDiagramPdf').mockResolvedValue()
-    vi.spyOn(exportDiagram, 'exportDiagramPdf').mockResolvedValue()
     const user = setup()
     renderEditor()
 
@@ -394,5 +389,15 @@ describe('EditorPage — Export menu wiring', () => {
       await screen.findByRole('menuitem', { name: 'Table Doc HTML' }),
     )
     expect(screen.getByTestId('table-doc-view')).toBeInTheDocument()
+  })
+
+  it('disables the Export trigger when there is no parsed schema', () => {
+    mockLoadedProject()
+    // Override the ready-schema mock from beforeEach: nothing parsed yet, so
+    // `schema` is undefined and the disabled gate (!schema || no tables) holds.
+    vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({ status: 'idle' })
+    renderEditor()
+    expect(screen.getByRole('button', { name: /export/i })).toBeDisabled()
+    expect(screen.queryByRole('menuitem')).toBeNull()
   })
 })

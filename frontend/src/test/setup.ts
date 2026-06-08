@@ -57,3 +57,29 @@ Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
     toJSON: () => ({}),
   } as DOMRect
 }
+
+// CodeMirror 6 measures selection geometry via Range.getClientRects() in its
+// rAF measure loop. jsdom does not implement it, so a measure pumped by a test
+// (e.g. a userEvent click advancing timers) throws "getClientRects is not a
+// function". Shim Range geometry with empty rects — layout is not asserted in
+// jsdom (real geometry is covered by Playwright E2E).
+Range.prototype.getClientRects = function getClientRects() {
+  return {
+    length: 0,
+    item: () => null,
+    [Symbol.iterator]: function* () {},
+  } as unknown as DOMRectList
+}
+Range.prototype.getBoundingClientRect = function getBoundingClientRect() {
+  return {
+    width: 0,
+    height: 0,
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as DOMRect
+}

@@ -1,16 +1,13 @@
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
-import { cva } from "class-variance-authority"
 import * as React from "react"
 
 import { cn } from "@/shared/lib/utils"
 
-const contentVariants = cva(
-  "z-50 min-w-[10rem] overflow-hidden rounded-md border border-border bg-background p-1 text-foreground shadow-md outline-none",
-)
+const contentClasses =
+  "z-50 min-w-[10rem] overflow-hidden rounded-md border border-border bg-background p-1 text-foreground shadow-md outline-none"
 
-const itemVariants = cva(
-  "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-)
+const itemClasses =
+  "relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
 
 function DropdownMenu({
   ...props
@@ -41,7 +38,7 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         align={align}
-        className={cn(contentVariants({ className }))}
+        className={cn(contentClasses, className)}
         {...props}
       />
     </DropdownMenuPrimitive.Portal>
@@ -55,7 +52,7 @@ function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
-      className={cn(itemVariants({ className }))}
+      className={cn(itemClasses, className)}
       {...props}
     />
   )
