@@ -10,35 +10,7 @@
  */
 import dagre from '@dagrejs/dagre'
 import type { ErdFlowNode, ErdFlowEdge } from '@/entities/erd/model/types'
-
-/** Conservative node-size estimates fed to dagre (dagre needs dims up front). */
-const TABLE_WIDTH = 240
-const HEADER_HEIGHT = 40
-const ROW_HEIGHT = 26
-const ENUM_WIDTH = 200
-const STICKY_WIDTH = 220
-const STICKY_HEIGHT = 120
-const GROUP_PADDING = 24
-
-/** Estimate a node's rendered size so dagre lays out without DOM measurement. */
-function nodeSize(node: ErdFlowNode): { width: number; height: number } {
-  if (node.type === 'table') {
-    const cols = Array.isArray(
-      (node.data as { columns?: unknown[] }).columns,
-    )
-      ? (node.data as { columns: unknown[] }).columns.length
-      : 0
-    return { width: TABLE_WIDTH, height: HEADER_HEIGHT + cols * ROW_HEIGHT }
-  }
-  if (node.type === 'enum') {
-    const vals = Array.isArray((node.data as { values?: unknown[] }).values)
-      ? (node.data as { values: unknown[] }).values.length
-      : 0
-    return { width: ENUM_WIDTH, height: HEADER_HEIGHT + vals * ROW_HEIGHT }
-  }
-  // sticky + group fall back to fixed boxes (group is re-sized post-layout).
-  return { width: STICKY_WIDTH, height: STICKY_HEIGHT }
-}
+import { nodeSize, GROUP_PADDING } from './nodeSize'
 
 /**
  * Lay out nodes with dagre and return NEW nodes carrying computed positions.

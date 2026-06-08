@@ -1,5 +1,6 @@
 export { schemaToFlow } from './lib/schemaToFlow'
 export { autoLayout } from './lib/autoLayout'
+export { nodeSize, GROUP_PADDING } from './lib/nodeSize'
 export type {
   ErdNodeType,
   ErdColumn,

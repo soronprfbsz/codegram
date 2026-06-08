@@ -40,7 +40,9 @@ export function reconcileLayout(
 ): ErdFlowNode[] {
   if (flowNodes.length === 0) return []
 
-  // 1. Full-graph dagre baseline (group sizing + member re-basing all correct).
+  // 1. Full-graph dagre baseline (positions + initial group sizing). The group
+  //    sizing here is only a starting point: step-3 overrides can move members,
+  //    invalidating it, which is exactly why fitGroupBoxes re-fits afterward.
   const baseline = autoLayout(flowNodes, flowEdges)
 
   // 2. Override non-group nodes that have a frame-matching stored entry.

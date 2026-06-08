@@ -5,39 +5,16 @@
  * in ABSOLUTE space, then re-bases members so their `position` is relative to the
  * NEW group origin (React Flow: child absolute = parentAbsolute + child.position).
  *
- * Uses the SAME node-size estimates + GROUP_PADDING as entities/erd autoLayout so
- * the colored group region and member coords never diverge. Group nodes with no
+ * Uses the SAME node-size estimates + GROUP_PADDING as entities/erd autoLayout
+ * (imported from the shared @/entities/erd nodeSize source of truth) so the
+ * colored group region and member coords never diverge. Group nodes with no
  * members and all ungrouped nodes pass through unchanged.
  *
- * entities layer: imports only entities/erd TYPES. NO React Flow runtime.
+ * entities layer: imports only entities/erd TYPES + the pure nodeSize geometry.
+ * NO React Flow runtime.
  */
 import type { ErdFlowNode } from '@/entities/erd'
-
-// Mirror of autoLayout's size estimates (entities/erd/lib/autoLayout.ts).
-const TABLE_WIDTH = 240
-const HEADER_HEIGHT = 40
-const ROW_HEIGHT = 26
-const ENUM_WIDTH = 200
-const STICKY_WIDTH = 220
-const STICKY_HEIGHT = 120
-const GROUP_PADDING = 24
-
-/** Estimate a node's rendered size (same heuristics as autoLayout.nodeSize). */
-function nodeSize(node: ErdFlowNode): { width: number; height: number } {
-  if (node.type === 'table') {
-    const cols = Array.isArray((node.data as { columns?: unknown[] }).columns)
-      ? (node.data as { columns: unknown[] }).columns.length
-      : 0
-    return { width: TABLE_WIDTH, height: HEADER_HEIGHT + cols * ROW_HEIGHT }
-  }
-  if (node.type === 'enum') {
-    const vals = Array.isArray((node.data as { values?: unknown[] }).values)
-      ? (node.data as { values: unknown[] }).values.length
-      : 0
-    return { width: ENUM_WIDTH, height: HEADER_HEIGHT + vals * ROW_HEIGHT }
-  }
-  return { width: STICKY_WIDTH, height: STICKY_HEIGHT }
-}
+import { nodeSize, GROUP_PADDING } from '@/entities/erd'
 
 /**
  * Re-fit each group node to cover all its members and re-base members to the new
@@ -77,6 +54,11 @@ export function fitGroupBoxes(nodes: ErdFlowNode[]): ErdFlowNode[] {
     })
   }
 
+  // The refit below is UNCONDITIONAL: every group with members is re-sized and
+  // every member re-based to the new origin, even when `stored` was empty and the
+  // positions came straight from autoLayout. That is intentional and
+  // idempotent-in-shape — autoLayout already fits the box, so recomputing the
+  // same bbox + padding yields the same extent; it is not a no-op to skip.
   return nodes.map((node) => {
     if (node.type === 'group') {
       const origin = newOrigin.get(node.id)
