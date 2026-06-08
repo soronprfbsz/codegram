@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reconcileLayout } from './reconcile'
+import { reconcileLayout, nodesToLayout } from './reconcile'
 import type { ErdFlowNode, ErdFlowEdge } from '@/entities/erd'
 import type { LayoutPositions } from '@/entities/layout/model/types'
 
@@ -187,5 +187,56 @@ describe('reconcileLayout (grouped-member frame guard)', () => {
     const users = out.find((n) => n.id === 'public.users')!
     // node.parentId undefined but stored.parentId set -> mismatch -> dagre.
     expect(users.position).not.toEqual({ x: 24, y: 12 })
+  })
+})
+
+function enumNode(id: string): ErdFlowNode {
+  return {
+    id,
+    type: 'enum',
+    position: { x: 40, y: 80 },
+    data: { enumName: id, values: [] },
+  }
+}
+
+describe('nodesToLayout', () => {
+  it('produces { version: 1, positions } keyed by node id', () => {
+    const users = tableNode('public.users')
+    users.position = { x: 320, y: 80 }
+    const out = nodesToLayout([users])
+    expect(out).toEqual({
+      version: 1,
+      positions: { 'public.users': { x: 320, y: 80 } },
+    })
+  })
+
+  it('records parentId for grouped members only', () => {
+    const grouped = tableNode('public.audit', 'group:internal')
+    grouped.position = { x: 24, y: 12 }
+    const ungrouped = tableNode('public.users')
+    ungrouped.position = { x: 320, y: 80 }
+    const out = nodesToLayout([grouped, ungrouped])
+    expect(out.positions['public.audit']).toEqual({
+      x: 24,
+      y: 12,
+      parentId: 'group:internal',
+    })
+    expect(out.positions['public.users']).toEqual({ x: 320, y: 80 })
+    expect('parentId' in out.positions['public.users']).toBe(false)
+  })
+
+  it('excludes group container nodes', () => {
+    const group = groupNode('group:internal')
+    group.position = { x: 0, y: 0 }
+    const member = tableNode('public.audit', 'group:internal')
+    member.position = { x: 24, y: 12 }
+    const out = nodesToLayout([group, member])
+    expect(out.positions['group:internal']).toBeUndefined()
+    expect(out.positions['public.audit']).toBeDefined()
+  })
+
+  it('includes enum + sticky nodes', () => {
+    const out = nodesToLayout([enumNode('enum:public.role')])
+    expect(out.positions['enum:public.role']).toEqual({ x: 40, y: 80 })
   })
 })
