@@ -76,3 +76,35 @@ describe('reconcileLayout (ungrouped)', () => {
     )
   })
 })
+
+describe('reconcileLayout (ADR-0004 id semantics)', () => {
+  it('treats a renamed table (new id) as new -> dagre, not the old stored coords', () => {
+    // Stored layout was for the OLD name; the parse now emits the NEW name.
+    const stored: LayoutPositions = {
+      'public.users': { x: 999, y: 999 },
+    }
+    const nodes = [tableNode('public.members'), tableNode('public.posts')]
+    const edges = [relEdge('public.members', 'public.posts')]
+    const out = reconcileLayout(nodes, edges, stored)
+    const renamed = out.find((n) => n.id === 'public.members')!
+    // No stored entry for the new id -> dagre position, NOT the orphaned (999,999).
+    expect(renamed.position).not.toEqual({ x: 999, y: 999 })
+    expect(typeof renamed.position.x).toBe('number')
+  })
+
+  it('silently ignores a stored id that is absent from the parse (orphan)', () => {
+    const stored: LayoutPositions = {
+      'public.users': { x: 320, y: 80 },
+      'public.deleted_table': { x: 10, y: 10 }, // no longer in the schema
+    }
+    const nodes = [tableNode('public.users')]
+    const edges: ErdFlowEdge[] = []
+    const out = reconcileLayout(nodes, edges, stored)
+    // Orphan produces no node; only the present node is returned.
+    expect(out).toHaveLength(1)
+    expect(out[0].id).toBe('public.users')
+    expect(out.find((n) => n.id === 'public.deleted_table')).toBeUndefined()
+    // Present node still honored its stored entry.
+    expect(out[0].position).toEqual({ x: 320, y: 80 })
+  })
+})
