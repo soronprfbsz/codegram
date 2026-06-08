@@ -143,14 +143,16 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange }: ErdCanvasPro
 }
 
 /**
- * Read-only React Flow ERD canvas (Plan 3b). Maps a normalized DbmlSchema to
- * nodes/edges via the pure entities/erd adapter, positions them with dagre
- * auto-layout on every render (NO persistence — Plan 4 adds saved layout),
- * and renders custom table/enum/sticky/group nodes + crow-foot relation
- * edges. Nodes may be dragged for viewing but positions are not saved. When
- * no schema is given (initial/empty), shows a placeholder.
+ * React Flow ERD canvas (Plan 4 manual layout). Maps a normalized DbmlSchema to
+ * nodes/edges via the pure entities/erd adapter, then reconciles `savedPositions`
+ * into controlled node state by name (ADR-0004): dagre runs only on a structural
+ * parse change, not every render, and placed tables keep their saved coords.
+ * Renders custom table/enum/sticky/group nodes + crow-foot relation edges. A
+ * table drag persists via onNodeDragStop -> onLayoutChange; the Auto-arrange
+ * action discards saved positions and re-runs dagre for every node. When no
+ * schema is given (initial/empty), shows a placeholder.
  * features layer: depends on shared + entities/dbml + entities/erd +
- * @xyflow/react (FSD downward imports).
+ * entities/layout + @xyflow/react (FSD downward imports).
  */
 export function ErdCanvas({ schema, savedPositions, onLayoutChange }: ErdCanvasProps) {
   if (!schema || schema.tables.length === 0) {

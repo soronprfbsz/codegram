@@ -29,9 +29,11 @@ const statusLabel: Record<AutosaveStatus, string> = {
  * the editor on the left and a read-only React Flow ERD canvas on the right,
  * both fed by the same parse result; the canvas renders the last valid schema
  * (parse.schema ?? parse.lastValidSchema) so a transient parse error does not
- * blank the diagram. Auto-layout (dagre) positions nodes each parse; no
- * layout persistence (Plan 4). The parse-status panel + a compact schema
- * summary stay in a sidebar beside the canvas.
+ * blank the diagram. Node positions seed from project.layout and reconcile by
+ * name on each parse (ADR-0004) — placed tables keep their coords, new ones get
+ * dagre — and round-trip through the existing debounced autosave (table drag +
+ * Auto-arrange). The parse-status panel + a compact schema summary stay in a
+ * sidebar beside the canvas.
  * pages layer: composes the project entity + the autosave, dbml-editor, and
  * erd-canvas features (FSD downward imports).
  */
