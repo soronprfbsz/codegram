@@ -1,5 +1,11 @@
 import * as React from 'react'
-import type { TableDocModel, TableDocTable } from '@/entities/table-doc'
+import {
+  STANDARD_COLUMNS,
+  fkLocalCell,
+  fkTargetCell,
+  type TableDocModel,
+  type TableDocTable,
+} from '@/entities/table-doc'
 import { Button } from '@/shared/ui/button'
 
 export interface TableDocViewProps {
@@ -8,22 +14,6 @@ export interface TableDocViewProps {
   open: boolean
   /** Close handler. */
   onClose: () => void
-}
-
-/** Standard 테이블 정의서 column header (Korean labels), FINAL order. */
-const COLUMN_HEADER = [
-  '컬럼명',
-  '데이터타입',
-  'PK',
-  'FK',
-  'NN',
-  'UNIQUE',
-  '기본값',
-  '설명',
-] as const
-
-function flag(value: boolean): string {
-  return value ? 'Y' : ''
 }
 
 function TableSection({ table }: { table: TableDocTable }) {
@@ -36,9 +26,13 @@ function TableSection({ table }: { table: TableDocTable }) {
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b bg-muted">
-            {COLUMN_HEADER.map((label) => (
-              <th key={label} className="border px-2 py-1 text-left font-medium">
-                {label}
+            {STANDARD_COLUMNS.map((c) => (
+              <th
+                key={c.header}
+                scope="col"
+                className="border px-2 py-1 text-left font-medium"
+              >
+                {c.header}
               </th>
             ))}
           </tr>
@@ -46,18 +40,11 @@ function TableSection({ table }: { table: TableDocTable }) {
         <tbody>
           {table.columns.map((col) => (
             <tr key={col.name} className="border-b">
-              <td className="border px-2 py-1">{col.name}</td>
-              <td className="border px-2 py-1">{col.type}</td>
-              <td className="border px-2 py-1 text-center">{flag(col.pk)}</td>
-              <td className="border px-2 py-1 text-center">{flag(col.fk)}</td>
-              <td className="border px-2 py-1 text-center">
-                {flag(col.notNull)}
-              </td>
-              <td className="border px-2 py-1 text-center">
-                {flag(col.unique)}
-              </td>
-              <td className="border px-2 py-1">{col.default}</td>
-              <td className="border px-2 py-1">{col.note}</td>
+              {STANDARD_COLUMNS.map((c) => (
+                <td key={c.header} className="border px-2 py-1">
+                  {c.value(col)}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>
@@ -68,17 +55,19 @@ function TableSection({ table }: { table: TableDocTable }) {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b bg-muted">
-                <th className="border px-2 py-1 text-left font-medium">컬럼</th>
-                <th className="border px-2 py-1 text-left font-medium">참조</th>
+                <th scope="col" className="border px-2 py-1 text-left font-medium">
+                  컬럼
+                </th>
+                <th scope="col" className="border px-2 py-1 text-left font-medium">
+                  참조
+                </th>
               </tr>
             </thead>
             <tbody>
               {table.fkTargets.map((fk, i) => (
                 <tr key={i} className="border-b">
-                  <td className="border px-2 py-1">{fk.columns.join(', ')}</td>
-                  <td className="border px-2 py-1">
-                    {`${fk.targetSchema}.${fk.targetTable}.${fk.targetColumns.join(', ')}`}
-                  </td>
+                  <td className="border px-2 py-1">{fkLocalCell(fk)}</td>
+                  <td className="border px-2 py-1">{fkTargetCell(fk)}</td>
                 </tr>
               ))}
             </tbody>

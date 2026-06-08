@@ -175,4 +175,79 @@ describe('buildTableDocXlsxBlob', () => {
     })
     expect(blob).toBeInstanceOf(Blob)
   })
+
+  it('de-duplicates colliding sheet names without throwing', () => {
+    const collidingModel: TableDocModel = {
+      tables: [
+        // (a) cross-schema same table name -> both want sheet "users".
+        { id: 'public.users', schema: 'public', name: 'users', note: '', columns: [], fkTargets: [] },
+        { id: 'audit.users', schema: 'audit', name: 'users', note: '', columns: [], fkTargets: [] },
+        // (b) two names sharing the first 31 chars after the clamp.
+        {
+          id: 'public.really_long_shared_prefix_alpha',
+          schema: 'public',
+          name: 'really_long_shared_prefix_aaaaaaaaaa_alpha',
+          note: '',
+          columns: [],
+          fkTargets: [],
+        },
+        {
+          id: 'public.really_long_shared_prefix_beta',
+          schema: 'public',
+          name: 'really_long_shared_prefix_aaaaaaaaaa_beta',
+          note: '',
+          columns: [],
+          fkTargets: [],
+        },
+      ],
+      enums: [],
+    }
+    expect(() => buildTableDocXlsxBlob(collidingModel)).not.toThrow()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sheetNames = (bookAppendSheet.mock.calls as any[]).map((c) => c[2] as string)
+    // All distinct, all within the 31-char limit.
+    expect(new Set(sheetNames).size).toBe(sheetNames.length)
+    for (const name of sheetNames) {
+      expect(name.length).toBeLessThanOrEqual(31)
+    }
+    expect(sheetNames[0]).toBe('users')
+    expect(sheetNames[1]).toBe('users~2')
+  })
+
+  it('returns a valid workbook for an empty model (always-present Enums sheet)', () => {
+    const emptyModel: TableDocModel = { tables: [], enums: [] }
+    let blob!: Blob
+    expect(() => {
+      blob = buildTableDocXlsxBlob(emptyModel)
+    }).not.toThrow()
+    // The Enums sheet is always appended, so the workbook is never zero-sheet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sheetNames = (bookAppendSheet.mock.calls as any[]).map((c) => c[2] as string)
+    expect(sheetNames).toEqual(['Enums'])
+    expect(blob).toBeInstanceOf(Blob)
+  })
+
+  it('produces a header-only sheet for a table with zero columns', () => {
+    const emptyColsModel: TableDocModel = {
+      tables: [
+        { id: 'public.blank', schema: 'public', name: 'blank', note: '', columns: [], fkTargets: [] },
+      ],
+      enums: [],
+    }
+    buildTableDocXlsxBlob(emptyColsModel)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const firstAoa = (aoaToSheet.mock.calls as any)[0][0] as unknown[][]
+    // Header row only — no body rows.
+    expect(firstAoa).toHaveLength(1)
+    expect(firstAoa[0]).toEqual([
+      '컬럼명',
+      '데이터타입',
+      'PK',
+      'FK',
+      'NN',
+      'UNIQUE',
+      '기본값',
+      '설명',
+    ])
+  })
 })

@@ -132,8 +132,9 @@ describe('buildTableDocPdfBlob', () => {
     buildTableDocPdfBlob(model)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fkOpts = (autoTable.mock.calls as any)[1][1]
-    expect(fkOpts.head).toEqual([['컬럼', '참조 테이블', '참조 컬럼']])
-    expect(fkOpts.body).toEqual([['org_id', 'public.orgs', 'id']])
+    expect(fkOpts.head).toEqual([['컬럼', '참조']])
+    // Target columns grouped under the target table.
+    expect(fkOpts.body).toEqual([['org_id', 'public.orgs(id)']])
   })
 
   it('chains each section below the previous one (startY grows)', () => {
@@ -159,5 +160,76 @@ describe('buildTableDocPdfBlob', () => {
     const blob = buildTableDocPdfBlob(model)
     expect(fakeDoc.output).toHaveBeenCalledWith('blob')
     expect(blob).toBeInstanceOf(Blob)
+  })
+
+  it('groups composite-FK target columns under the target table', () => {
+    const compositeModel: TableDocModel = {
+      tables: [
+        {
+          id: 'public.memberships',
+          schema: 'public',
+          name: 'memberships',
+          note: '',
+          columns: [],
+          fkTargets: [
+            {
+              columns: ['org_id', 'user_id'],
+              targetTable: 'org_users',
+              targetSchema: 'public',
+              targetColumns: ['org_id', 'user_id'],
+            },
+          ],
+        },
+      ],
+      enums: [],
+    }
+    buildTableDocPdfBlob(compositeModel)
+    // calls: column autoTable, FK autoTable, enum autoTable
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fkOpts = (autoTable.mock.calls as any)[1][1]
+    expect(fkOpts.body).toEqual([
+      ['org_id, user_id', 'public.org_users(org_id, user_id)'],
+    ])
+  })
+
+  it('renders an empty body for a table with zero columns', () => {
+    const emptyColsModel: TableDocModel = {
+      tables: [
+        {
+          id: 'public.blank',
+          schema: 'public',
+          name: 'blank',
+          note: '',
+          columns: [],
+          fkTargets: [],
+        },
+      ],
+      enums: [],
+    }
+    buildTableDocPdfBlob(emptyColsModel)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const colOpts = (autoTable.mock.calls as any)[0][1]
+    expect(colOpts.body).toEqual([])
+  })
+
+  it('runs only the enum autoTable when there are zero tables', () => {
+    const enumOnlyModel: TableDocModel = {
+      tables: [],
+      enums: [
+        {
+          id: 'public.role',
+          schema: 'public',
+          name: 'role',
+          note: '',
+          values: [{ name: 'admin', note: '' }],
+        },
+      ],
+    }
+    buildTableDocPdfBlob(enumOnlyModel)
+    expect(autoTable).toHaveBeenCalledTimes(1)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enumOpts = (autoTable.mock.calls as any)[0][1]
+    expect(enumOpts.head).toEqual([['Enum', '값', '설명']])
+    expect(enumOpts.body).toEqual([['public.role', 'admin', '']])
   })
 })
