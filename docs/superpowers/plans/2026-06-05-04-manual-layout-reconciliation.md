@@ -2371,11 +2371,13 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
     // Place `posts` at a distinctive manual position far from any dagre slot.
     await dragNode(page, 'public.posts', 260, 220)
-    const placedBody = await waitForAutosavePatch(page, projectId)
-    const placedPosts = placedBody.layout?.positions?.['public.posts']
-    expect(placedPosts).toBeTruthy()
-    const placedX = placedPosts!.x
-    const placedY = placedPosts!.y
+    await waitForAutosavePatch(page, projectId)
+    // Capture the on-screen position of the manually-placed `posts` node. The
+    // renamed node must NOT end up here. (We read the rendered transform, not
+    // the PATCH body, because a dbml-only rename never calls onLayoutChange and
+    // so never pushes the new node into the persisted positions — mirrors the
+    // add-table test's invariant.)
+    const draggedPostsPos = await transformOf(page, 'public.posts')
 
     // Rename `posts` -> `articles` in the DBML (keep the ref valid).
     const renamedDbml = [
@@ -2397,25 +2399,31 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
       page.locator('.react-flow__node[data-id="public.posts"]'),
     ).toHaveCount(0)
 
-    // The rename is a dbml change -> autosave fires; inspect the layout.
-    const renameBody = await waitForAutosavePatch(page, projectId)
-    const positions = renameBody.layout?.positions ?? {}
+    // The rename is a dbml change -> autosave fires; wait for it as a settle
+    // point. Its body carries the orphan `public.posts` entry (the new node is
+    // never pushed into positions state), so we do NOT read the new node's
+    // coord from the PATCH body.
+    await waitForAutosavePatch(page, projectId)
 
-    // `articles` is treated as a brand-new node (no stored entry under the new
-    // id), so it is dagre-placed — it must NOT inherit the old manual coord.
-    const articles = positions['public.articles']
-    expect(articles).toBeTruthy()
-    const movedFarFromOldManual =
-      Math.abs(articles!.x - placedX) + Math.abs(articles!.y - placedY)
-    expect(movedFarFromOldManual).toBeGreaterThan(50)
-
-    // It also got a sensible auto position (not stacked at origin).
+    // ADR-0004 on-screen: `articles` is treated as a brand-new node (no stored
+    // entry under the new id), so reconcile dagre-places it. Prove it LOST the
+    // old manual position by comparing rendered transforms within this one
+    // viewport state — `articles` must be far from where the dragged `posts`
+    // sat, and not stacked at origin.
     const articlesScreen = await transformOf(page, 'public.articles')
-    expect(Math.abs(articlesScreen.x) + Math.abs(articlesScreen.y)).toBeGreaterThan(1)
+    expect(
+      Math.abs(articlesScreen.x) + Math.abs(articlesScreen.y),
+    ).toBeGreaterThan(1)
+    const movedFarFromOldManual =
+      Math.abs(articlesScreen.x - draggedPostsPos.x) +
+      Math.abs(articlesScreen.y - draggedPostsPos.y)
+    expect(movedFarFromOldManual).toBeGreaterThan(50)
   })
 ```
 
-> **Why this proves ADR-0004 with no special-case code:** `schemaToFlow` ids the renamed table `public.articles`; the stored entry is keyed `public.posts`. Reconcile finds no `stored["public.articles"]`, classifies it UNPOSITIONED, and dagre-places it. The orphan `public.posts` entry is silently ignored (Plan 4 does not prune). The assertion that `articles` is >50px from the old manual coord is the observable signature of "rename = new node, position lost."
+> **Why this proves ADR-0004 with no special-case code:** `schemaToFlow` ids the renamed table `public.articles`; the stored entry is keyed `public.posts`. Reconcile finds no `stored["public.articles"]`, classifies it UNPOSITIONED, and dagre-places it. The orphan `public.posts` entry is silently ignored (Plan 4 does not prune). The assertion that `articles`'s rendered transform is >50px from where the dragged `posts` sat is the observable signature of "rename = new node, position lost."
+>
+> **Why verify the renamed node via its rendered transform, not the PATCH body (mirrors Task 16's invariant):** reconcile/parse never calls `onLayoutChange` — that fires only on `onNodeDragStop` and Auto-arrange (Tasks 9–13). A dbml-only rename therefore dagre-places `articles` in the canvas but NEVER pushes it into EditorPage's `positions` state; the rename PATCH body's `layout.positions` carries the orphan `public.posts` entry, not `public.articles`. Reading the new node's coord from the body would assert on `undefined`. The screen-transform comparison is captured within one stable viewport state (a dbml-only re-seed via `setNodes` does NOT re-fit — only Auto-arrange explicitly re-fits), so `draggedPostsPos` and `articlesScreen` share the same viewport transform.
 
 - [ ] **Step 2: Record expected pre-implementation state.** Before Blocks A/B: fails at the post-drag `waitForAutosavePatch` (layout-only skip). After: green.
 
