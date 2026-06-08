@@ -128,6 +128,37 @@ describe('exportDiagram orchestrators', () => {
     expect(filename).toBe('diagram.pdf')
   })
 
+  it('exportDiagramPdf: a tall frame (height > width) selects portrait + swaps page dims', async () => {
+    // Tall capture frame => portrait orientation.
+    computeCaptureFrame.mockReturnValueOnce({
+      imageWidth: 280,
+      imageHeight: 480,
+      transform: 'translate(0px, 0px) scale(1)',
+    })
+    const ctx = makeCtx()
+    await exportDiagramPdf(ctx)
+
+    expect(jsPDFCtor).toHaveBeenCalledWith(
+      expect.objectContaining({ orientation: 'portrait', format: 'a4' }),
+    )
+
+    // Portrait page = 210 x 297 mm; margins 10 => fit box 190 x 277.
+    // ratio = min(190/280, 277/480) = 277/480 ≈ 0.5771; drawH = 480*ratio = 277.
+    const [, , x, y, drawW, drawH] = addImage.mock.calls[0] as [
+      string,
+      string,
+      number,
+      number,
+      number,
+      number,
+    ]
+    expect(drawH).toBeCloseTo(277, 5)
+    expect(drawW).toBeCloseTo(280 * (277 / 480), 5)
+    // Centered on the PORTRAIT page (width 210, height 297).
+    expect(x).toBeCloseTo((210 - drawW) / 2, 5)
+    expect(y).toBeCloseTo((297 - drawH) / 2, 5)
+  })
+
   it('no-ops when the viewport or instance is missing', async () => {
     const ctx: DiagramExportContext = {
       getViewport: () => null,

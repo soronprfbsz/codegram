@@ -6,7 +6,12 @@ export interface CaptureOptions {
   backgroundColor?: string
   /** Output device pixel ratio. Default 2. */
   pixelRatio?: number
-  /** Padding (px) added around the node bounds. Default 40. */
+  /**
+   * RELATIVE margin around the node bounds, as a fraction of the frame, passed
+   * straight to getViewportForBounds (the SINGLE padding source). Default 0.1
+   * (≈10% margin). e.g. 0.1 leaves a 10% gap so the whole diagram is visible
+   * with breathing room and no clipping.
+   */
   padding?: number
 }
 
@@ -25,6 +30,11 @@ export interface CaptureFrame {
  * including off-screen ones — into the export frame. Bounds come from the
  * rf.getNodesBounds INSTANCE method (only getViewportForBounds is imported as
  * a value, to satisfy noUnusedLocals).
+ *
+ * The frame is the node-bounds size (ceil'd) — it is NOT inflated. The margin
+ * is the SINGLE relative `padding` fraction passed to getViewportForBounds,
+ * which scales the content down inside the frame so the whole diagram is
+ * visible with a predictable gap and no clipping.
  */
 export function computeCaptureFrame(
   rf: CaptureInstance,
@@ -32,17 +42,18 @@ export function computeCaptureFrame(
 ): CaptureFrame {
   const nodes = rf.getNodes()
   const bounds = rf.getNodesBounds(nodes)
-  const padding = opts?.padding ?? 40
-  const imageWidth = bounds.width + padding * 2
-  const imageHeight = bounds.height + padding * 2
-  // v12: returns a Viewport {x, y, zoom} and takes a padding arg.
+  const padding = opts?.padding ?? 0.1
+  const imageWidth = Math.ceil(bounds.width)
+  const imageHeight = Math.ceil(bounds.height)
+  // v12: returns a Viewport {x, y, zoom}; the final arg is a RELATIVE padding
+  // fraction — our single margin source (the frame itself is not inflated).
   const { x, y, zoom } = getViewportForBounds(
     bounds,
     imageWidth,
     imageHeight,
     0.5,
     2,
-    0.1,
+    padding,
   )
   return {
     imageWidth,
@@ -54,12 +65,13 @@ export function computeCaptureFrame(
 function captureOptions(frame: CaptureFrame, opts?: CaptureOptions) {
   return {
     backgroundColor: opts?.backgroundColor ?? '#ffffff',
+    // Top-level width/height size the capture; html-to-image stamps them as
+    // `${width}px` on the clone, so the manual style only carries the transform
+    // (a unitless style.width/height like "480" would be rejected by the browser).
     width: frame.imageWidth,
     height: frame.imageHeight,
     pixelRatio: opts?.pixelRatio ?? 2,
     style: {
-      width: String(frame.imageWidth),
-      height: String(frame.imageHeight),
       transform: frame.transform,
     },
     filter: (node: HTMLElement) =>
