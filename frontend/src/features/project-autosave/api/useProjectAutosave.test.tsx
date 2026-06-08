@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
+import type { StoredLayout } from '@/entities/layout'
 
 const mutateMock = vi.fn()
 
@@ -154,11 +155,11 @@ describe('useProjectAutosave', () => {
   })
 
   it('saves on a layout-only change (dbmlText unchanged) when layout diverges from its baseline', () => {
-    const seed = { version: 1, positions: { 'public.users': { x: 0, y: 0 } } }
-    const moved = { version: 1, positions: { 'public.users': { x: 320, y: 80 } } }
+    const seed: StoredLayout = { version: 1, positions: { 'public.users': { x: 0, y: 0 } } }
+    const moved: StoredLayout = { version: 1, positions: { 'public.users': { x: 320, y: 80 } } }
 
     const { rerender } = renderHook(
-      ({ layout }: { layout: Record<string, unknown> }) =>
+      ({ layout }: { layout: StoredLayout }) =>
         useProjectAutosave({
           projectId: 'p-1',
           dbmlText: 'table users {}',
@@ -187,12 +188,12 @@ describe('useProjectAutosave', () => {
   })
 
   it('does NOT save when layout is re-seeded equal to its baseline (project re-seed)', () => {
-    const seed = { version: 1, positions: { 'public.users': { x: 10, y: 10 } } }
+    const seed: StoredLayout = { version: 1, positions: { 'public.users': { x: 10, y: 10 } } }
     // A NEW object with identical content (mimics a query-cache update on reload).
-    const reseed = JSON.parse(JSON.stringify(seed)) as Record<string, unknown>
+    const reseed = JSON.parse(JSON.stringify(seed)) as StoredLayout
 
     const { rerender } = renderHook(
-      ({ layout }: { layout: Record<string, unknown> }) =>
+      ({ layout }: { layout: StoredLayout }) =>
         useProjectAutosave({
           projectId: 'p-1',
           dbmlText: 'table users {}',
@@ -215,7 +216,7 @@ describe('useProjectAutosave', () => {
     // No layoutBaseline => layout changes must NOT trigger a save on their own
     // (only dbml edits do); guards against an inline-object infinite save loop.
     const { rerender } = renderHook(
-      ({ layout }: { layout: Record<string, unknown> }) =>
+      ({ layout }: { layout: StoredLayout }) =>
         useProjectAutosave({
           projectId: 'p-1',
           dbmlText: 'seeded',

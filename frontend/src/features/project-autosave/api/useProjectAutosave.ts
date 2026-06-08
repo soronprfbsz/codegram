@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDebouncedCallback } from '@/shared/hooks/useDebounce'
 import { useUpdateProject } from '@/entities/project'
+import type { StoredLayout } from '@/entities/layout'
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 interface UseProjectAutosaveOptions {
   projectId: string
   dbmlText: string
-  layout?: Record<string, unknown>
+  layout?: StoredLayout
   /**
    * The last server-seeded value. Autosave never fires while dbmlText still
    * equals the baseline, so opening a project (the seed) and re-seeding on a
@@ -19,7 +20,7 @@ interface UseProjectAutosaveOptions {
    * dbmlText unchanged) saves only when the serialized layout diverges from
    * this baseline, so the layout seed and a project re-seed never PATCH.
    */
-  layoutBaseline?: Record<string, unknown>
+  layoutBaseline?: StoredLayout
   delayMs?: number
 }
 
@@ -68,7 +69,7 @@ export function useProjectAutosave({
   const debouncedSave = useDebouncedCallback(() => {
     setStatus('saving')
     updateMutation.mutate(
-      { dbml_text: dbmlText, layout },
+      { dbml_text: dbmlText, layout: layout as Record<string, unknown> | undefined },
       {
         onSuccess: () => {
           if (aliveRef.current) {

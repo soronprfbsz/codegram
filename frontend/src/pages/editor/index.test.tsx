@@ -157,7 +157,7 @@ describe('EditorPage', () => {
         layout: {
           version: 1,
           positions: { 'public.users': { x: 320, y: 80 } },
-        },
+        } as Record<string, unknown>,
         created_at: '2026-06-05T00:00:00Z',
         updated_at: '2026-06-05T00:00:00Z',
       },
@@ -193,7 +193,7 @@ describe('EditorPage', () => {
         user_id: 'u-1',
         name: 'My Project',
         dbml_text: 'Table users {\n  id int [pk]\n}',
-        layout: { version: 1, positions: { 'public.users': { x: 1, y: 2 } } },
+        layout: { version: 1, positions: { 'public.users': { x: 1, y: 2 } } } as Record<string, unknown>,
         created_at: '2026-06-05T00:00:00Z',
         updated_at: '2026-06-05T00:00:00Z',
       },
