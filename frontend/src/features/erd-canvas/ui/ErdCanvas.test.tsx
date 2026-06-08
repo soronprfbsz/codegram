@@ -58,6 +58,17 @@ const schema: DbmlSchema = {
 }
 
 describe('ErdCanvas', () => {
+  it('renders nodes with savedPositions provided (reconcile path) without crashing', async () => {
+    const savedPositions = {
+      'public.users': { x: 320, y: 80 },
+      'public.posts': { x: 320, y: 360 },
+    }
+    render(<ErdCanvas schema={schema} savedPositions={savedPositions} />)
+    // Reconcile + render must still produce both table labels.
+    expect(await screen.findByText('users')).toBeInTheDocument()
+    expect(screen.getByText('posts')).toBeInTheDocument()
+  })
+
   it('renders a React Flow node per table for a valid schema', async () => {
     const { container } = render(<ErdCanvas schema={schema} />)
     // React Flow renders each node in the `nodes` array as a

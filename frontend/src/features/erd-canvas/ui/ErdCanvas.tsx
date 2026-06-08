@@ -1,15 +1,22 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
   Background,
   Controls,
+  useNodesState,
   type NodeTypes,
   type EdgeTypes,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { DbmlSchema } from '@/entities/dbml'
-import { schemaToFlow, autoLayout } from '@/entities/erd'
+import { schemaToFlow, type ErdFlowNode } from '@/entities/erd'
+import {
+  reconcileLayout,
+  nodesToLayout,
+  type LayoutPositions,
+  type StoredLayout,
+} from '@/entities/layout'
 import { TableNode } from './TableNode'
 import { EnumNode } from './EnumNode'
 import { StickyNote } from './StickyNote'
@@ -19,6 +26,10 @@ import { RelationEdge } from './RelationEdge'
 export interface ErdCanvasProps {
   /** The normalized schema to render (parse.schema ?? parse.lastValidSchema). */
   schema?: DbmlSchema
+  /** Persisted positions to reconcile in (project.layout.positions). */
+  savedPositions?: LayoutPositions
+  /** Fired on drag-stop (and Auto-arrange) with the FULL layout to persist. */
+  onLayoutChange?: (layout: StoredLayout) => void
 }
 
 /**
@@ -46,19 +57,50 @@ const edgeTypes: EdgeTypes = {
   relation: RelationEdge,
 }
 
-function ErdCanvasInner({ schema }: ErdCanvasProps) {
-  // STABLE structural signature (NOT the schema object identity) so a no-op
-  // edit does not re-run schemaToFlow + dagre and re-fit the viewport.
+function ErdCanvasInner({ schema, savedPositions, onLayoutChange }: ErdCanvasProps) {
+  // STABLE structural signature (NOT schema identity) so a no-op edit does
+  // not re-run schemaToFlow + reconcile and re-seed the nodes.
   const schemaKey = useMemo(() => schemaSignature(schema), [schema])
+  // STABLE serialized positions key so an unstable savedPositions identity
+  // does NOT re-run reconcile and clobber an in-flight drag.
+  const positionsKey = useMemo(
+    () => JSON.stringify(savedPositions ?? {}),
+    [savedPositions],
+  )
 
-  // Pure adapter + dagre layout, recomputed only when the structural signature
-  // changes. No persistence in 3b — positions are auto-computed and never
-  // saved (that is Plan 4). Intentionally keyed on schemaKey, not schema.
-  const { nodes, edges } = useMemo(() => {
-    if (!schema) return { nodes: [], edges: [] }
-    const flow = schemaToFlow(schema)
-    return { nodes: autoLayout(flow.nodes, flow.edges), edges: flow.edges }
-  }, [schemaKey])
+  // Compute schemaToFlow ONCE per structural change; share its nodes+edges.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const flow = useMemo(
+    () => (schema ? schemaToFlow(schema) : { nodes: [], edges: [] }),
+    [schemaKey],
+  )
+
+  // Reconcile saved positions into freshly-parsed nodes (Block A, by node id).
+  // Keyed on schemaKey + positionsKey only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const reconciledNodes = useMemo(() => {
+    const next = reconcileLayout(flow.nodes, flow.edges, savedPositions ?? {})
+    // Group containers are layout output (position + size recomputed each
+    // parse); Plan 4 never persists them, so they must not be dragged.
+    return next.map((n) =>
+      n.type === 'group' ? { ...n, draggable: false } : n,
+    )
+  }, [flow, positionsKey])
+
+  const edges = useMemo(() => flow.edges, [flow])
+
+  const [nodes, setNodes, onNodesChange] = useNodesState<ErdFlowNode>([])
+
+  // Push reconciled nodes into state ONLY when the derived input changes —
+  // NOT every render. useNodesState preserves live drags across unrelated
+  // re-renders; this effect re-seeds only on a real schema/positions change.
+  useEffect(() => {
+    setNodes(reconciledNodes)
+  }, [reconciledNodes, setNodes])
+
+  // Read the LATEST nodes at drag-stop without a stale closure.
+  const nodesRef = useRef(nodes)
+  nodesRef.current = nodes
 
   return (
     <ReactFlow
@@ -66,6 +108,8 @@ function ErdCanvasInner({ schema }: ErdCanvasProps) {
       edges={edges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
+      onNodesChange={onNodesChange}
+      onNodeDragStop={() => onLayoutChange?.(nodesToLayout(nodesRef.current))}
       nodesConnectable={false}
       deleteKeyCode={null}
       fitView
@@ -87,7 +131,7 @@ function ErdCanvasInner({ schema }: ErdCanvasProps) {
  * features layer: depends on shared + entities/dbml + entities/erd +
  * @xyflow/react (FSD downward imports).
  */
-export function ErdCanvas({ schema }: ErdCanvasProps) {
+export function ErdCanvas({ schema, savedPositions, onLayoutChange }: ErdCanvasProps) {
   if (!schema || schema.tables.length === 0) {
     return (
       <div
@@ -101,7 +145,11 @@ export function ErdCanvas({ schema }: ErdCanvasProps) {
   return (
     <div data-testid="erd-canvas" className="h-full w-full rounded border">
       <ReactFlowProvider>
-        <ErdCanvasInner schema={schema} />
+        <ErdCanvasInner
+          schema={schema}
+          savedPositions={savedPositions}
+          onLayoutChange={onLayoutChange}
+        />
       </ReactFlowProvider>
     </div>
   )
