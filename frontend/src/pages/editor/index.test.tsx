@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EditorPage } from './index'
 import * as project from '@/entities/project'
 import * as autosave from '@/features/project-autosave'
+import * as canvas from '@/features/erd-canvas'
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -144,5 +145,69 @@ describe('EditorPage', () => {
 
     renderEditor()
     expect(screen.getByText(/project not found/i)).toBeInTheDocument()
+  })
+
+  it('seeds layout from project.layout.positions into the autosave layout', () => {
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        name: 'My Project',
+        dbml_text: 'Table users {\n  id int [pk]\n}',
+        layout: {
+          version: 1,
+          positions: { 'public.users': { x: 320, y: 80 } },
+        },
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof project.useProject>)
+
+    renderEditor()
+
+    const lastCall = autosaveSpy.mock.calls.at(-1)?.[0] as {
+      layout?: { version: number; positions: Record<string, unknown> }
+      layoutBaseline?: { version: number; positions: Record<string, unknown> }
+    }
+    expect(lastCall.layout).toEqual({
+      version: 1,
+      positions: { 'public.users': { x: 320, y: 80 } },
+    })
+    expect(lastCall.layoutBaseline).toEqual({
+      version: 1,
+      positions: { 'public.users': { x: 320, y: 80 } },
+    })
+  })
+
+  it('passes savedPositions + onLayoutChange to the ERD canvas', () => {
+    // Spy the ErdCanvas to capture the props EditorPage threads to it.
+    const erdSpy = vi
+      .spyOn(canvas, 'ErdCanvas')
+      .mockReturnValue(<div data-testid="erd-canvas-stub" />)
+
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        name: 'My Project',
+        dbml_text: 'Table users {\n  id int [pk]\n}',
+        layout: { version: 1, positions: { 'public.users': { x: 1, y: 2 } } },
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof project.useProject>)
+
+    renderEditor()
+
+    const props = erdSpy.mock.calls.at(-1)?.[0] as {
+      savedPositions?: Record<string, unknown>
+      onLayoutChange?: (l: unknown) => void
+    }
+    expect(props.savedPositions).toEqual({ 'public.users': { x: 1, y: 2 } })
+    expect(typeof props.onLayoutChange).toBe('function')
   })
 })

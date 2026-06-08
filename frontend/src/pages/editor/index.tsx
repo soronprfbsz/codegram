@@ -13,6 +13,7 @@ import {
   useDbmlParse,
 } from '@/features/dbml-editor'
 import { ErdCanvas } from '@/features/erd-canvas'
+import { useLayoutPersistence } from '@/features/layout-persistence'
 
 const statusLabel: Record<AutosaveStatus, string> = {
   idle: 'All changes saved',
@@ -41,7 +42,22 @@ export function EditorPage() {
   const [dbmlText, setDbmlText] = useState('')
   // The last server-seeded value; autosave skips while dbmlText still equals it.
   const [baseline, setBaseline] = useState('')
-  const { status } = useProjectAutosave({ projectId: id, dbmlText, baseline })
+  // Live positions seeded from project.layout, re-seeded on a project switch.
+  // Pass the LOADED project's id (project?.id), NOT the URL param `id`: the
+  // hook keys its seed effect on this so the undefined -> id transition (the
+  // project finishing loading) fires the seed and restores saved positions.
+  // Using the always-stable URL param would mean the seed never re-runs after
+  // load, leaving saved positions unrestored. (Mirrors the dbml seed below,
+  // which is also keyed on project?.id.)
+  const { positions, setPositions, layout, layoutBaseline } =
+    useLayoutPersistence({ projectId: project?.id, projectLayout: project?.layout })
+  const { status } = useProjectAutosave({
+    projectId: id,
+    dbmlText,
+    baseline,
+    layout,
+    layoutBaseline,
+  })
   // Live, debounced parse of the editor text into the normalized model.
   const parse = useDbmlParse(dbmlText)
 
@@ -95,7 +111,11 @@ export function EditorPage() {
           </div>
           <div className="flex flex-1 flex-col gap-4 lg:flex-row">
             <div className="h-[60vh] flex-1">
-              <ErdCanvas schema={parse.schema ?? parse.lastValidSchema} />
+              <ErdCanvas
+                schema={parse.schema ?? parse.lastValidSchema}
+                savedPositions={positions}
+                onLayoutChange={(next) => setPositions(next.positions)}
+              />
             </div>
             <aside className="flex flex-col gap-4 lg:w-72">
               <ParseErrorPanel status={parse.status} errors={parse.errors} />
