@@ -9,6 +9,7 @@ import {
   useReactFlow,
   type NodeTypes,
   type EdgeTypes,
+  type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { DbmlSchema } from '@/entities/dbml'
@@ -33,6 +34,18 @@ export interface ErdCanvasProps {
   savedPositions?: LayoutPositions
   /** Fired on drag-stop (and Auto-arrange) with the FULL layout to persist. */
   onLayoutChange?: (layout: StoredLayout) => void
+  /**
+   * Fired ONCE after mount with the live capture handle:
+   * - fitView: imperative re-fit (the initial-only fitView prop is not enough)
+   * - getInstance: () => the React Flow instance (getNodes/getNodesBounds)
+   * pages/editor stores these in refs and feeds export-diagram. NEW in Plan 5.
+   */
+  onCaptureReady?: (handle: ErdCaptureHandle) => void
+}
+
+export interface ErdCaptureHandle {
+  fitView: () => void
+  getInstance: () => Pick<ReactFlowInstance, 'getNodes' | 'getNodesBounds'>
 }
 
 /**
@@ -60,7 +73,7 @@ const edgeTypes: EdgeTypes = {
   relation: RelationEdge,
 }
 
-function ErdCanvasInner({ schema, savedPositions, onLayoutChange }: ErdCanvasProps) {
+function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady }: ErdCanvasProps) {
   // STABLE structural signature (NOT schema identity) so a no-op edit does
   // not re-run schemaToFlow + reconcile and re-seed the nodes.
   const schemaKey = useMemo(() => schemaSignature(schema), [schema])
@@ -105,7 +118,19 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange }: ErdCanvasPro
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
 
-  const { fitView } = useReactFlow()
+  const rf = useReactFlow()
+  const { fitView } = rf
+
+  // Surface the capture handle to pages/editor exactly once the instance is
+  // live. getInstance returns a closure over rf; pages/editor reads the viewport
+  // ELEMENT via its own wrapper ref (not through this handle). NEW in Plan 5.
+  // The fired flag ensures the callback fires only once even if deps change.
+  const captureReadyFiredRef = useRef(false)
+  useEffect(() => {
+    if (captureReadyFiredRef.current) return
+    captureReadyFiredRef.current = true
+    onCaptureReady?.({ fitView, getInstance: () => rf })
+  }, [fitView, rf, onCaptureReady])
 
   function handleAutoArrange() {
     // Discard ALL saved positions: reconcile with an EMPTY set => pure dagre.
@@ -154,7 +179,7 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange }: ErdCanvasPro
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-export function ErdCanvas({ schema, savedPositions, onLayoutChange }: ErdCanvasProps) {
+export function ErdCanvas({ schema, savedPositions, onLayoutChange, onCaptureReady }: ErdCanvasProps) {
   if (!schema || schema.tables.length === 0) {
     return (
       <div
@@ -172,6 +197,7 @@ export function ErdCanvas({ schema, savedPositions, onLayoutChange }: ErdCanvasP
           schema={schema}
           savedPositions={savedPositions}
           onLayoutChange={onLayoutChange}
+          onCaptureReady={onCaptureReady}
         />
       </ReactFlowProvider>
     </div>
