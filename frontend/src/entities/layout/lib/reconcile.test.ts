@@ -15,6 +15,15 @@ function tableNode(id: string, parentId?: string): ErdFlowNode {
   return node
 }
 
+function groupNode(id: string): ErdFlowNode {
+  return {
+    id,
+    type: 'group',
+    position: { x: 0, y: 0 },
+    data: { groupName: id },
+  }
+}
+
 function relEdge(source: string, target: string): ErdFlowEdge {
   return {
     id: `${source}->${target}`,
@@ -106,5 +115,67 @@ describe('reconcileLayout (ADR-0004 id semantics)', () => {
     expect(out.find((n) => n.id === 'public.deleted_table')).toBeUndefined()
     // Present node still honored its stored entry.
     expect(out[0].position).toEqual({ x: 320, y: 80 })
+  })
+})
+
+describe('reconcileLayout (grouped-member frame guard)', () => {
+  it('keeps a stored RELATIVE position when parentId matches', () => {
+    const nodes = [
+      groupNode('group:core'),
+      tableNode('public.users', 'group:core'),
+      tableNode('public.posts', 'group:core'),
+    ]
+    const edges = [relEdge('public.users', 'public.posts')]
+    const stored: LayoutPositions = {
+      'public.users': { x: 24, y: 12, parentId: 'group:core' },
+    }
+    const out = reconcileLayout(nodes, edges, stored)
+    const users = out.find((n) => n.id === 'public.users')!
+    // Frame matches -> stored RELATIVE coords kept verbatim (before group refit
+    // re-bases; with the single member at the top-left after refit it stays put).
+    expect(users.position).toEqual({ x: 24, y: 12 })
+  })
+
+  it('drops a stored position when the node moved to a DIFFERENT group', () => {
+    const nodes = [
+      groupNode('group:core'),
+      groupNode('group:billing'),
+      tableNode('public.users', 'group:billing'), // now under a different group
+    ]
+    const edges: ErdFlowEdge[] = []
+    const stored: LayoutPositions = {
+      'public.users': { x: 24, y: 12, parentId: 'group:core' }, // saved under the OLD group
+    }
+    const out = reconcileLayout(nodes, edges, stored)
+    const users = out.find((n) => n.id === 'public.users')!
+    // parentId mismatch -> stale frame -> dagre, NOT the stored (24,12).
+    expect(users.position).not.toEqual({ x: 24, y: 12 })
+  })
+
+  it('drops a stored UNGROUPED position when the node became grouped', () => {
+    const nodes = [
+      groupNode('group:core'),
+      tableNode('public.users', 'group:core'), // now grouped
+    ]
+    const edges: ErdFlowEdge[] = []
+    const stored: LayoutPositions = {
+      'public.users': { x: 320, y: 80 }, // saved while ungrouped (no parentId)
+    }
+    const out = reconcileLayout(nodes, edges, stored)
+    const users = out.find((n) => n.id === 'public.users')!
+    // stored.parentId undefined but node.parentId='group:core' -> mismatch -> dagre.
+    expect(users.position).not.toEqual({ x: 320, y: 80 })
+  })
+
+  it('drops a stored GROUPED position when the node became ungrouped', () => {
+    const nodes = [tableNode('public.users')] // no parentId now
+    const edges: ErdFlowEdge[] = []
+    const stored: LayoutPositions = {
+      'public.users': { x: 24, y: 12, parentId: 'group:core' }, // saved while grouped
+    }
+    const out = reconcileLayout(nodes, edges, stored)
+    const users = out.find((n) => n.id === 'public.users')!
+    // node.parentId undefined but stored.parentId set -> mismatch -> dagre.
+    expect(users.position).not.toEqual({ x: 24, y: 12 })
   })
 })
