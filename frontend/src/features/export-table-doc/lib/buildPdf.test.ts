@@ -1,0 +1,157 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { TableDocModel } from '@/entities/table-doc'
+
+// A fake jsPDF doc: records text() calls and advances lastAutoTable.finalY
+// each time the mocked autoTable runs, so section chaining is observable.
+interface FakeDoc {
+  text: ReturnType<typeof vi.fn>
+  output: ReturnType<typeof vi.fn>
+  lastAutoTable: { finalY: number }
+  internal: { pageSize: { getWidth: () => number; getHeight: () => number } }
+}
+
+let fakeDoc: FakeDoc
+const jsPDFCtor = vi.fn(() => fakeDoc)
+const autoTable = vi.fn((doc: FakeDoc) => {
+  // Each table advances the cursor by a fixed amount so startY strictly grows.
+  doc.lastAutoTable = { finalY: doc.lastAutoTable.finalY + 50 }
+})
+
+vi.mock('jspdf', () => ({
+  jsPDF: function (...args: unknown[]) {
+    return jsPDFCtor(...args)
+  },
+}))
+vi.mock('jspdf-autotable', () => ({
+  default: (...args: [FakeDoc, Record<string, unknown>]) => autoTable(...args),
+}))
+
+import { buildTableDocPdfBlob } from './buildPdf'
+
+const model: TableDocModel = {
+  tables: [
+    {
+      id: 'public.users',
+      schema: 'public',
+      name: 'users',
+      note: 'app users',
+      columns: [
+        {
+          name: 'id',
+          type: 'integer',
+          pk: true,
+          fk: false,
+          notNull: true,
+          unique: false,
+          default: '',
+          note: 'primary key',
+        },
+        {
+          name: 'org_id',
+          type: 'integer',
+          pk: false,
+          fk: true,
+          notNull: true,
+          unique: false,
+          default: '',
+          note: '',
+        },
+      ],
+      fkTargets: [
+        {
+          columns: ['org_id'],
+          targetTable: 'orgs',
+          targetSchema: 'public',
+          targetColumns: ['id'],
+        },
+      ],
+    },
+    {
+      id: 'public.orgs',
+      schema: 'public',
+      name: 'orgs',
+      note: '',
+      columns: [
+        {
+          name: 'id',
+          type: 'integer',
+          pk: true,
+          fk: false,
+          notNull: true,
+          unique: false,
+          default: '',
+          note: '',
+        },
+      ],
+      fkTargets: [],
+    },
+  ],
+  enums: [
+    {
+      id: 'public.role',
+      schema: 'public',
+      name: 'role',
+      note: '',
+      values: [{ name: 'admin', note: 'super user' }],
+    },
+  ],
+}
+
+describe('buildTableDocPdfBlob', () => {
+  beforeEach(() => {
+    fakeDoc = {
+      text: vi.fn(),
+      output: vi.fn(() => new Blob(['pdf'], { type: 'application/pdf' })),
+      lastAutoTable: { finalY: 10 },
+      internal: {
+        pageSize: { getWidth: () => 210, getHeight: () => 297 },
+      },
+    }
+    jsPDFCtor.mockClear()
+    autoTable.mockClear()
+  })
+
+  it('renders one column autoTable per table with the standard header', () => {
+    buildTableDocPdfBlob(model)
+    // 2 tables (column tables) + 1 FK table + 1 enum table = 4 autoTable calls.
+    expect(autoTable).toHaveBeenCalledTimes(4)
+    const firstOpts = autoTable.mock.calls[0][1]
+    expect(firstOpts.head).toEqual([
+      ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
+    ])
+    expect(firstOpts.body).toEqual([
+      ['id', 'integer', 'Y', '', 'Y', '', '', 'primary key'],
+      ['org_id', 'integer', '', 'Y', 'Y', '', '', ''],
+    ])
+  })
+
+  it('renders an FK autoTable for the table that has fkTargets', () => {
+    buildTableDocPdfBlob(model)
+    const fkOpts = autoTable.mock.calls[1][1]
+    expect(fkOpts.head).toEqual([['컬럼', '참조 테이블', '참조 컬럼']])
+    expect(fkOpts.body).toEqual([['org_id', 'public.orgs', 'id']])
+  })
+
+  it('chains each section below the previous one (startY grows)', () => {
+    buildTableDocPdfBlob(model)
+    const startYs = autoTable.mock.calls.map(
+      (c) => c[1].startY as number,
+    )
+    for (let i = 1; i < startYs.length; i++) {
+      expect(startYs[i]).toBeGreaterThan(startYs[i - 1])
+    }
+  })
+
+  it('renders a final enum autoTable', () => {
+    buildTableDocPdfBlob(model)
+    const enumOpts = autoTable.mock.calls.at(-1)![1]
+    expect(enumOpts.head).toEqual([['Enum', '값', '설명']])
+    expect(enumOpts.body).toEqual([['public.role', 'admin', 'super user']])
+  })
+
+  it('returns the jsPDF blob output', () => {
+    const blob = buildTableDocPdfBlob(model)
+    expect(fakeDoc.output).toHaveBeenCalledWith('blob')
+    expect(blob).toBeInstanceOf(Blob)
+  })
+})
