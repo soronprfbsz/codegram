@@ -4,7 +4,9 @@ import {
   ReactFlowProvider,
   Background,
   Controls,
+  Panel,
   useNodesState,
+  useReactFlow,
   type NodeTypes,
   type EdgeTypes,
 } from '@xyflow/react'
@@ -17,6 +19,7 @@ import {
   type LayoutPositions,
   type StoredLayout,
 } from '@/entities/layout'
+import { Button } from '@/shared/ui/button'
 import { TableNode } from './TableNode'
 import { EnumNode } from './EnumNode'
 import { StickyNote } from './StickyNote'
@@ -102,6 +105,19 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange }: ErdCanvasPro
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
 
+  const { fitView } = useReactFlow()
+
+  function handleAutoArrange() {
+    // Discard ALL saved positions: reconcile with an EMPTY set => pure dagre.
+    const dagreNodes = reconcileLayout(flow.nodes, flow.edges, {}).map((n) =>
+      n.type === 'group' ? { ...n, draggable: false } : n,
+    )
+    setNodes(dagreNodes)
+    onLayoutChange?.(nodesToLayout(dagreNodes))
+    // Re-fit after measurement lands (v12 fitView is initial-only otherwise).
+    requestAnimationFrame(() => fitView({ padding: 0.1, duration: 200 }))
+  }
+
   return (
     <ReactFlow
       nodes={nodes}
@@ -115,6 +131,11 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange }: ErdCanvasPro
       fitView
       proOptions={{ hideAttribution: true }}
     >
+      <Panel position="top-right">
+        <Button variant="outline" size="sm" onClick={handleAutoArrange}>
+          Auto-arrange
+        </Button>
+      </Panel>
       <Background />
       <Controls showInteractive={false} />
     </ReactFlow>
