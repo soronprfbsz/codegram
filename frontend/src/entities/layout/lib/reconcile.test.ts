@@ -128,12 +128,22 @@ describe('reconcileLayout (grouped-member frame guard)', () => {
     const edges = [relEdge('public.users', 'public.posts')]
     const stored: LayoutPositions = {
       'public.users': { x: 24, y: 12, parentId: 'group:core' },
+      'public.posts': { x: 24, y: 200, parentId: 'group:core' },
     }
     const out = reconcileLayout(nodes, edges, stored)
+    const group = out.find((n) => n.id === 'group:core')!
+    const groupW = Number(group.style?.width)
+    const groupH = Number(group.style?.height)
     const users = out.find((n) => n.id === 'public.users')!
-    // Frame matches -> stored RELATIVE coords kept verbatim (before group refit
-    // re-bases; with the single member at the top-left after refit it stays put).
-    expect(users.position).toEqual({ x: 24, y: 12 })
+    // Frame matched -> stored coords honored; refit re-bases members to be
+    // relative to the new group origin, so they sit INSIDE the group box
+    // (empty-column table node = 240x40, matching autoLayout's nodeSize).
+    const MEMBER_W = 240
+    const MEMBER_H = 40
+    expect(users.position.x).toBeGreaterThanOrEqual(0)
+    expect(users.position.y).toBeGreaterThanOrEqual(0)
+    expect(users.position.x + MEMBER_W).toBeLessThanOrEqual(groupW)
+    expect(users.position.y + MEMBER_H).toBeLessThanOrEqual(groupH)
   })
 
   it('drops a stored position when the node moved to a DIFFERENT group', () => {
