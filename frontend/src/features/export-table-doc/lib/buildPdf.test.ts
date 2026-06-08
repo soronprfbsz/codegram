@@ -18,12 +18,14 @@ const autoTable = vi.fn((doc: FakeDoc) => {
 })
 
 vi.mock('jspdf', () => ({
-  jsPDF: function (...args: unknown[]) {
-    return jsPDFCtor(...args)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  jsPDF: function (...args: any[]) {
+    return (jsPDFCtor as any)(...args)
   },
 }))
 vi.mock('jspdf-autotable', () => ({
-  default: (...args: [FakeDoc, Record<string, unknown>]) => autoTable(...args),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  default: (...args: any[]) => (autoTable as any)(...args),
 }))
 
 import { buildTableDocPdfBlob } from './buildPdf'
@@ -115,7 +117,8 @@ describe('buildTableDocPdfBlob', () => {
     buildTableDocPdfBlob(model)
     // 2 tables (column tables) + 1 FK table + 1 enum table = 4 autoTable calls.
     expect(autoTable).toHaveBeenCalledTimes(4)
-    const firstOpts = autoTable.mock.calls[0][1]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const firstOpts = (autoTable.mock.calls as any)[0][1]
     expect(firstOpts.head).toEqual([
       ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
     ])
@@ -127,15 +130,17 @@ describe('buildTableDocPdfBlob', () => {
 
   it('renders an FK autoTable for the table that has fkTargets', () => {
     buildTableDocPdfBlob(model)
-    const fkOpts = autoTable.mock.calls[1][1]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fkOpts = (autoTable.mock.calls as any)[1][1]
     expect(fkOpts.head).toEqual([['컬럼', '참조 테이블', '참조 컬럼']])
     expect(fkOpts.body).toEqual([['org_id', 'public.orgs', 'id']])
   })
 
   it('chains each section below the previous one (startY grows)', () => {
     buildTableDocPdfBlob(model)
-    const startYs = autoTable.mock.calls.map(
-      (c) => c[1].startY as number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const startYs = (autoTable.mock.calls as any[]).map(
+      (c: any) => c[1].startY as number,
     )
     for (let i = 1; i < startYs.length; i++) {
       expect(startYs[i]).toBeGreaterThan(startYs[i - 1])
@@ -144,7 +149,8 @@ describe('buildTableDocPdfBlob', () => {
 
   it('renders a final enum autoTable', () => {
     buildTableDocPdfBlob(model)
-    const enumOpts = autoTable.mock.calls.at(-1)![1]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enumOpts = ((autoTable.mock.calls as any).at(-1) as any[])[1]
     expect(enumOpts.head).toEqual([['Enum', '값', '설명']])
     expect(enumOpts.body).toEqual([['public.role', 'admin', 'super user']])
   })

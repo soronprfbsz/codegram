@@ -10,11 +10,15 @@ const write = vi.fn(() => new Uint8Array([1, 2, 3]))
 
 vi.mock('xlsx', () => ({
   utils: {
-    aoa_to_sheet: (...args: unknown[]) => aoaToSheet(...args),
-    book_new: (...args: unknown[]) => bookNew(...args),
-    book_append_sheet: (...args: unknown[]) => bookAppendSheet(...args),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    aoa_to_sheet: (...args: any[]) => (aoaToSheet as any)(...args),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    book_new: (...args: any[]) => (bookNew as any)(...args),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    book_append_sheet: (...args: any[]) => (bookAppendSheet as any)(...args),
   },
-  write: (...args: unknown[]) => write(...args),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  write: (...args: any[]) => (write as any)(...args),
 }))
 
 import { buildTableDocXlsxBlob } from './buildXlsx'
@@ -107,7 +111,8 @@ describe('buildTableDocXlsxBlob', () => {
   it('feeds the standard column header + one row per column to aoa_to_sheet', () => {
     buildTableDocXlsxBlob(model)
     // First table sheet: header row then 2 column rows.
-    const firstCall = aoaToSheet.mock.calls[0][0] as unknown[][]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const firstCall = (aoaToSheet.mock.calls as any)[0][0] as unknown[][]
     expect(firstCall[0]).toEqual([
       '컬럼명',
       '데이터타입',
@@ -142,7 +147,8 @@ describe('buildTableDocXlsxBlob', () => {
 
   it('appends one sheet per table plus an Enums sheet, clamping names to 31 chars', () => {
     buildTableDocXlsxBlob(model)
-    const sheetNames = bookAppendSheet.mock.calls.map((c) => c[2] as string)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sheetNames = (bookAppendSheet.mock.calls as any[]).map((c) => c[2] as string)
     expect(sheetNames).toEqual([
       'users',
       'a_table_with_a_really_long_name', // 42 chars clamped to 31
@@ -154,7 +160,8 @@ describe('buildTableDocXlsxBlob', () => {
   it('builds the Enums sheet rows from enum values', () => {
     buildTableDocXlsxBlob(model)
     // The Enums sheet is the LAST aoa_to_sheet call.
-    const enumAoa = aoaToSheet.mock.calls.at(-1)![0] as unknown[][]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const enumAoa = ((aoaToSheet.mock.calls as any).at(-1) as any[])[0] as unknown[][]
     expect(enumAoa[0]).toEqual(['Enum', '값', '설명'])
     expect(enumAoa[1]).toEqual(['public.role', 'admin', 'super user'])
     expect(enumAoa[2]).toEqual(['public.role', 'member', ''])
