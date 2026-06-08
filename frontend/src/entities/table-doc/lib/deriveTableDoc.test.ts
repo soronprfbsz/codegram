@@ -271,6 +271,54 @@ describe('deriveTableDoc — FK derivation by relation (NOT by endpoint order)',
       },
     ])
   })
+
+  it('marks a column that is BOTH pk and fk (flags are independent)', () => {
+    // tenants.id is both the PK of tenants AND the FK side of a ref to orgs.
+    const schema = emptySchema({
+      tables: [
+        table('public', 'orgs', [col('public', 'orgs', 'id', { pk: true })]),
+        table('public', 'tenants', [
+          col('public', 'tenants', 'id', { pk: true }),
+        ]),
+      ],
+      refs: [ref('tenants', ['id'], 'orgs', ['id'], 'n-1')],
+    })
+    const model = deriveTableDoc(schema)
+    const tenants = model.tables.find((t) => t.name === 'tenants')!
+    const idCol = tenants.columns.find((c) => c.name === 'id')!
+
+    // pk comes from the column; fk comes from the ref-derived set — both true.
+    expect(idCol.pk).toBe(true)
+    expect(idCol.fk).toBe(true)
+  })
+
+  it('dedupes the fk flag but emits one fkTarget per ref for a shared column', () => {
+    // posts.author_id is the FK side of TWO refs (to users and to admins).
+    const schema = emptySchema({
+      tables: [
+        table('public', 'users', [col('public', 'users', 'id', { pk: true })]),
+        table('public', 'admins', [col('public', 'admins', 'id', { pk: true })]),
+        table('public', 'posts', [
+          col('public', 'posts', 'id', { pk: true }),
+          col('public', 'posts', 'author_id', { type: 'integer' }),
+        ]),
+      ],
+      refs: [
+        ref('posts', ['author_id'], 'users', ['id'], 'n-1'),
+        ref('posts', ['author_id'], 'admins', ['id'], 'n-1'),
+      ],
+    })
+    const model = deriveTableDoc(schema)
+    const posts = model.tables.find((t) => t.name === 'posts')!
+
+    // A single fk flag on the shared column...
+    expect(posts.columns.find((c) => c.name === 'author_id')!.fk).toBe(true)
+    // ...but one fkTarget entry per ref (no dedupe of targets).
+    expect(posts.fkTargets).toEqual([
+      { columns: ['author_id'], targetTable: 'users', targetSchema: 'public', targetColumns: ['id'] },
+      { columns: ['author_id'], targetTable: 'admins', targetSchema: 'public', targetColumns: ['id'] },
+    ])
+  })
 })
 
 describe('deriveTableDoc — enums and empty schema', () => {

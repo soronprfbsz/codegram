@@ -55,6 +55,10 @@ function fkContributions(ref: DbmlRef): { tableId: string; contribution: FkContr
         { tableId: fromId, contribution: fromHoldsFk },
         { tableId: toId, contribution: toHoldsFk },
       ]
+    default: {
+      const _exhaustive: never = ref.relation
+      throw new Error(`unhandled relation: ${String(_exhaustive)}`)
+    }
   }
 }
 
