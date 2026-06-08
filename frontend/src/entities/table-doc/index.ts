@@ -1,3 +1,4 @@
+export { deriveTableDoc } from './lib/deriveTableDoc'
 export type {
   TableDocColumn,
   TableDocFkTarget,
