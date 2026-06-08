@@ -152,4 +152,85 @@ describe('useProjectAutosave', () => {
     const [payload] = mutateMock.mock.calls[0]
     expect(payload).toEqual({ dbml_text: 'b-text edited', layout: undefined })
   })
+
+  it('saves on a layout-only change (dbmlText unchanged) when layout diverges from its baseline', () => {
+    const seed = { version: 1, positions: { 'public.users': { x: 0, y: 0 } } }
+    const moved = { version: 1, positions: { 'public.users': { x: 320, y: 80 } } }
+
+    const { rerender } = renderHook(
+      ({ layout }: { layout: Record<string, unknown> }) =>
+        useProjectAutosave({
+          projectId: 'p-1',
+          dbmlText: 'table users {}',
+          baseline: 'table users {}', // dbml is at baseline (no text edit)
+          layout,
+          layoutBaseline: seed,
+        }),
+      { initialProps: { layout: seed } },
+    )
+
+    // Seed render: layout === layoutBaseline, dbml === baseline -> no save.
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(mutateMock).not.toHaveBeenCalled()
+
+    // A drag changes only the layout; dbmlText still equals the baseline.
+    rerender({ layout: moved })
+    act(() => {
+      vi.advanceTimersByTime(600)
+    })
+
+    expect(mutateMock).toHaveBeenCalledTimes(1)
+    const [payload] = mutateMock.mock.calls[0]
+    expect(payload).toEqual({ dbml_text: 'table users {}', layout: moved })
+  })
+
+  it('does NOT save when layout is re-seeded equal to its baseline (project re-seed)', () => {
+    const seed = { version: 1, positions: { 'public.users': { x: 10, y: 10 } } }
+    // A NEW object with identical content (mimics a query-cache update on reload).
+    const reseed = JSON.parse(JSON.stringify(seed)) as Record<string, unknown>
+
+    const { rerender } = renderHook(
+      ({ layout }: { layout: Record<string, unknown> }) =>
+        useProjectAutosave({
+          projectId: 'p-1',
+          dbmlText: 'table users {}',
+          baseline: 'table users {}',
+          layout,
+          layoutBaseline: seed,
+        }),
+      { initialProps: { layout: seed } },
+    )
+
+    rerender({ layout: reseed }) // new identity, SAME serialized value
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(mutateMock).not.toHaveBeenCalled()
+  })
+
+  it('does NOT loop when layoutBaseline is omitted but a new-identity layout object arrives', () => {
+    // No layoutBaseline => layout changes must NOT trigger a save on their own
+    // (only dbml edits do); guards against an inline-object infinite save loop.
+    const { rerender } = renderHook(
+      ({ layout }: { layout: Record<string, unknown> }) =>
+        useProjectAutosave({
+          projectId: 'p-1',
+          dbmlText: 'seeded',
+          baseline: 'seeded',
+          layout,
+        }),
+      { initialProps: { layout: { version: 1, positions: {} } } },
+    )
+
+    // New object identity each rerender, no dbml edit, no layoutBaseline.
+    rerender({ layout: { version: 1, positions: {} } })
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(mutateMock).not.toHaveBeenCalled()
+  })
 })
