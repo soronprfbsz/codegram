@@ -2231,13 +2231,13 @@ test.describe('Editor manual layout persistence', () => {
     // confirm the PATCH base position is the previously-persisted coord
     // (reconcile restored it), not dagre's.
     const beforeNudge = await transformOf(page, 'public.users')
-    await dragNode(page, 'public.users', 1, 1)
+    await dragNode(page, 'public.users', 8, 8)
     const reloadBody = await waitForAutosavePatch(page, projectId)
     const restored = reloadBody.layout?.positions?.['public.users']
     expect(restored).toBeTruthy()
-    // The restored base position is within a small delta of what we saved
-    // before reload (a ~1px drag plus measurement rounding). If reconcile had
-    // reset to dagre, this would differ by hundreds of px.
+    // The restored base position equals the persisted coord plus an ~8px nudge,
+    // well within 20px — proves the dragged position survived reload. If
+    // reconcile had reset to dagre, this would differ by hundreds of px.
     expect(Math.abs((restored?.x ?? 0) - persistedX)).toBeLessThan(20)
     expect(Math.abs((restored?.y ?? 0) - persistedY)).toBeLessThan(20)
     // Sanity: the node was actually present and measured before the nudge.
@@ -2246,7 +2246,7 @@ test.describe('Editor manual layout persistence', () => {
 })
 ```
 
-> **Why the "tiny nudge after reload" instead of a raw pixel compare?** The `.react-flow__node` inline `transform` is **screen space** = `node.position` composed with the viewport (`fitView` zoom/pan), which differs across a reload. The persisted `layout.positions[id]` is the **pre-viewport** `node.position` that reconcile restores. A 1px drag forces a fresh `nodesToLayout` save whose base coord is exactly the reconciled `node.position` — comparing *that* to the pre-reload persisted coord is viewport-independent and directly proves ADR-0004 restoration (vs. a dagre reset, which would be hundreds of px off).
+> **Why the "small nudge after reload" instead of a raw pixel compare?** The `.react-flow__node` inline `transform` is **screen space** = `node.position` composed with the viewport (`fitView` zoom/pan), which differs across a reload. The persisted `layout.positions[id]` is the **pre-viewport** `node.position` that reconcile restores. An 8px drag forces a fresh `nodesToLayout` save whose base coord is the reconciled `node.position` plus the nudge — comparing *that* to the pre-reload persisted coord (within 20px) is viewport-independent and directly proves ADR-0004 restoration (vs. a dagre reset, which would be hundreds of px off). The nudge must be 8px, not 1px: React Flow only begins a drag once the move exceeds `nodeDragThreshold` (=1), so a 1px diagonal can net a ~0 position delta, leaving `layoutKey === layoutBaselineKey` (re-seeded from the persisted layout on reload) so the autosave guard SKIPS the save and `waitForAutosavePatch` hangs to the test timeout. 8px reliably clears the threshold and stays within the 20px tolerance.
 
 - [ ] **Step 2: Record expected pre-implementation (TDD red) state for the controller.** When run against a build that has NOT yet implemented Blocks A/B, this MUST FAIL: `waitForAutosavePatch` after the drag **times out** (current `useProjectAutosave` skips layout-only saves — the documented bug), so the test fails at `const dragBody = await waitForAutosavePatch(...)` with `Timeout 30000ms exceeded while waiting for event "response"`. After Blocks A + B land, the drag fires a `PATCH .../api/projects/<id>` with `{ layout: { version: 1, positions: { "public.users": {...}, ... } } }`, and the reload + nudge restores the coord — test goes green.
 
