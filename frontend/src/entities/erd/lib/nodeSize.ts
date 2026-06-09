@@ -17,6 +17,15 @@ export const ENUM_WIDTH = 200
 export const STICKY_WIDTH = 220
 export const STICKY_HEIGHT = 120
 export const GROUP_PADDING = 24
+/**
+ * Extra space reserved at the TOP of a group box, ABOVE the member padding, so
+ * the group's label band is always visible and never overlapped by the topmost
+ * member (README §Group backdrops: "extra top band for the label"). Group boxes
+ * therefore extend `GROUP_PADDING + GROUP_LABEL_BAND` above their members and
+ * `GROUP_PADDING` on the other three sides — always strictly larger than the
+ * members they contain.
+ */
+export const GROUP_LABEL_BAND = 34
 
 /** Estimate a node's rendered size so layout works without DOM measurement. */
 export function nodeSize(node: ErdFlowNode): { width: number; height: number } {

@@ -10,7 +10,7 @@
  */
 import dagre from '@dagrejs/dagre'
 import type { ErdFlowNode, ErdFlowEdge } from '@/entities/erd/model/types'
-import { nodeSize, GROUP_PADDING } from './nodeSize'
+import { nodeSize, GROUP_PADDING, GROUP_LABEL_BAND } from './nodeSize'
 
 /**
  * Lay out nodes with dagre and return NEW nodes carrying computed positions.
@@ -80,9 +80,12 @@ export function autoLayout(
     if (!groupIds.has(node.id)) return node
     const laid = g.node(node.id)
     if (laid && typeof laid.width === 'number' && typeof laid.height === 'number') {
+      // The TOP inset reserves GROUP_PADDING + GROUP_LABEL_BAND so members sit
+      // BELOW the label band; the other three sides use GROUP_PADDING. The box
+      // is therefore always strictly larger than its members.
       const position = {
         x: laid.x - laid.width / 2 - GROUP_PADDING,
-        y: laid.y - laid.height / 2 - GROUP_PADDING,
+        y: laid.y - laid.height / 2 - GROUP_PADDING - GROUP_LABEL_BAND,
       }
       groupPos.set(node.id, position)
       return {
@@ -91,7 +94,7 @@ export function autoLayout(
         style: {
           ...node.style,
           width: laid.width + GROUP_PADDING * 2,
-          height: laid.height + GROUP_PADDING * 2,
+          height: laid.height + GROUP_PADDING * 2 + GROUP_LABEL_BAND,
         },
       }
     }

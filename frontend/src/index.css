@@ -257,3 +257,13 @@
   background: var(--erd-accent-soft) !important;
   box-shadow: inset 3px 0 0 0 var(--erd-accent);
 }
+
+/* Group backdrop: the GroupNode component draws the entire box (dashed border +
+   tint fill). Strip React Flow's default group-node chrome (its faint gray
+   background + any border/padding) so our fill reaches the border with no gap. */
+.react-flow__node-group {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  border-radius: 16px;
+}
