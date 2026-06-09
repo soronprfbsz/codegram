@@ -39,4 +39,46 @@ describe('DbmlEditor', () => {
     expect(onChange).toHaveBeenCalled()
     expect(onChange.mock.calls.at(-1)?.[0]).toContain('Table x')
   })
+
+  it('renders without crashing when selectedTable matches a block in the doc', () => {
+    // Integration smoke test: the decoration + scroll path runs without error.
+    const doc = 'Table users {\n  id int [pk]\n}\n\nTable posts {\n  id int [pk]\n}'
+    expect(() => {
+      render(
+        <DbmlEditor
+          value={doc}
+          onChange={() => {}}
+          selectedTable="users"
+        />,
+      )
+    }).not.toThrow()
+
+    // The editor still renders and contains the document text.
+    const wrapper = screen.getByTestId('dbml-editor')
+    expect(wrapper.textContent).toContain('Table users')
+  })
+
+  it('renders without crashing when selectedTable does not match any block', () => {
+    expect(() => {
+      render(
+        <DbmlEditor
+          value="Table users {\n  id int\n}"
+          onChange={() => {}}
+          selectedTable="nonexistent"
+        />,
+      )
+    }).not.toThrow()
+  })
+
+  it('renders without crashing when selectedTable is null (cleared selection)', () => {
+    expect(() => {
+      render(
+        <DbmlEditor
+          value="Table users {\n  id int\n}"
+          onChange={() => {}}
+          selectedTable={null}
+        />,
+      )
+    }).not.toThrow()
+  })
 })

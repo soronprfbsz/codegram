@@ -208,3 +208,9 @@
   border-color: var(--erd-border-2) !important;
   box-shadow: var(--erd-shadow) !important;
 }
+
+/* DBML editor: active-table block highlight (Phase 5) */
+.cm-active-table {
+  background: var(--erd-accent-soft) !important;
+  box-shadow: inset 3px 0 0 0 var(--erd-accent);
+}

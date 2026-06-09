@@ -274,7 +274,12 @@ export function EditorPage() {
 
           {/* CodeMirror editor fills the rest */}
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <DbmlEditor value={dbmlText} onChange={setDbmlText} height="100%" />
+            <DbmlEditor
+              value={dbmlText}
+              onChange={setDbmlText}
+              height="100%"
+              selectedTable={selected}
+            />
           </div>
         </div>
 
@@ -290,6 +295,8 @@ export function EditorPage() {
             onCaptureReady={(handle) => {
               captureHandleRef.current = handle
             }}
+            selected={selected}
+            onSelectNode={setSelected}
           />
         </div>
 

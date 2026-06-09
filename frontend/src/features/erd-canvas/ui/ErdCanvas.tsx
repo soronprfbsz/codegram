@@ -15,7 +15,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { Maximize, Minimize, Grid2x2, Plus, Minus, Maximize2 } from 'lucide-react'
 import type { DbmlSchema } from '@/entities/dbml'
-import { schemaToFlow, type ErdFlowNode } from '@/entities/erd'
+import { schemaToFlow, type ErdFlowNode, type TableNodeData, type ErdColumn } from '@/entities/erd'
 import {
   reconcileLayout,
   nodesToLayout,
@@ -42,6 +42,17 @@ export interface ErdCanvasProps {
    * pages/editor stores these in refs and feeds export-diagram. NEW in Plan 5.
    */
   onCaptureReady?: (handle: ErdCaptureHandle) => void
+  /**
+   * Phase 5: selected table NAME (not node id).
+   * Drives node ring, active edges, and column highlights without re-running
+   * dagre — positions are preserved (base nodes remain authoritative).
+   */
+  selected?: string | null
+  /**
+   * Phase 5: fires when the user clicks a table node or the canvas background.
+   * Passes the table name on node click, null on pane click.
+   */
+  onSelectNode?: (tableName: string | null) => void
 }
 
 export interface ErdCaptureHandle {
@@ -77,6 +88,54 @@ const edgeTypes: EdgeTypes = {
 interface ErdCanvasInnerProps extends ErdCanvasProps {
   // RefObject<T | null> matches useRef<T>(null)'s type under @types/react 19.
   containerRef: RefObject<HTMLDivElement | null>
+}
+
+// ── Selection helpers ───────────────────────────────────────────────────────
+
+/**
+ * Compute the set of column handle ids that are highlighted when `tableName`
+ * is selected. Covers BOTH endpoints of every ref that involves the table.
+ */
+function computeHighlightColIds(
+  schema: DbmlSchema | undefined,
+  tableName: string | null | undefined,
+): Set<string> {
+  if (!schema || !tableName) return new Set()
+  const ids = new Set<string>()
+  for (const ref of schema.refs) {
+    const fromMatch = ref.fromTable === tableName
+    const toMatch = ref.toTable === tableName
+    if (fromMatch || toMatch) {
+      for (const col of ref.fromColumns) {
+        ids.add(`${ref.fromSchema}.${ref.fromTable}.${col}`)
+      }
+      for (const col of ref.toColumns) {
+        ids.add(`${ref.toSchema}.${ref.toTable}.${col}`)
+      }
+    }
+  }
+  return ids
+}
+
+/**
+ * Compute the set of edge ids that are active when `tableName` is selected.
+ * Edge ids follow the `${ref.id}#${i}` pattern from schemaToFlow.
+ */
+function computeActiveEdgeIds(
+  schema: DbmlSchema | undefined,
+  tableName: string | null | undefined,
+): Set<string> {
+  if (!schema || !tableName) return new Set()
+  const ids = new Set<string>()
+  for (const ref of schema.refs) {
+    if (ref.fromTable === tableName || ref.toTable === tableName) {
+      const pairCount = Math.min(ref.fromColumns.length, ref.toColumns.length)
+      for (let i = 0; i < pairCount; i++) {
+        ids.add(`${ref.id}#${i}`)
+      }
+    }
+  }
+  return ids
 }
 
 /**
@@ -185,7 +244,7 @@ function ZoomBar() {
   )
 }
 
-function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady, containerRef }: ErdCanvasInnerProps) {
+function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady, containerRef, selected, onSelectNode }: ErdCanvasInnerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   useEffect(() => {
     function onFullscreenChange() {
@@ -264,6 +323,49 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
     requestAnimationFrame(() => fitView({ padding: 0.1, duration: 200 }))
   }
 
+  // ── Phase 5: Selection-derived visual overlays ────────────────────────────
+  // Computed from schema (NOT from nodes state) so positions are never touched.
+  const highlightColIds = useMemo(
+    () => computeHighlightColIds(schema, selected),
+    [schema, selected],
+  )
+  const activeEdgeIds = useMemo(
+    () => computeActiveEdgeIds(schema, selected),
+    [schema, selected],
+  )
+
+  // Derive display nodes: inject isSelected + highlightedColumnIds into data.
+  // Base `nodes` (useNodesState) remain authoritative for positions; we never
+  // modify them here — only produce a derived view for rendering.
+  const displayNodes = useMemo(
+    () =>
+      nodes.map((n) => {
+        if (n.type !== 'table') return n
+        const data = n.data as TableNodeData
+        return {
+          ...n,
+          data: {
+            ...data,
+            isSelected: data.tableName === selected,
+            highlightedColumnIds: data.columns
+              .filter((c: ErdColumn) => highlightColIds.has(c.id))
+              .map((c: ErdColumn) => c.id),
+          },
+        }
+      }),
+    [nodes, selected, highlightColIds],
+  )
+
+  // Derive display edges: inject `active` flag.
+  const displayEdges = useMemo(
+    () =>
+      edges.map((e) => ({
+        ...e,
+        data: { ...e.data, active: activeEdgeIds.has(e.id) },
+      })),
+    [edges, activeEdgeIds],
+  )
+
   // Secondary button style (spec: --erd-surface bg, 1px --erd-border-2, radius 8)
   const secondaryBtnStyle: React.CSSProperties = {
     fontFamily: 'inherit',
@@ -285,12 +387,18 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
 
   return (
     <ReactFlow
-      nodes={nodes}
-      edges={edges}
+      nodes={displayNodes}
+      edges={displayEdges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
       onNodeDragStop={() => onLayoutChange?.(nodesToLayout(nodesRef.current))}
+      onNodeClick={(_, node) => {
+        if (node.type === 'table') {
+          onSelectNode?.((node.data as TableNodeData).tableName ?? null)
+        }
+      }}
+      onPaneClick={() => onSelectNode?.(null)}
       nodesConnectable={false}
       deleteKeyCode={null}
       fitView
@@ -372,7 +480,7 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-export function ErdCanvas({ schema, savedPositions, onLayoutChange, onCaptureReady }: ErdCanvasProps) {
+export function ErdCanvas({ schema, savedPositions, onLayoutChange, onCaptureReady, selected, onSelectNode }: ErdCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
@@ -414,6 +522,8 @@ export function ErdCanvas({ schema, savedPositions, onLayoutChange, onCaptureRea
           onLayoutChange={onLayoutChange}
           onCaptureReady={onCaptureReady}
           containerRef={rootRef}
+          selected={selected}
+          onSelectNode={onSelectNode}
         />
       </ReactFlowProvider>
     </div>
