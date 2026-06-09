@@ -100,3 +100,5 @@ def test_build_ddl_mysql_dialect_parameterized():
     ddl = build_ddl(_reflect_sqlite(), mysql.dialect())
     assert "CREATE TABLE" in ddl
     assert "posts" in ddl
+    assert "PRIMARY KEY" in ddl
+    assert "FOREIGN KEY" in ddl
