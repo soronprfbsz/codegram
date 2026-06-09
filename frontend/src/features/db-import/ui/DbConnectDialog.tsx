@@ -18,7 +18,7 @@ export interface DbConnectDialogProps {
   onOpenChange: (open: boolean) => void
   /** Called once with converted DBML + the database name (suggested project
    *  name) on a successful, fully-converted introspection. */
-  onIntrospected: (dbml: string, databaseName: string) => void
+  onIntrospected: (dbml: string, databaseName: string) => void | Promise<void>
 }
 
 const DEFAULT_PORT: Record<IntrospectDialect, number> = {
@@ -99,7 +99,17 @@ export function DbConnectDialog({
       setErrors(result.errors)
       return
     }
-    onIntrospected(result.dbml, database)
+    try {
+      await onIntrospected(result.dbml, database)
+    } catch (err) {
+      setErrors([
+        {
+          message:
+            err instanceof Error ? err.message : 'Failed to create the project',
+        },
+      ])
+      return
+    }
     reset()
     onOpenChange(false)
   }

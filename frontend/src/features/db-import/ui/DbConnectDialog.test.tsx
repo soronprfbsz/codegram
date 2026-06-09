@@ -101,4 +101,22 @@ describe('DbConnectDialog', () => {
     expect(mutateAsync.mock.calls[0][0].db_schema).toBeNull()
     expect(mutateAsync.mock.calls[0][0].dialect).toBe('mariadb')
   })
+
+  it('keeps the dialog open and shows an alert if onIntrospected fails', async () => {
+    const user = setup()
+    const onIntrospected = vi.fn().mockRejectedValueOnce(new Error('save failed'))
+    const onOpenChange = vi.fn()
+    mutateAsync.mockResolvedValueOnce({
+      import_dialect: 'postgres',
+      ddl: 'CREATE TABLE users (id SERIAL PRIMARY KEY);',
+      table_count: 1,
+    })
+    render(
+      <DbConnectDialog open onOpenChange={onOpenChange} onIntrospected={onIntrospected} />,
+    )
+    await fillRequired(user)
+    await user.click(screen.getByRole('button', { name: 'Connect' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('save failed')
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+  })
 })
