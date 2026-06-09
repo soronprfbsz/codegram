@@ -17,6 +17,8 @@ dependencies = [
     "pydantic-settings==2.14.1",
     "anyio>=4.13.0",
     "fastapi-users[sqlalchemy]>=15.0.5",
+    "psycopg2-binary==2.9.10",
+    "PyMySQL==1.1.1",
 ]
 
 [project.optional-dependencies]
