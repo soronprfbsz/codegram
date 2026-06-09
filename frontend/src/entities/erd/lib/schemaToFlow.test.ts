@@ -123,6 +123,42 @@ describe('schemaToFlow — nodes', () => {
     expect(data.headerColor).toBe('#3498db')
   })
 
+  it('sets groupColor and groupGlyph on table nodes whose tables belong to a group', () => {
+    const schema = emptySchema({
+      tables: [
+        table('public', 'users', [col('public', 'users', 'id')]),
+        table('public', 'loose', [col('public', 'loose', 'id')]),
+      ],
+      tableGroups: [
+        { name: 'core', color: '#6938EF', tables: ['public.users'] },
+      ],
+    })
+    const { nodes } = schemaToFlow(schema)
+    const usersData = nodes.find((n) => n.id === 'public.users')!.data as TableNodeData
+    expect(usersData.groupColor).toBe('#6938EF')
+    expect(usersData.groupGlyph).toBeDefined()
+    // Ungrouped table gets its color from the __ungrouped bucket
+    const looseData = nodes.find((n) => n.id === 'public.loose')!.data as TableNodeData
+    // groupColor is set to the ungrouped-bucket color (not undefined) so the
+    // header still has a left-bar color; groupGlyph may or may not be set.
+    expect(looseData.groupColor).toBeDefined()
+  })
+
+  it('propagates glyph onto group node data', () => {
+    const schema = emptySchema({
+      tables: [],
+      tableGroups: [{ name: 'core', color: '#6938EF', tables: [] }],
+    })
+    const { nodes } = schemaToFlow(schema)
+    const groupData = nodes.find((n) => n.type === 'group')!.data as {
+      groupName: string
+      color?: string
+      glyph?: string
+    }
+    expect(groupData.glyph).toBeDefined()
+    expect(typeof groupData.glyph).toBe('string')
+  })
+
   it('creates one enum node per DbmlEnum listing its values', () => {
     const schema = emptySchema({
       enums: [

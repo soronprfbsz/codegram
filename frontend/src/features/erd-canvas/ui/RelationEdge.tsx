@@ -33,14 +33,12 @@ function markerPath(kind: MarkerKind): string {
 }
 
 /**
- * Custom React Flow edge for a DBML relationship. Routes a smoothstep
- * (orthogonal-ish) path between the two column handles and draws crow-foot
- * cardinality markers at each endpoint mapped from the two halves of
- * `data.relation` (D4: the `from` half drives the source marker, the `to`
- * half the target marker — NOT an assumption that `from` is the many side).
- * Markers are defined per edge id so each edge orients independently.
+ * Custom React Flow edge for a DBML relationship — Backstage spec restyle
+ * (Phase 4). Stroke uses --erd-edge (1.5px) or --erd-accent (2px) when active.
+ * Crow-foot cardinality markers are colored to match.
+ * Enum-link edges are dashed without crow-foot markers.
  * features layer: depends on shared + entities/erd + entities/dbml +
- * @xyflow/react.
+ * @xyflow/react (FSD downward imports).
  */
 function RelationEdgeImpl({
   id,
@@ -62,6 +60,8 @@ function RelationEdgeImpl({
     borderRadius: 8,
   })
 
+  const isActive = data?.active ?? false
+
   // Column -> enum links are a type association, NOT a cardinality
   // relationship: render them dashed and WITHOUT crow-foot markers.
   if (data?.isEnumLink) {
@@ -69,7 +69,11 @@ function RelationEdgeImpl({
       <BaseEdge
         id={id}
         path={edgePath}
-        style={{ stroke: '#94a3b8', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+        style={{
+          stroke: 'var(--erd-edge)',
+          strokeWidth: 1.5,
+          strokeDasharray: '4 4',
+        }}
       />
     )
   }
@@ -77,6 +81,14 @@ function RelationEdgeImpl({
   const relation = data?.relation ?? '1-n'
   const startKind = startMarkerKind(relation)
   const endKind = endMarkerKind(relation)
+
+  // CSS variables cannot be used directly in SVG fill/stroke attributes —
+  // use currentColor bridging via a wrapper or inline fallback strings.
+  // We use a CSS class on the path and let the marker paths inherit stroke
+  // through explicit attribute (CSS vars work in presentation attributes in
+  // modern browsers via the var() function in inline styles).
+  const strokeColor = isActive ? 'var(--erd-accent)' : 'var(--erd-edge)'
+  const strokeWidth = isActive ? 2 : 1.5
 
   return (
     <>
@@ -92,8 +104,8 @@ function RelationEdgeImpl({
         >
           <path
             d={markerPath(startKind)}
-            stroke="#64748b"
-            strokeWidth="1.5"
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
             fill="none"
           />
         </marker>
@@ -108,8 +120,8 @@ function RelationEdgeImpl({
         >
           <path
             d={markerPath(endKind)}
-            stroke="#64748b"
-            strokeWidth="1.5"
+            stroke={strokeColor}
+            strokeWidth={strokeWidth}
             fill="none"
           />
         </marker>
@@ -119,7 +131,11 @@ function RelationEdgeImpl({
         path={edgePath}
         markerStart={`url(#crowfoot-start-${id})`}
         markerEnd={`url(#crowfoot-end-${id})`}
-        style={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
+        style={{
+          stroke: strokeColor,
+          strokeWidth,
+          transition: 'stroke 80ms ease, stroke-width 80ms ease',
+        }}
       />
     </>
   )

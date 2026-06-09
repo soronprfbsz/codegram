@@ -26,6 +26,7 @@ import type {
   RelationEndpointMarker,
   RelationEdgeData,
 } from '@/entities/erd/model/types'
+import { deriveDisplayGroups } from './tableGroups'
 
 const ZERO = { x: 0, y: 0 }
 
@@ -168,15 +169,32 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
   // edges can be validated against existing endpoints below.
   const usedNodeIds = new Set<string>()
 
+  // Derive group display info (color + glyph) from the schema.
+  const displayGroups = deriveDisplayGroups(schema)
+
+  // Map each table id -> { color, glyph } from its display group.
+  const tableGroupStyle = new Map<string, { color: string; glyph: string }>()
+  for (const dg of displayGroups) {
+    for (const t of dg.tables) {
+      tableGroupStyle.set(t.id, { color: dg.color, glyph: dg.glyph })
+    }
+  }
+
   // Map each grouped table id -> its group node id (members get parentId).
   const parentOf = new Map<string, string>()
 
-  const groupNodes: ErdFlowNode[] = schema.tableGroups.map((group) => {
+  const groupNodes: ErdFlowNode[] = schema.tableGroups.map((group, index) => {
     const id = reserveId(usedNodeIds, groupNodeId(group.name))
     for (const tableId of group.tables) {
       parentOf.set(tableId, id)
     }
-    const data: GroupNodeData = { groupName: group.name, color: group.color }
+    // Use same glyph resolution as deriveDisplayGroups for consistency.
+    const dg = displayGroups[index]
+    const data: GroupNodeData = {
+      groupName: group.name,
+      color: dg?.color ?? group.color,
+      glyph: dg?.glyph,
+    }
     return {
       id,
       type: 'group',
@@ -187,10 +205,13 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
 
   const tableNodes: ErdFlowNode[] = schema.tables.map((table) => {
     const id = reserveId(usedNodeIds, table.id)
+    const groupStyle = tableGroupStyle.get(table.id)
     const data: TableNodeData = {
       tableName: table.name,
       tableId: table.id,
       headerColor: table.headerColor,
+      groupColor: groupStyle?.color,
+      groupGlyph: groupStyle?.glyph,
       columns: toErdColumns(table),
     }
     const node: ErdFlowNode = {

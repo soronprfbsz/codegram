@@ -196,3 +196,15 @@
     @apply font-sans;
     }
 }
+
+/* ERD node styles */
+/* PK badge color flips in dark mode (light: #DC6803 / dark: #FEC84B) */
+.dark .erd-badge-pk {
+  color: #FEC84B !important;
+}
+
+/* Table node hover: border-color and shadow upgrade */
+.erd-table-node:hover {
+  border-color: var(--erd-border-2) !important;
+  box-shadow: var(--erd-shadow) !important;
+}
