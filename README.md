@@ -6,6 +6,9 @@ DBML text is the single source of truth. The frontend parses DBML with `@dbml/co
 the backend never parses DBML. One Project = one DBML document = one ERD. Everything
 client-side: diagram export (PNG / SVG / PDF), a table-definition document (in-app HTML
 view / Excel / PDF), and SQL import/export for PostgreSQL / MySQL / MS SQL Server.
+Also: connect to a live **PostgreSQL or MariaDB** and import its schema into a new project —
+the backend introspects the database and emits DDL (it never parses DBML; ADR-0008), which
+the frontend converts to DBML.
 
 ## Monorepo layout
 
