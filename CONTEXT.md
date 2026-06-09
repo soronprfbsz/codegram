@@ -32,6 +32,10 @@ _Avoid_: DBML `Project` 블록과 혼동 금지 (아래 참조)
 파싱된 모델에서 도출하는 문서형 산출물. 테이블별로 컬럼(이름·타입·PK·FK·NN·UQ·기본값·설명)·관계·인덱스·그룹을 정리한 데이터 사전. 인앱 HTML 표 뷰로 보고 Excel(.xlsx)·PDF로 내보낸다. ERD(시각 다이어그램)와 구분되는 별개의 출력물.
 _Avoid_: 스키마 문서, 명세서 (정의서가 정식 명칭)
 
+**DB 가져오기** (Database Import / Schema Introspection):
+실행 중인 외부 데이터베이스(PostgreSQL·MariaDB)에 접속해 스키마를 읽어(introspection) 그 구조를 새 Project의 DBML로 옮기는 동작. 접속 정보(호스트·유저·비밀번호)는 **1회용**으로만 쓰이고 저장되지 않는다. 백엔드는 외부 DB에 접속해 스키마를 reflection으로 읽고 DDL을 만들 뿐, **DBML 의미는 여전히 다루지 않는다** — DDL→DBML 변환은 프론트의 `@dbml/core`가 수행한다(ADR-0002 유지). 한 번의 가져오기는 한 schema(PG는 기본 `public`, MariaDB는 접속한 database)를 대상으로 하고 결과는 새 Project 하나가 된다.
+_Avoid_: DB 연동, 동기화 (가져오기는 1회성 단방향이며, 이후 DBML이 진실 공급원이 된다 — 라이브 동기화가 아님)
+
 ## Flagged ambiguities
 
 - **"편집"의 두 종류**: _구조 편집_(테이블/컬럼/관계 추가·삭제)은 DBML 텍스트로만 가능하다. _배치 편집_(위치·선 경로 조정)은 다이어그램에서 직접 가능하다. 두 가지를 혼용하지 말 것.
