@@ -3,6 +3,8 @@ schema, and emit DDL the frontend converts to DBML via @dbml/core (ADR-0008).
 Credentials are used once and never persisted. Reflection is a SYNC SQLAlchemy
 API; the route runs introspect_to_ddl in a threadpool.
 """
+import ssl as ssl_module
+
 from sqlalchemy.engine import URL
 
 from app.schemas.introspect import IntrospectRequest
@@ -34,7 +36,14 @@ def build_connection_url(
         if req.dialect == "postgresql":
             connect_args["sslmode"] = "require"
         else:
-            connect_args["ssl"] = {}
+            # PyMySQL treats an empty dict as falsy and would NOT enable TLS.
+            # Pass an SSLContext that encrypts without verifying the server
+            # cert — matching the "require" (encrypt, don't verify) level used
+            # for postgres above.
+            ctx = ssl_module.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl_module.CERT_NONE
+            connect_args["ssl"] = ctx
     return url, connect_args, _IMPORT_DIALECT[req.dialect]
 
 

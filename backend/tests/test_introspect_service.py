@@ -38,10 +38,18 @@ def test_mariadb_url_and_import_dialect():
 
 
 def test_ssl_connect_args_per_dialect():
+    import ssl as ssl_module
+
     _u, pg_args, _i = build_connection_url(_req(ssl=True))
     assert pg_args == {"sslmode": "require"}
     _u2, my_args, _i2 = build_connection_url(_req(dialect="mariadb", ssl=True))
-    assert my_args == {"ssl": {}}
+    assert isinstance(my_args["ssl"], ssl_module.SSLContext)
+    assert my_args["ssl"].verify_mode == ssl_module.CERT_NONE
+
+
+def test_postgres_password_is_url_encoded():
+    url, _a, _i = build_connection_url(_req())
+    assert "p%40ss%2Fword" in url.render_as_string(hide_password=False)
 
 
 def test_effective_schema():
