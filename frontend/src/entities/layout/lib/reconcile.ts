@@ -45,11 +45,14 @@ export function reconcileLayout(
   //    invalidating it, which is exactly why fitGroupBoxes re-fits afterward.
   const baseline = autoLayout(flowNodes, flowEdges)
 
-  // 2. Override non-group nodes that have a frame-matching stored entry.
+  // 2. Override nodes that have a frame-matching stored entry.
+  //    Groups are positioned by their absolute stored coord; members use
+  //    the relative stored coord + frame guard (ADR-0004).
   const overridden = baseline.map((node) => {
-    if (node.type === 'group') return node // group nodes are never positioned from stored data
     const entry = stored[node.id]
-    if (!entry || !frameMatches(node, entry)) return node // unpositioned -> keep dagre baseline
+    if (!entry) return node
+    if (node.type === 'group') return { ...node, position: { x: entry.x, y: entry.y } }
+    if (!frameMatches(node, entry)) return node // unpositioned -> keep dagre baseline
     return { ...node, position: { x: entry.x, y: entry.y } }
   })
 
@@ -58,14 +61,18 @@ export function reconcileLayout(
 }
 
 /**
- * Extract current node positions into the persisted shape. Excludes group
- * container nodes (their position/size are layout output, not persisted).
- * Records parentId for grouped members so reconcile can frame-guard on restore.
+ * Extract current node positions into the persisted shape. Includes group
+ * container nodes (absolute position, no parentId) so a dragged group
+ * survives reload. Records parentId for grouped members so reconcile can
+ * frame-guard on restore.
  */
 export function nodesToLayout(nodes: ErdFlowNode[]): StoredLayout {
   const positions: LayoutPositions = {}
   for (const node of nodes) {
-    if (node.type === 'group') continue
+    if (node.type === 'group') {
+      positions[node.id] = { x: node.position.x, y: node.position.y }
+      continue
+    }
     positions[node.id] = {
       x: node.position.x,
       y: node.position.y,

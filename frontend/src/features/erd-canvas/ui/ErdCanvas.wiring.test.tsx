@@ -45,7 +45,7 @@ describe('ErdCanvas drag-stop persistence', () => {
       nodes: Array<{ id: string; type?: string }>
       onNodeDragStop: () => void
     }
-    // Group nodes (none here) would be non-draggable; tables are draggable.
+    // Group nodes (none here) are draggable just like table nodes.
     expect(props.nodes.some((n) => n.id === 'public.users')).toBe(true)
 
     // Fire drag-stop the way React Flow would.

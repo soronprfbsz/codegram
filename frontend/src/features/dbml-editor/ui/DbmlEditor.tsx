@@ -64,6 +64,7 @@ export const DbmlEditor = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
           onChange={handleChange}
           height={height}
           width="100%"
+          className="h-full"
           theme="light"
           extensions={EDITOR_EXTENSIONS}
           basicSetup={EDITOR_BASIC_SETUP}

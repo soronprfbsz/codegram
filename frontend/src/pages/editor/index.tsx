@@ -108,9 +108,11 @@ export function EditorPage() {
   const parse = useDbmlParse(dbmlText)
   const schema = parse.schema ?? parse.lastValidSchema
 
-  // T3 — floating panel visibility state.
-  const [showParse, setShowParse] = useState(true)
-  const [showSchema, setShowSchema] = useState(false)
+  // T3 — floating Info panel visibility. Default CLOSED so the panel never
+  // covers canvas nodes on load (an open top-right panel overlaps LR-dagre's
+  // right-placed tables and would intercept their drags); the header "Info"
+  // button expands it on demand.
+  const [showInfo, setShowInfo] = useState(false)
 
   // Plan 5 — Export wiring (pages layer composes both export features).
   // Capture-handle ref filled once by ErdCanvas.onCaptureReady; the canvas
@@ -180,19 +182,11 @@ export function EditorPage() {
           <div className="flex items-center gap-4">
             <Button
               size="sm"
-              variant={showParse ? 'secondary' : 'outline'}
-              aria-pressed={showParse}
-              onClick={() => setShowParse(v => !v)}
+              variant={showInfo ? 'secondary' : 'outline'}
+              aria-pressed={showInfo}
+              onClick={() => setShowInfo(v => !v)}
             >
-              Parse
-            </Button>
-            <Button
-              size="sm"
-              variant={showSchema ? 'secondary' : 'outline'}
-              aria-pressed={showSchema}
-              onClick={() => setShowSchema(v => !v)}
-            >
-              Schema
+              Info
             </Button>
             <span className="text-sm text-gray-600">
               {statusLabel[status]}
@@ -249,21 +243,19 @@ export function EditorPage() {
                   the canvas stays pannable; pointer-events-auto on each
                   FloatingPanel so interactions work. */}
               <div className="pointer-events-none absolute right-3 top-16 z-10 flex w-72 max-w-[45%] flex-col gap-3">
-                {showParse && (
-                  <FloatingPanel label="parse status" onClose={() => setShowParse(false)}>
-                    <ParseErrorPanel
-                      status={parse.status}
-                      errors={parse.errors}
-                      className="bg-white/70 shadow-lg backdrop-blur"
-                    />
-                  </FloatingPanel>
-                )}
-                {showSchema && (
-                  <FloatingPanel label="schema" onClose={() => setShowSchema(false)}>
-                    <SchemaSummary
-                      schema={schema}
-                      className="bg-white/70 shadow-lg backdrop-blur"
-                    />
+                {showInfo && (
+                  <FloatingPanel label="info" onClose={() => setShowInfo(false)}>
+                    <div className="flex flex-col gap-3">
+                      <ParseErrorPanel
+                        status={parse.status}
+                        errors={parse.errors}
+                        className="bg-white/70 shadow-lg backdrop-blur"
+                      />
+                      <SchemaSummary
+                        schema={schema}
+                        className="bg-white/70 shadow-lg backdrop-blur"
+                      />
+                    </div>
                   </FloatingPanel>
                 )}
               </div>

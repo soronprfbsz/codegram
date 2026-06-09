@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -12,6 +12,7 @@ import {
   type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { Maximize, Minimize } from 'lucide-react'
 import type { DbmlSchema } from '@/entities/dbml'
 import { schemaToFlow, type ErdFlowNode } from '@/entities/erd'
 import {
@@ -73,7 +74,28 @@ const edgeTypes: EdgeTypes = {
   relation: RelationEdge,
 }
 
-function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady }: ErdCanvasProps) {
+interface ErdCanvasInnerProps extends ErdCanvasProps {
+  // RefObject<T | null> matches useRef<T>(null)'s type under @types/react 19.
+  containerRef: RefObject<HTMLDivElement | null>
+}
+
+function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady, containerRef }: ErdCanvasInnerProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement === containerRef.current)
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [containerRef])
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen()
+    } else {
+      containerRef.current?.requestFullscreen().catch(() => {})
+    }
+  }
   // STABLE structural signature (NOT schema identity) so a no-op edit does
   // not re-run schemaToFlow + reconcile and re-seed the nodes.
   const schemaKey = useMemo(() => schemaSignature(schema), [schema])
@@ -95,12 +117,7 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
   // Keyed on schemaKey + positionsKey only.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const reconciledNodes = useMemo(() => {
-    const next = reconcileLayout(flow.nodes, flow.edges, savedPositions ?? {})
-    // Group containers are layout output (position + size recomputed each
-    // parse); Plan 4 never persists them, so they must not be dragged.
-    return next.map((n) =>
-      n.type === 'group' ? { ...n, draggable: false } : n,
-    )
+    return reconcileLayout(flow.nodes, flow.edges, savedPositions ?? {})
   }, [flow, positionsKey])
 
   const edges = useMemo(() => flow.edges, [flow])
@@ -134,9 +151,7 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
 
   function handleAutoArrange() {
     // Discard ALL saved positions: reconcile with an EMPTY set => pure dagre.
-    const dagreNodes = reconcileLayout(flow.nodes, flow.edges, {}).map((n) =>
-      n.type === 'group' ? { ...n, draggable: false } : n,
-    )
+    const dagreNodes = reconcileLayout(flow.nodes, flow.edges, {})
     setNodes(dagreNodes)
     onLayoutChange?.(nodesToLayout(dagreNodes))
     // Re-fit after measurement lands (v12 fitView is initial-only otherwise).
@@ -154,12 +169,23 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
       nodesConnectable={false}
       deleteKeyCode={null}
       fitView
+      minZoom={0.2}
       proOptions={{ hideAttribution: true }}
     >
       <Panel position="top-right">
-        <Button variant="outline" size="sm" onClick={handleAutoArrange}>
-          Auto-arrange
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleAutoArrange}>
+            Auto-arrange
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Toggle fullscreen"
+            onClick={toggleFullscreen}
+          >
+            {isFullscreen ? <Minimize /> : <Maximize />}
+          </Button>
+        </div>
       </Panel>
       <Background />
       <Controls showInteractive={false} />
@@ -180,6 +206,7 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
  * entities/layout + @xyflow/react (FSD downward imports).
  */
 export function ErdCanvas({ schema, savedPositions, onLayoutChange, onCaptureReady }: ErdCanvasProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
       <div
@@ -191,13 +218,14 @@ export function ErdCanvas({ schema, savedPositions, onLayoutChange, onCaptureRea
     )
   }
   return (
-    <div data-testid="erd-canvas" className="h-full w-full rounded border">
+    <div data-testid="erd-canvas" ref={rootRef} className="h-full w-full rounded border">
       <ReactFlowProvider>
         <ErdCanvasInner
           schema={schema}
           savedPositions={savedPositions}
           onLayoutChange={onLayoutChange}
           onCaptureReady={onCaptureReady}
+          containerRef={rootRef}
         />
       </ReactFlowProvider>
     </div>

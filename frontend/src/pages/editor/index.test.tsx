@@ -117,7 +117,7 @@ describe('EditorPage', () => {
     expect(lastCall.baseline).toBe('Table users {\n  id int [pk]\n}')
   })
 
-  it('shows the parse panel by default and toggles the schema panel', async () => {
+  it('toggles the combined Info panel (closed by default)', async () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -134,17 +134,21 @@ describe('EditorPage', () => {
 
     renderEditor()
 
-    // Parse panel open by default → ParseErrorPanel Card title visible
-    expect(screen.getByText(/parse status/i)).toBeInTheDocument()
-    // Schema panel closed by default
+    // Info panel CLOSED by default → neither title is in the DOM (the open panel
+    // would otherwise cover canvas nodes and block their drags).
+    expect(screen.queryByText(/parse status/i)).toBeNull()
     expect(screen.queryByText(/schema summary/i)).toBeNull()
-    // toggle buttons exist in the header
-    const schemaToggle = screen.getByRole('button', { name: /^schema$/i })
-    expect(schemaToggle).toBeInTheDocument()
-    // clicking the Schema toggle reveals the schema summary
+    // single Info toggle button exists in the header
+    const info = screen.getByRole('button', { name: /^info$/i })
+    expect(info).toBeInTheDocument()
+    // clicking the Info toggle reveals BOTH ParseErrorPanel and SchemaSummary
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
-    await user.click(schemaToggle)
+    await user.click(info)
+    expect(screen.getByText(/parse status/i)).toBeInTheDocument()
     expect(screen.getByText(/schema summary/i)).toBeInTheDocument()
+    // clicking again hides both panels
+    await user.click(info)
+    expect(screen.queryByText(/schema summary/i)).toBeNull()
   })
 
   it('mounts the ERD canvas region in the editor split view', () => {

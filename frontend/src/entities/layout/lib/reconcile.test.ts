@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { reconcileLayout, nodesToLayout } from './reconcile'
 import type { ErdFlowNode, ErdFlowEdge } from '@/entities/erd'
+import { GROUP_PADDING } from '@/entities/erd'
 import type { LayoutPositions } from '@/entities/layout/model/types'
 
 /** Empty-column table node (matches autoLayout's nodeSize estimate of 240x40). */
@@ -190,6 +191,40 @@ describe('reconcileLayout (grouped-member frame guard)', () => {
   })
 })
 
+describe('reconcileLayout (stored group position)', () => {
+  it('restores a stored group position (round-trips a dragged group)', () => {
+    // Single member at relative (GROUP_PADDING, GROUP_PADDING) is fitGroupBoxes
+    // idempotent: the new origin == stored origin, so the group stays at (500,300).
+    const nodes = [
+      groupNode('group:core'),
+      tableNode('public.users', 'group:core'),
+    ]
+    const edges: ErdFlowEdge[] = []
+    const stored: LayoutPositions = {
+      'group:core': { x: 500, y: 300 },
+      'public.users': { x: GROUP_PADDING, y: GROUP_PADDING, parentId: 'group:core' },
+    }
+    const out = reconcileLayout(nodes, edges, stored)
+    const group = out.find((n) => n.id === 'group:core')!
+    expect(group.position).toEqual({ x: 500, y: 300 })
+  })
+
+  it('places a group via dagre when no stored entry exists for the group', () => {
+    const nodes = [
+      groupNode('group:core'),
+      tableNode('public.users', 'group:core'),
+    ]
+    const edges: ErdFlowEdge[] = []
+    // No stored entry for the group itself.
+    const stored: LayoutPositions = {}
+    const out = reconcileLayout(nodes, edges, stored)
+    const group = out.find((n) => n.id === 'group:core')!
+    // Dagre-placed: just verify it is NOT at (500,300).
+    expect(group.position).not.toEqual({ x: 500, y: 300 })
+    expect(typeof group.position.x).toBe('number')
+  })
+})
+
 function enumNode(id: string): ErdFlowNode {
   return {
     id,
@@ -225,13 +260,14 @@ describe('nodesToLayout', () => {
     expect('parentId' in out.positions['public.users']).toBe(false)
   })
 
-  it('excludes group container nodes', () => {
+  it('includes group container nodes (absolute, no parentId)', () => {
     const group = groupNode('group:internal')
     group.position = { x: 0, y: 0 }
     const member = tableNode('public.audit', 'group:internal')
     member.position = { x: 24, y: 12 }
     const out = nodesToLayout([group, member])
-    expect(out.positions['group:internal']).toBeUndefined()
+    expect(out.positions['group:internal']).toEqual({ x: 0, y: 0 })
+    expect('parentId' in out.positions['group:internal']).toBe(false)
     expect(out.positions['public.audit']).toBeDefined()
   })
 
