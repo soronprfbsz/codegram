@@ -14,8 +14,6 @@ export interface ErdTopBarProps {
   projectMeta?: string
   /** Autosave lifecycle state (drives the Save pill). */
   autosaveStatus: AutosaveStatus
-  /** Whether the parse is currently valid (drives the DBML pane badge). */
-  parseStatus?: 'idle' | 'pending' | 'success' | 'error'
   /** Opens the SQL import dialog. */
   onImportSql: () => void
   /** Navigates back (e.g. to the home page). */
@@ -211,6 +209,7 @@ export function ErdTopBar({
         {/* Info button */}
         <button
           type="button"
+          className="erd-topbar-btn"
           style={btnSecondary}
           onClick={onInfo}
           aria-label="Info"
@@ -222,6 +221,7 @@ export function ErdTopBar({
         {/* Import SQL button */}
         <button
           type="button"
+          className="erd-topbar-btn"
           style={btnSecondary}
           onClick={onImportSql}
           aria-label="Import SQL"
@@ -236,6 +236,7 @@ export function ErdTopBar({
         {/* Back button */}
         <button
           type="button"
+          className="erd-topbar-btn"
           style={btnGhost}
           onClick={onBack}
           aria-label="Back"

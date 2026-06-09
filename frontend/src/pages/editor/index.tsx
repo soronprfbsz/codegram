@@ -172,6 +172,7 @@ export function EditorPage() {
           <ExportMenu
             diagram={diagramCtx}
             disabled={exportDisabled}
+            triggerClassName="erd-btn-secondary"
             onOpenTableDocView={() => setTableDocViewOpen(true)}
             onExportTableDocExcel={() =>
               downloadBlob(
@@ -253,10 +254,10 @@ export function EditorPage() {
                   lineHeight: '18px',
                   background:
                     parse.status === 'success'
-                      ? 'rgba(7,148,85,0.14)'
-                      : 'rgba(217,45,32,0.14)',
+                      ? 'color-mix(in srgb, var(--erd-success) 14%, transparent)'
+                      : 'color-mix(in srgb, var(--erd-error) 14%, transparent)',
                   color:
-                    parse.status === 'success' ? '#079455' : '#D92D20',
+                    parse.status === 'success' ? 'var(--erd-success)' : 'var(--erd-error)',
                 }}
               >
                 <span

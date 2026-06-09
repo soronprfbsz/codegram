@@ -106,6 +106,10 @@
     --erd-shadow: 0 12px 28px -10px rgba(16,24,40,.16);
     --erd-shadow-sm: 0 1px 3px 0 rgba(16,24,40,.08);
 
+    /* ERD semantic colors — Light */
+    --erd-success: #079455;
+    --erd-error: #D92D20;
+
     /* ERD accent — Light */
     --erd-accent: #0E9384;
     --erd-accent-soft: color-mix(in srgb, #0E9384 15%, transparent);
@@ -172,6 +176,10 @@
     --erd-shadow: 0 10px 30px -8px rgba(0,0,0,.6);
     --erd-shadow-sm: 0 2px 8px -2px rgba(0,0,0,.5);
 
+    /* ERD semantic colors — Dark */
+    --erd-success: #17B26A;
+    --erd-error: #F04438;
+
     /* ERD accent — Dark */
     --erd-accent: #0E9384;
     --erd-accent-soft: color-mix(in srgb, #0E9384 15%, transparent);
@@ -195,6 +203,41 @@
   html {
     @apply font-sans;
     }
+}
+
+/* TopBar secondary button — shared style for Info / Import SQL / Export triggers */
+.erd-btn-secondary {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  background: var(--erd-surface) !important;
+  border: 1px solid var(--erd-border-2) !important;
+  color: var(--erd-text) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  font-family: inherit !important;
+  transition: background 80ms ease, border-color 80ms ease !important;
+  height: auto !important;
+  box-shadow: none !important;
+}
+.erd-btn-secondary:hover:not(:disabled) {
+  background: var(--erd-hover) !important;
+  border-color: var(--erd-border-2) !important;
+}
+.erd-btn-secondary:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px var(--erd-accent-soft) !important;
+}
+
+/* Focus ring for TopBar inline-styled buttons */
+.erd-topbar-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--erd-accent-soft);
 }
 
 /* ERD node styles */

@@ -28,6 +28,8 @@ export interface ExportMenuProps {
   onExportSql: (dialect: SqlDialect) => void
   /** Disable the whole trigger (e.g. no schema / empty schema). */
   disabled?: boolean
+  /** Extra className forwarded to the trigger Button (for visual overrides). */
+  triggerClassName?: string
 }
 
 /**
@@ -44,11 +46,12 @@ export function ExportMenu({
   onExportTableDocPdf,
   onExportSql,
   disabled = false,
+  triggerClassName,
 }: ExportMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" disabled={disabled}>
+        <Button variant="outline" disabled={disabled} className={triggerClassName}>
           Export
         </Button>
       </DropdownMenuTrigger>
