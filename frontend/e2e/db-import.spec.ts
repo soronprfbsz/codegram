@@ -1,10 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
 
-// Point this spec at the Docker frontend (port 4001) whose Vite proxy
-// correctly forwards /api to the backend container. The global config's
-// webServer (localhost:5173) lacks a live backend to proxy to.
-test.use({ baseURL: 'http://localhost:4001' })
-
 async function registerAndLogin(page: Page, email: string, password: string) {
   await page.goto('/register')
   await page.locator('#register-email').fill(email)
