@@ -12,28 +12,8 @@ import * as exportDiagramLib from '@/features/export-diagram/lib/exportDiagram'
 import * as exportTableDoc from '@/features/export-table-doc'
 import * as download from '@/shared/lib/download'
 import type { DbmlSchema } from '@/entities/dbml'
-import type { ReactNode } from 'react'
 import * as sqlImport from '@/features/sql-import'
 import * as sqlExport from '@/features/sql-export'
-
-// react-resizable-panels registers a capture-phase `pointerdown` listener on
-// document.body for its hit-area resize detection. In jsdom every element shares
-// the same mocked getBoundingClientRect (top-left 0,0) and userEvent fires
-// pointer events at (0,0), so the global listener treats EVERY click as landing
-// on the resize handle and calls preventDefault/stopImmediatePropagation —
-// swallowing the click before radix's dropdown trigger ever sees it. The split
-// layout / resize behavior is verified by Playwright E2E, not jsdom; here we
-// stub the panels as passthrough wrappers so the page composition + dropdown
-// wiring can be asserted without the global listener interfering.
-vi.mock('react-resizable-panels', () => ({
-  PanelGroup: ({ children, className }: { children?: ReactNode; className?: string }) => (
-    <div className={className}>{children}</div>
-  ),
-  Panel: ({ children, className }: { children?: ReactNode; className?: string }) => (
-    <div className={className}>{children}</div>
-  ),
-  PanelResizeHandle: ({ className }: { className?: string }) => <div className={className} />,
-}))
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -77,6 +57,7 @@ describe('EditorPage', () => {
 
     renderEditor()
 
+    // TopBar renders the project name as an aria-level=1 heading (div)
     expect(
       screen.getByRole('heading', { name: 'My Project' }),
     ).toBeInTheDocument()
@@ -117,7 +98,7 @@ describe('EditorPage', () => {
     expect(lastCall.baseline).toBe('Table users {\n  id int [pk]\n}')
   })
 
-  it('toggles the combined Info panel (closed by default)', async () => {
+  it('renders the TopBar Info button and SchemaSummary always visible in the right column', async () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -134,24 +115,25 @@ describe('EditorPage', () => {
 
     renderEditor()
 
-    // Info panel CLOSED by default → neither title is in the DOM (the open panel
-    // would otherwise cover canvas nodes and block their drags).
-    expect(screen.queryByText(/parse status/i)).toBeNull()
-    expect(screen.queryByText(/schema summary/i)).toBeNull()
-    // single Info toggle button exists in the header
+    // In the 3-zone layout SchemaSummary lives in the right column (always
+    // visible — not toggled). The right panel header says "Schema summary".
+    // getAllByText handles the case where both the panel header and the
+    // SchemaSummary Card title render the same text.
+    expect(screen.getAllByText(/schema summary/i).length).toBeGreaterThanOrEqual(1)
+
+    // The Info button is present in the TopBar as a styled affordance.
     const info = screen.getByRole('button', { name: /^info$/i })
     expect(info).toBeInTheDocument()
-    // clicking the Info toggle reveals BOTH ParseErrorPanel and SchemaSummary
+
+    // Clicking Info is a no-op in Phase 2 (right column is always shown),
+    // but the button must not crash the page.
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
     await user.click(info)
-    expect(screen.getByText(/parse status/i)).toBeInTheDocument()
-    expect(screen.getByText(/schema summary/i)).toBeInTheDocument()
-    // clicking again hides both panels
-    await user.click(info)
-    expect(screen.queryByText(/schema summary/i)).toBeNull()
+    // SchemaSummary still visible after click (it's not a toggle in Phase 2)
+    expect(screen.getAllByText(/schema summary/i).length).toBeGreaterThanOrEqual(1)
   })
 
-  it('mounts the ERD canvas region in the editor split view', () => {
+  it('mounts the ERD canvas region in the 3-zone layout', () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -169,12 +151,12 @@ describe('EditorPage', () => {
     renderEditor()
 
     // The canvas is always mounted; before the debounced parse settles it
-    // shows the empty-state placeholder. Either testid proves the split view
+    // shows the empty-state placeholder. Either testid proves the center zone
     // includes the ERD canvas region.
-    const canvas =
+    const cnv =
       screen.queryByTestId('erd-canvas') ??
       screen.queryByTestId('erd-canvas-empty')
-    expect(canvas).toBeInTheDocument()
+    expect(cnv).toBeInTheDocument()
   })
 
   it('shows a not-found message when the project query errors', () => {
