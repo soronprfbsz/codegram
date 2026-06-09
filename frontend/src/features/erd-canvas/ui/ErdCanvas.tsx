@@ -22,11 +22,13 @@ import {
   type LayoutPositions,
   type StoredLayout,
 } from '@/entities/layout'
+import { getHelperLines } from '../lib/helperLines'
 import { TableNode } from './TableNode'
 import { EnumNode } from './EnumNode'
 import { StickyNote } from './StickyNote'
 import { GroupNode } from './GroupNode'
 import { RelationEdge } from './RelationEdge'
+import { HelperLines } from './HelperLines'
 
 export interface ErdCanvasProps {
   /** The normalized schema to render (parse.schema ?? parse.lastValidSchema). */
@@ -246,6 +248,7 @@ function ZoomBar() {
 
 function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady, containerRef, selected, onSelectNode }: ErdCanvasInnerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [helperLines, setHelperLines] = useState<{ vertical?: number; horizontal?: number }>({})
   useEffect(() => {
     function onFullscreenChange() {
       setIsFullscreen(document.fullscreenElement === containerRef.current)
@@ -392,7 +395,23 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
-      onNodeDragStop={() => onLayoutChange?.(nodesToLayout(nodesRef.current))}
+      onNodeDrag={(_, node) => {
+        const r = getHelperLines(node, nodesRef.current.filter((n) => n.id !== node.id))
+        setHelperLines({ vertical: r.vertical, horizontal: r.horizontal })
+        if (r.snapX !== undefined || r.snapY !== undefined) {
+          setNodes((ns) =>
+            ns.map((n) =>
+              n.id === node.id
+                ? { ...n, position: { x: r.snapX ?? n.position.x, y: r.snapY ?? n.position.y } }
+                : n,
+            ),
+          )
+        }
+      }}
+      onNodeDragStop={() => {
+        setHelperLines({})
+        onLayoutChange?.(nodesToLayout(nodesRef.current))
+      }}
       onNodeClick={(_, node) => {
         if (node.type === 'table') {
           onSelectNode?.((node.data as TableNodeData).tableName ?? null)
@@ -406,6 +425,8 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
       proOptions={{ hideAttribution: true }}
       style={{ background: 'var(--erd-canvas)' }}
     >
+      <HelperLines vertical={helperLines.vertical} horizontal={helperLines.horizontal} />
+
       {/* Two-layer Background: minor 24px grid + major 120px grid.
           Unique ids are REQUIRED — React Flow v12 derives the SVG <pattern>
           id from the Background id; without distinct ids both layers share
