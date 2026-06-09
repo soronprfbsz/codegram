@@ -5,7 +5,10 @@ API; the route runs introspect_to_ddl in a threadpool.
 """
 import ssl as ssl_module
 
+from sqlalchemy import MetaData
 from sqlalchemy.engine import URL
+from sqlalchemy.engine.interfaces import Dialect
+from sqlalchemy.schema import CreateIndex, CreateTable
 
 from app.schemas.introspect import IntrospectRequest
 
@@ -53,3 +56,15 @@ def effective_schema(req: IntrospectRequest) -> str | None:
     if req.dialect == "postgresql":
         return req.db_schema or "public"
     return None
+
+
+def build_ddl(metadata: MetaData, dialect: Dialect) -> str:
+    """Emit dialect DDL for every reflected table: CREATE TABLE (PK/FK/UQ/NN
+    inline) followed by its secondary indexes. Tables are FK-sorted so the
+    output reads top-down; @dbml/core resolves refs regardless of order."""
+    parts: list[str] = []
+    for table in metadata.sorted_tables:
+        parts.append(str(CreateTable(table).compile(dialect=dialect)).strip() + ";")
+        for index in sorted(table.indexes, key=lambda i: i.name or ""):
+            parts.append(str(CreateIndex(index).compile(dialect=dialect)).strip() + ";")
+    return "\n\n".join(parts)
