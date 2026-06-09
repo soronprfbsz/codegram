@@ -3,7 +3,6 @@ import type {
   DbmlColumn,
   DbmlEnum,
   DbmlNote,
-  DbmlParseError,
   DbmlParseResult,
   DbmlRef,
   DbmlRelation,
@@ -11,6 +10,7 @@ import type {
   DbmlTable,
   DbmlTableGroup,
 } from '@/entities/dbml/model/types'
+import { compilerErrorToParseErrors } from './compilerError'
 
 /**
  * @dbml/core normalize() returns ID-keyed maps; we treat each as a record of
@@ -187,24 +187,6 @@ function toSchema(model: NormalizedModel): DbmlSchema {
   }
 }
 
-/** Convert a CompilerError's diags into our parse-error shape. */
-function toErrors(err: CompilerError): DbmlParseError[] {
-  const diags = Array.isArray(err.diags) ? err.diags : []
-  if (diags.length === 0) {
-    // CompilerError has no `message` property and does not extend Error;
-    // its diagnostics live on `.diags`. With no diags, fall back to a literal.
-    return [{ message: 'Failed to parse DBML' }]
-  }
-  return diags.map((diag) => {
-    const start = diag.location?.start
-    return {
-      message: diag.message,
-      line: typeof start?.line === 'number' ? start.line : undefined,
-      column: typeof start?.column === 'number' ? start.column : undefined,
-    }
-  })
-}
-
 /**
  * Parse DBML text into our normalized model. Pure and error-safe: it NEVER
  * throws — on invalid DBML it returns { ok: false, errors }. entities layer:
@@ -217,7 +199,10 @@ export function parseDbml(text: string): DbmlParseResult {
     return { ok: true, schema: toSchema(model) }
   } catch (err) {
     if (err instanceof CompilerError) {
-      return { ok: false, errors: toErrors(err) }
+      return {
+        ok: false,
+        errors: compilerErrorToParseErrors(err, 'Failed to parse DBML'),
+      }
     }
     return {
       ok: false,

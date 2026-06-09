@@ -1,25 +1,7 @@
 import { exporter, CompilerError } from '@dbml/core'
-import type { DbmlParseError } from '../model/types'
 import type { SqlDialect, SqlExportResult } from '../model/sqlTypes'
 import { SQL_DIALECTS } from '../model/sqlTypes'
-
-/** Convert a CompilerError's diags into our parse-error shape.
- *  diag.message aliases diag.text at runtime; line/column come from
- *  diag.location.start. Co-located per-adapter; NOT barrel-exported. */
-function toSqlErrors(err: CompilerError, fallback: string): DbmlParseError[] {
-  const diags = Array.isArray(err.diags) ? err.diags : []
-  if (diags.length === 0) {
-    return [{ message: fallback }]
-  }
-  return diags.map((diag) => {
-    const start = diag.location?.start
-    return {
-      message: diag.message,
-      line: typeof start?.line === 'number' ? start.line : undefined,
-      column: typeof start?.column === 'number' ? start.column : undefined,
-    }
-  })
-}
+import { compilerErrorToParseErrors } from './compilerError'
 
 /**
  * Convert DBML text into a SQL schema string for the given dialect. Pure and
@@ -35,7 +17,10 @@ export function exportDbmlToSql(dbml: string, dialect: SqlDialect): SqlExportRes
     return { ok: true, sql }
   } catch (err) {
     if (err instanceof CompilerError) {
-      return { ok: false, errors: toSqlErrors(err, 'Failed to export DBML') }
+      return {
+        ok: false,
+        errors: compilerErrorToParseErrors(err, 'Failed to export DBML'),
+      }
     }
     return {
       ok: false,

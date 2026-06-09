@@ -59,4 +59,17 @@ describe('importSqlToDbml', () => {
     expect(result.errors[0].message).toContain('no viable alternative')
     expect(result.errors[0].line).toBe(1)
   })
+
+  it('imports a PostgreSQL CREATE TYPE ... AS ENUM into a DBML Enum', () => {
+    const sql =
+      "CREATE TYPE mood AS ENUM ('happy', 'sad');\n" +
+      'CREATE TABLE people (id SERIAL PRIMARY KEY, current_mood mood);'
+    const result = importSqlToDbml(sql, 'postgres')
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok')
+    expect(result.dbml).toContain('Enum "mood"')
+    expect(result.dbml).toContain('"happy"')
+    expect(result.dbml).toContain('"sad"')
+    expect(result.dbml).toContain('"current_mood" mood')
+  })
 })
