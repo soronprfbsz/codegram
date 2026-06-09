@@ -9,6 +9,11 @@ import {
 } from '@/shared/ui/dropdown-menu'
 import * as exporters from '../lib/exportDiagram'
 import type { DiagramExportContext } from '../lib/exportDiagram'
+import {
+  SQL_DIALECTS,
+  SQL_DIALECT_VALUES,
+  type SqlDialect,
+} from '@/entities/dbml'
 
 export interface ExportMenuProps {
   /** The capture context used by the three diagram exporters. */
@@ -19,6 +24,8 @@ export interface ExportMenuProps {
   onExportTableDocExcel: () => void
   /** Build + download the table-definition PDF. */
   onExportTableDocPdf: () => void
+  /** Build + download the current DBML as SQL for the chosen dialect. */
+  onExportSql: (dialect: SqlDialect) => void
   /** Disable the whole trigger (e.g. no schema / empty schema). */
   disabled?: boolean
 }
@@ -35,6 +42,7 @@ export function ExportMenu({
   onOpenTableDocView,
   onExportTableDocExcel,
   onExportTableDocPdf,
+  onExportSql,
   disabled = false,
 }: ExportMenuProps) {
   return (
@@ -66,6 +74,13 @@ export function ExportMenu({
         <DropdownMenuItem onSelect={() => onExportTableDocPdf()}>
           Table Doc PDF
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>SQL</DropdownMenuLabel>
+        {SQL_DIALECT_VALUES.map((d) => (
+          <DropdownMenuItem key={d} onSelect={() => onExportSql(d)}>
+            {`SQL · ${SQL_DIALECTS[d].label}`}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )

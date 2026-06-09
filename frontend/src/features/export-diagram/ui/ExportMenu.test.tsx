@@ -29,6 +29,7 @@ describe('ExportMenu', () => {
         onOpenTableDocView={() => {}}
         onExportTableDocExcel={() => {}}
         onExportTableDocPdf={() => {}}
+        onExportSql={() => {}}
       />,
     )
     await user.click(screen.getByRole('button', { name: /export/i }))
@@ -57,6 +58,7 @@ describe('ExportMenu', () => {
         onOpenTableDocView={() => {}}
         onExportTableDocExcel={() => {}}
         onExportTableDocPdf={() => {}}
+        onExportSql={() => {}}
       />,
     )
 
@@ -84,6 +86,7 @@ describe('ExportMenu', () => {
         onOpenTableDocView={onOpen}
         onExportTableDocExcel={onXlsx}
         onExportTableDocPdf={onPdf}
+        onExportSql={() => {}}
       />,
     )
 
@@ -98,5 +101,37 @@ describe('ExportMenu', () => {
     await user.click(screen.getByRole('button', { name: /export/i }))
     await user.click(await screen.findByRole('menuitem', { name: 'Table Doc PDF' }))
     expect(onPdf).toHaveBeenCalledTimes(1)
+  })
+
+  it('SQL items fire onExportSql with the matching dialect', async () => {
+    const onExportSql = vi.fn()
+    const user = setup()
+    render(
+      <ExportMenu
+        diagram={diagram}
+        onOpenTableDocView={() => {}}
+        onExportTableDocExcel={() => {}}
+        onExportTableDocPdf={() => {}}
+        onExportSql={onExportSql}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'SQL · PostgreSQL' }),
+    )
+    expect(onExportSql).toHaveBeenLastCalledWith('postgres')
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'SQL · MySQL' }),
+    )
+    expect(onExportSql).toHaveBeenLastCalledWith('mysql')
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'SQL · MS SQL Server' }),
+    )
+    expect(onExportSql).toHaveBeenLastCalledWith('mssql')
   })
 })
