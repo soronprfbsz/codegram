@@ -26,7 +26,9 @@ async def introspect(
 ) -> IntrospectResponse:
     """Introspect the target DB and return DDL + the @dbml/core import dialect."""
     try:
-        result = await anyio.to_thread.run_sync(introspect_to_ddl, payload)
+        result = await anyio.to_thread.run_sync(
+            introspect_to_ddl, payload, abandon_on_cancel=True
+        )
     except ConnectionFailedError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
