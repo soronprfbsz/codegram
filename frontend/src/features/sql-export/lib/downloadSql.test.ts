@@ -13,7 +13,7 @@ describe('downloadSql', () => {
     vi.restoreAllMocks()
   })
 
-  it('downloads a text/plain SQL blob named schema.<dialect>.sql on success', () => {
+  it('downloads a text/plain SQL blob named schema.<dialect>.sql on success', async () => {
     vi.spyOn(dbml, 'exportDbmlToSql').mockReturnValue({
       ok: true,
       sql: 'CREATE TABLE "users" (...);',
@@ -31,6 +31,7 @@ describe('downloadSql', () => {
     const [blob, filename] = dl.mock.calls[0]
     expect(blob).toBeInstanceOf(Blob)
     expect((blob as Blob).type).toBe('text/plain')
+    expect(await (blob as Blob).text()).toBe('CREATE TABLE "users" (...);')
     expect(filename).toBe('schema.postgres.sql')
   })
 

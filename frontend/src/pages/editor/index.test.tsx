@@ -541,4 +541,29 @@ describe('EditorPage — SQL import/export wiring', () => {
       'postgres',
     )
   })
+
+  it('SQL export passes the CURRENT (invalid) text while the trigger stays enabled via lastValidSchema', async () => {
+    // The current text is invalid, but a prior valid parse is retained. pages
+    // gates the Export trigger on `schema ?? lastValidSchema`, so the trigger
+    // is ENABLED even though `exportDbmlToSql(currentText)` would fail. This
+    // pins that the SQL export item passes the CURRENT dbmlText (not the last
+    // valid one) — downloadSql then warns + returns false in real usage.
+    const invalidText = 'Table users {\n  id integer [pk'
+    mockLoadedProject(invalidText)
+    vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
+      status: 'error',
+      schema: undefined,
+      lastValidSchema: usersSchema,
+      errors: [{ message: 'x' }],
+    })
+    const dl = vi.spyOn(sqlExport, 'downloadSql').mockReturnValue(false)
+    const user = setup()
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'SQL · PostgreSQL' }),
+    )
+    expect(dl).toHaveBeenCalledWith(invalidText, 'postgres')
+  })
 })

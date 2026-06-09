@@ -94,10 +94,15 @@ test.describe('SQL import/export', () => {
     await page.getByRole('button', { name: 'Import', exact: true }).click()
 
     // The converted DBML replaces the editor text -> the ERD renders both
-    // imported tables.
+    // imported tables. Scope to the React Flow nodes (by data-id) so the
+    // assertion proves the ERD rendered, not the sidebar/summary text.
     await waitForTwoNodes(page)
-    await expect(page.getByText('users').first()).toBeVisible()
-    await expect(page.getByText('posts').first()).toBeVisible()
+    await expect(
+      page.locator('.react-flow__node[data-id="public.users"]'),
+    ).toBeVisible()
+    await expect(
+      page.locator('.react-flow__node[data-id="public.posts"]'),
+    ).toBeVisible()
   })
 
   test('imports a PostgreSQL schema from an uploaded .sql file', async ({
@@ -118,7 +123,9 @@ test.describe('SQL import/export', () => {
     await page.getByRole('button', { name: 'Import', exact: true }).click()
 
     await waitForTwoNodes(page)
-    await expect(page.getByText('users').first()).toBeVisible()
+    await expect(
+      page.locator('.react-flow__node[data-id="public.users"]'),
+    ).toBeVisible()
   })
 
   test('exports the current DBML to a PostgreSQL .sql file', async ({
