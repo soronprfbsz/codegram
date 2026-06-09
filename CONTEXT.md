@@ -34,7 +34,11 @@ _Avoid_: 스키마 문서, 명세서 (정의서가 정식 명칭)
 
 **DB 가져오기** (Database Import / Schema Introspection):
 실행 중인 외부 데이터베이스(PostgreSQL·MariaDB)에 접속해 스키마를 읽어(introspection) 그 구조를 새 Project의 DBML로 옮기는 동작. 접속 정보(호스트·유저·비밀번호)는 **1회용**으로만 쓰이고 저장되지 않는다. 백엔드는 외부 DB에 접속해 스키마를 reflection으로 읽고 DDL을 만들 뿐, **DBML 의미는 여전히 다루지 않는다** — DDL→DBML 변환은 프론트의 `@dbml/core`가 수행한다(ADR-0002 유지). 한 번의 가져오기는 한 schema(PG는 기본 `public`, MariaDB는 접속한 database)를 대상으로 하고 결과는 새 Project 하나가 된다.
-_Avoid_: DB 연동, 동기화 (가져오기는 1회성 단방향이며, 이후 DBML이 진실 공급원이 된다 — 라이브 동기화가 아님)
+_Avoid_: DB 연동 (가져오기는 새 Project를 만드는 1회성 동작 — 기존 Project를 갱신하는 것은 아래 **DB 동기화**다)
+
+**DB 동기화** (Sync):
+**기존 Project**의 구조를 연결한 DB의 현재 상태로 갱신하는 동작. DBML은 introspect 결과로 **전체 교체**되며(구조의 진실 공급원은 DB, 단방향), 사용자가 조정한 Layout(테이블 위치)은 **이름 기반으로 보존**된다(ADR-0004): DB에서 사라진 테이블은 다이어그램에서 제거되고, 남은 테이블은 위치를 유지하며, **신규 테이블은 기존 배치를 건드리지 않고 다이어그램의 빈 공간에 배치**된다. 가져오기와 같은 `/api/introspect` 경로·접속 다이얼로그를 재사용하지만, 가져오기가 **새 Project를 만드는** 반면 동기화는 **현재 Project를 덮어쓴다**. 전체 교체이므로 사용자가 DBML에 손으로 넣은 주석·수동 TableGroup·색은 보존되지 않는다.
+_Avoid_: 양방향 동기화, 라이브 동기화 (DB→Project 단방향·수동 트리거이며, Project의 변경을 DB로 되쓰지 않는다)
 
 ## Flagged ambiguities
 
