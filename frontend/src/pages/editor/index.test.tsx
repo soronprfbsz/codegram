@@ -98,13 +98,13 @@ describe('EditorPage', () => {
     expect(lastCall.baseline).toBe('Table users {\n  id int [pk]\n}')
   })
 
-  it('renders the TopBar Info button and SchemaSummary always visible in the right column', async () => {
+  it('renders the TopBar Info button and ErdInfoPanel always visible in the right column', async () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
         user_id: 'u-1',
         name: 'My Project',
-        dbml_text: '',
+        dbml_text: 'Table users {\n  id int [pk]\n}',
         layout: {},
         created_at: '2026-06-05T00:00:00Z',
         updated_at: '2026-06-05T00:00:00Z',
@@ -113,23 +113,47 @@ describe('EditorPage', () => {
       isError: false,
     } as ReturnType<typeof project.useProject>)
 
+    // Make parse synchronous so ErdInfoPanel has a schema to show.
+    vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
+      status: 'success',
+      schema: {
+        tables: [
+          {
+            id: 'public.users',
+            name: 'users',
+            schema: 'public',
+            columns: [
+              { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
+            ],
+          },
+        ],
+        refs: [],
+        enums: [],
+        tableGroups: [],
+        notes: [],
+      } as import('@/entities/dbml').DbmlSchema,
+      lastValidSchema: undefined,
+    })
+
     renderEditor()
 
-    // In the 3-zone layout SchemaSummary lives in the right column (always
-    // visible — not toggled). The right panel header says "Schema summary".
-    // getAllByText handles the case where both the panel header and the
-    // SchemaSummary Card title render the same text.
+    // The right column's ErdInfoPanel renders a "Schema summary" panel header.
     expect(screen.getAllByText(/schema summary/i).length).toBeGreaterThanOrEqual(1)
+
+    // The stat grid shows the table count from the mocked schema.
+    expect(screen.getByTestId('stat-tables').textContent).toBe('1')
+
+    // The tablelist row for the 'users' table is rendered.
+    expect(screen.getByTestId('tablelist-row-users')).toBeInTheDocument()
 
     // The Info button is present in the TopBar as a styled affordance.
     const info = screen.getByRole('button', { name: /^info$/i })
     expect(info).toBeInTheDocument()
 
-    // Clicking Info is a no-op in Phase 2 (right column is always shown),
-    // but the button must not crash the page.
+    // Clicking Info is a no-op (right column is always shown).
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
     await user.click(info)
-    // SchemaSummary still visible after click (it's not a toggle in Phase 2)
+    // ErdInfoPanel still visible after click
     expect(screen.getAllByText(/schema summary/i).length).toBeGreaterThanOrEqual(1)
   })
 

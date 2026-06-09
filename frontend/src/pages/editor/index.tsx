@@ -9,9 +9,9 @@ import {
 } from '@/features/project-autosave'
 import {
   DbmlEditor,
-  SchemaSummary,
   useDbmlParse,
 } from '@/features/dbml-editor'
+import { ErdInfoPanel } from '@/widgets/erd-info-panel'
 import { ErdCanvas, type ErdCaptureHandle } from '@/features/erd-canvas'
 import { useLayoutPersistence } from '@/features/layout-persistence'
 import {
@@ -36,6 +36,15 @@ const EMPTY_TABLE_DOC: TableDocModel = { tables: [], enums: [] }
 function extractProjectMeta(dbml: string): string | undefined {
   const m = /^\s*Project\s+([^\s{]+)/m.exec(dbml)
   return m ? m[1] : undefined
+}
+
+/**
+ * Extract the `database_type` value from a DBML `Project` block.
+ * Returns undefined if not present.
+ */
+function extractDialect(dbml: string): string | undefined {
+  const m = /database_type\s*:\s*['"]?([^'"\n\r}]+?)['"]?\s*[\n\r}]/m.exec(dbml)
+  return m ? m[1].trim() : undefined
 }
 
 /**
@@ -114,6 +123,13 @@ export function EditorPage() {
 
   // Extract the DBML `Project` block name for the TopBar subtitle.
   const projectMeta = useMemo(() => extractProjectMeta(dbmlText), [dbmlText])
+
+  // Extract the `database_type` from the DBML Project block for the info panel.
+  const dialect = useMemo(() => extractDialect(dbmlText), [dbmlText])
+
+  // Selected table name — drives the Table names list highlight (Phase 3).
+  // Node-click selection and editor scroll are wired in Phase 5.
+  const [selected, setSelected] = useState<string | null>(null)
 
   // Seed the editor (and the autosave baseline) once the project loads.
   useEffect(() => {
@@ -277,7 +293,7 @@ export function EditorPage() {
           />
         </div>
 
-        {/* Right (316px): SchemaSummary stopgap (Phase 3 rebuilds) */}
+        {/* Right (316px): ErdInfoPanel — schema summary + table names list */}
         <div
           style={{
             background: 'var(--erd-surface)',
@@ -287,35 +303,12 @@ export function EditorPage() {
             minHeight: 0,
           }}
         >
-          {/* Panel header — 44px */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              height: 44,
-              padding: '0 14px',
-              flexShrink: 0,
-              borderBottom: '1px solid var(--erd-border)',
-            }}
-          >
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                letterSpacing: '.04em',
-                textTransform: 'uppercase',
-                color: 'var(--erd-text-2)',
-              }}
-            >
-              Schema summary
-            </span>
-          </div>
-
-          {/* SchemaSummary — Phase 3 will replace/rebuild this */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 12 }}>
-            <SchemaSummary schema={schema} />
-          </div>
+          <ErdInfoPanel
+            schema={schema}
+            selected={selected}
+            onSelect={setSelected}
+            dialect={dialect}
+          />
         </div>
       </div>
 
