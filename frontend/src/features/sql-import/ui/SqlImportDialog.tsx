@@ -83,10 +83,14 @@ export function SqlImportDialog({
 
   async function handleFile(file: File | undefined) {
     if (!file) return
-    const text = await file.text()
-    setSqlText(text)
-    setErrors(null)
-    setPendingDbml(null)
+    try {
+      const text = await file.text()
+      setSqlText(text)
+      setErrors(null)
+      setPendingDbml(null)
+    } catch {
+      setErrors([{ message: 'Could not read the selected file' }])
+    }
   }
 
   return (
@@ -111,7 +115,10 @@ export function SqlImportDialog({
             id="sql-import-dialect"
             data-testid="sql-import-dialect"
             value={dialect}
-            onChange={(e) => setDialect(e.target.value as SqlDialect)}
+            onChange={(e) => {
+              setDialect(e.target.value as SqlDialect)
+              setPendingDbml(null)
+            }}
             className="h-9 rounded-md border border-border bg-background px-2.5 text-sm outline-none"
           >
             {SQL_DIALECT_VALUES.map((d) => (
@@ -125,7 +132,10 @@ export function SqlImportDialog({
         <textarea
           data-testid="sql-import-textarea"
           value={sqlText}
-          onChange={(e) => setSqlText(e.target.value)}
+          onChange={(e) => {
+            setSqlText(e.target.value)
+            setPendingDbml(null)
+          }}
           placeholder="CREATE TABLE …"
           rows={8}
           className="w-full rounded-md border border-border bg-background p-2 font-mono text-sm outline-none"
@@ -137,7 +147,10 @@ export function SqlImportDialog({
             type="file"
             accept=".sql,text/plain"
             data-testid="sql-file-input"
-            onChange={(e) => void handleFile(e.target.files?.[0])}
+            onChange={(e) => {
+              void handleFile(e.target.files?.[0])
+              e.target.value = ''
+            }}
             className="block text-sm"
           />
         </label>

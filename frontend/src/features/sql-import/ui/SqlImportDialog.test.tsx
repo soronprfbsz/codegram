@@ -74,4 +74,83 @@ describe('SqlImportDialog', () => {
     expect(onImport).toHaveBeenCalledTimes(1)
     expect(onImport.mock.calls[0][0]).toContain('users')
   })
+
+  it('reads an uploaded .sql file into the textarea and imports it', async () => {
+    const user = setup()
+    const onImport = vi.fn()
+    render(
+      <SqlImportDialog
+        open
+        onOpenChange={vi.fn()}
+        hasExistingContent={false}
+        onImport={onImport}
+      />,
+    )
+    const file = new File([VALID_SQL], 'schema.sql', { type: 'text/plain' })
+    await user.upload(screen.getByTestId('sql-file-input'), file)
+    const textarea = screen.getByTestId<HTMLTextAreaElement>(
+      'sql-import-textarea',
+    )
+    expect(textarea.value).toContain('CREATE TABLE users')
+    await user.click(screen.getByRole('button', { name: 'Import' }))
+    expect(onImport).toHaveBeenCalledTimes(1)
+    expect(onImport.mock.calls[0][0]).toContain('users')
+  })
+
+  it('resets error and textarea state when reopened', async () => {
+    const user = setup()
+    const { rerender } = render(
+      <SqlImportDialog
+        open
+        onOpenChange={vi.fn()}
+        hasExistingContent={false}
+        onImport={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByTestId('sql-import-textarea'))
+    await user.paste(MALFORMED_SQL)
+    await user.click(screen.getByRole('button', { name: 'Import' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    // Close (resets local state) then reopen.
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    rerender(
+      <SqlImportDialog
+        open={false}
+        onOpenChange={vi.fn()}
+        hasExistingContent={false}
+        onImport={vi.fn()}
+      />,
+    )
+    rerender(
+      <SqlImportDialog
+        open
+        onOpenChange={vi.fn()}
+        hasExistingContent={false}
+        onImport={vi.fn()}
+      />,
+    )
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(
+      screen.getByTestId<HTMLTextAreaElement>('sql-import-textarea').value,
+    ).toBe('')
+  })
+
+  it('uses the selected dialect to drive the conversion', async () => {
+    const user = setup()
+    const onImport = vi.fn()
+    render(
+      <SqlImportDialog
+        open
+        onOpenChange={vi.fn()}
+        hasExistingContent={false}
+        onImport={onImport}
+      />,
+    )
+    await user.selectOptions(screen.getByTestId('sql-import-dialect'), 'mysql')
+    await user.click(screen.getByTestId('sql-import-textarea'))
+    await user.paste(VALID_SQL)
+    await user.click(screen.getByRole('button', { name: 'Import' }))
+    expect(onImport).toHaveBeenCalledTimes(1)
+    expect(onImport.mock.calls[0][0]).toContain('users')
+  })
 })
