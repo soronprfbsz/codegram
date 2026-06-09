@@ -298,14 +298,19 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
       proOptions={{ hideAttribution: true }}
       style={{ background: 'var(--erd-canvas)' }}
     >
-      {/* Two-layer Background: minor 24px grid + major 120px grid */}
+      {/* Two-layer Background: minor 24px grid + major 120px grid.
+          Unique ids are REQUIRED — React Flow v12 derives the SVG <pattern>
+          id from the Background id; without distinct ids both layers share
+          one pattern and the second overwrites the first (minor grid lost). */}
       <Background
+        id="erd-grid-minor"
         variant={BackgroundVariant.Lines}
         gap={24}
         color="var(--erd-grid)"
         style={{ opacity: 1 }}
       />
       <Background
+        id="erd-grid-major"
         variant={BackgroundVariant.Lines}
         gap={120}
         color="var(--erd-grid-strong)"
