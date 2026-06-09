@@ -1,6 +1,7 @@
 import { useCurrentUser } from '@/entities/session'
 import { LogoutButton } from '@/features/auth'
 import { ProjectList } from '@/features/project-list'
+import { DbImportButton } from '@/features/db-import'
 
 export function HomePage() {
   const { data: user } = useCurrentUser()
@@ -22,6 +23,9 @@ export function HomePage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8">
+        <div className="mb-6 flex justify-end">
+          <DbImportButton />
+        </div>
         <ProjectList />
       </main>
     </div>
