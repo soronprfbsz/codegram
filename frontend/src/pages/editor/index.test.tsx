@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EditorPage } from './index'
@@ -12,6 +12,8 @@ import * as exportDiagramLib from '@/features/export-diagram/lib/exportDiagram'
 import * as exportTableDoc from '@/features/export-table-doc'
 import * as download from '@/shared/lib/download'
 import type { DbmlSchema } from '@/entities/dbml'
+import * as sqlImport from '@/features/sql-import'
+import * as sqlExport from '@/features/sql-export'
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -399,5 +401,144 @@ describe('EditorPage — Export menu wiring', () => {
     renderEditor()
     expect(screen.getByRole('button', { name: /export/i })).toBeDisabled()
     expect(screen.queryByRole('menuitem')).toBeNull()
+  })
+})
+
+describe('EditorPage — SQL import/export wiring', () => {
+  const usersSchema: DbmlSchema = {
+    tables: [
+      {
+        id: 'public.users',
+        name: 'users',
+        schema: 'public',
+        columns: [
+          {
+            id: 'public.users.id',
+            name: 'id',
+            type: 'integer',
+            pk: true,
+            notNull: true,
+            unique: false,
+            increment: false,
+            isFk: false,
+          },
+        ],
+      },
+    ],
+    refs: [],
+    enums: [],
+    tableGroups: [],
+    notes: [],
+  }
+
+  function mockLoadedProject(dbml_text: string) {
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        name: 'My Project',
+        dbml_text,
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof project.useProject>)
+  }
+
+  const setup = () =>
+    userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
+      status: 'success',
+      schema: usersSchema,
+      lastValidSchema: usersSchema,
+    })
+    vi.spyOn(canvas, 'ErdCanvas').mockImplementation(
+      (props: { onCaptureReady?: (h: canvas.ErdCaptureHandle) => void }) => {
+        props.onCaptureReady?.({
+          fitView: () => {},
+          getInstance: () => null as never,
+        })
+        return <div data-testid="erd-canvas-stub" />
+      },
+    )
+    // Stub the import dialog: render its trigger surface only when `open`,
+    // and expose a button that drives onImport so we can assert the page
+    // threads it into setDbmlText.
+    vi.spyOn(sqlImport, 'SqlImportDialog').mockImplementation(
+      (props: sqlImport.SqlImportDialogProps) =>
+        props.open ? (
+          <div data-testid="sql-import-dialog-stub">
+            <span data-testid="has-existing">
+              {String(props.hasExistingContent)}
+            </span>
+            <button
+              onClick={() =>
+                props.onImport('Table imported {\n  id int [pk]\n}')
+              }
+            >
+              fire-import
+            </button>
+          </div>
+        ) : <></>,
+    )
+  })
+
+  it('opens the SqlImportDialog when the Import SQL button is clicked', async () => {
+    mockLoadedProject('Table users {\n  id integer [pk]\n}')
+    const user = setup()
+    renderEditor()
+
+    expect(screen.queryByTestId('sql-import-dialog-stub')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'Import SQL' }))
+    expect(screen.getByTestId('sql-import-dialog-stub')).toBeInTheDocument()
+  })
+
+  it('passes hasExistingContent=true when the editor holds non-empty DBML', async () => {
+    mockLoadedProject('Table users {\n  id integer [pk]\n}')
+    const user = setup()
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: 'Import SQL' }))
+    expect(screen.getByTestId('has-existing')).toHaveTextContent('true')
+  })
+
+  it('imports DBML into the editor (onImport -> setDbmlText)', async () => {
+    mockLoadedProject('Table users {\n  id integer [pk]\n}')
+    const user = setup()
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: 'Import SQL' }))
+    await user.click(screen.getByRole('button', { name: 'fire-import' }))
+
+    // setDbmlText replaced the document: the CodeMirror editor now shows the
+    // imported table name. Poll because @uiw/react-codemirror applies an
+    // external `value` change via an async reconfigure/dispatch effect.
+    await waitFor(() =>
+      expect(screen.getByTestId('dbml-editor').textContent).toContain(
+        'Table imported',
+      ),
+    )
+  })
+
+  it('exports SQL via downloadSql for the chosen dialect', async () => {
+    mockLoadedProject('Table users {\n  id integer [pk]\n}')
+    const dl = vi.spyOn(sqlExport, 'downloadSql').mockReturnValue(true)
+    const user = setup()
+    renderEditor()
+
+    await user.click(screen.getByRole('button', { name: /export/i }))
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'SQL · PostgreSQL' }),
+    )
+    expect(dl).toHaveBeenCalledWith(
+      'Table users {\n  id integer [pk]\n}',
+      'postgres',
+    )
   })
 })

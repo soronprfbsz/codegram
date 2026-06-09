@@ -24,6 +24,8 @@ import {
   buildTableDocXlsxBlob,
   buildTableDocPdfBlob,
 } from '@/features/export-table-doc'
+import { downloadSql } from '@/features/sql-export'
+import { SqlImportDialog } from '@/features/sql-import'
 import { TableDocView } from '@/widgets/table-doc-view'
 
 const statusLabel: Record<AutosaveStatus, string> = {
@@ -92,6 +94,7 @@ export function EditorPage() {
   const captureHandleRef = useRef<ErdCaptureHandle | null>(null)
   const canvasWrapperRef = useRef<HTMLDivElement>(null)
   const [tableDocViewOpen, setTableDocViewOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   // Derive the 테이블 정의서 model once per schema change.
   const tableDoc = useMemo<TableDocModel>(
@@ -154,6 +157,9 @@ export function EditorPage() {
             <span className="text-sm text-gray-600">
               {statusLabel[status]}
             </span>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              Import SQL
+            </Button>
             <ExportMenu
               diagram={diagramCtx}
               disabled={exportDisabled}
@@ -170,6 +176,7 @@ export function EditorPage() {
                   'table-definition.pdf',
                 )
               }
+              onExportSql={(dialect) => downloadSql(dbmlText, dialect)}
             />
             <Button variant="outline" onClick={() => navigate('/')}>
               Back
@@ -206,6 +213,12 @@ export function EditorPage() {
         model={tableDoc}
         open={tableDocViewOpen}
         onClose={() => setTableDocViewOpen(false)}
+      />
+      <SqlImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        hasExistingContent={dbmlText.trim().length > 0}
+        onImport={(dbml) => setDbmlText(dbml)}
       />
     </div>
   )
