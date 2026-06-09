@@ -136,53 +136,73 @@ export function DbConnectDialog({
           </select>
 
           <div className="flex gap-2">
-            <input
-              data-testid="db-connect-host"
-              placeholder="Host"
-              value={host}
-              onChange={(e) => setHost(e.target.value)}
-              className={`${inputClass} flex-1`}
-            />
-            <input
-              data-testid="db-connect-port"
-              type="number"
-              placeholder="Port"
-              value={port}
-              onChange={(e) => setPort(Number(e.target.value))}
-              className={`${inputClass} w-24`}
-            />
+            <label className="flex flex-1 flex-col gap-1 text-sm font-medium">
+              Host
+              <input
+                data-testid="db-connect-host"
+                placeholder="Host"
+                value={host}
+                onChange={(e) => setHost(e.target.value)}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex w-28 flex-col gap-1 text-sm font-medium">
+              Port
+              <input
+                data-testid="db-connect-port"
+                type="number"
+                placeholder="Port"
+                value={port}
+                onChange={(e) => setPort(Number(e.target.value))}
+                className={inputClass}
+              />
+            </label>
           </div>
 
-          <input
-            data-testid="db-connect-username"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className={inputClass}
-          />
-          <input
-            data-testid="db-connect-password"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
-          />
-          <input
-            data-testid="db-connect-database"
-            placeholder="Database"
-            value={database}
-            onChange={(e) => setDatabase(e.target.value)}
-            className={inputClass}
-          />
-          {dialect === 'postgresql' && (
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Username
             <input
-              data-testid="db-connect-schema"
-              placeholder="Schema (default: public)"
-              value={schema}
-              onChange={(e) => setSchema(e.target.value)}
+              data-testid="db-connect-username"
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="off"
               className={inputClass}
             />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Password
+            <input
+              data-testid="db-connect-password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="off"
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Database
+            <input
+              data-testid="db-connect-database"
+              placeholder="Database"
+              value={database}
+              onChange={(e) => setDatabase(e.target.value)}
+              className={inputClass}
+            />
+          </label>
+          {dialect === 'postgresql' && (
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Schema (default: public)
+              <input
+                data-testid="db-connect-schema"
+                placeholder="Schema (default: public)"
+                value={schema}
+                onChange={(e) => setSchema(e.target.value)}
+                className={inputClass}
+              />
+            </label>
           )}
           <label className="flex items-center gap-2 text-sm">
             <input
