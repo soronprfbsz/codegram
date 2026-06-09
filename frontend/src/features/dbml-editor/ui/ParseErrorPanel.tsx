@@ -7,6 +7,8 @@ export interface ParseErrorPanelProps {
   status: DbmlParseStatus
   /** Parse errors, present only when status is "error". */
   errors?: DbmlParseError[]
+  /** Optional className forwarded to the root Card (e.g. for floating panel styles). */
+  className?: string
 }
 
 /**
@@ -16,9 +18,9 @@ export interface ParseErrorPanelProps {
  * parse state as props and does no parsing itself.
  * features layer: depends on shared + entities/dbml (FSD downward imports).
  */
-export function ParseErrorPanel({ status, errors }: ParseErrorPanelProps) {
+export function ParseErrorPanel({ status, errors, className }: ParseErrorPanelProps) {
   return (
-    <Card size="sm">
+    <Card size="sm" className={className}>
       <CardHeader>
         <CardTitle className="text-sm">Parse status</CardTitle>
       </CardHeader>

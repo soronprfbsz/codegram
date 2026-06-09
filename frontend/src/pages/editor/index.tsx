@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { Button } from '@/shared/ui/button'
 import { downloadBlob } from '@/shared/lib/download'
 import { useProject } from '@/entities/project'
@@ -37,6 +39,24 @@ const statusLabel: Record<AutosaveStatus, string> = {
 
 const EMPTY_TABLE_DOC: TableDocModel = { tables: [], enums: [] }
 
+// Small presentational helper: wraps a floating panel with a close button.
+// Module-scope so its identity is stable across renders.
+function FloatingPanel({ onClose, label, children }: { onClose: () => void; label: string; children: ReactNode }) {
+  return (
+    <div className="pointer-events-auto relative">
+      <button
+        type="button"
+        aria-label={`Close ${label} panel`}
+        onClick={onClose}
+        className="absolute right-2 top-2 z-10 rounded p-1 text-gray-500 hover:bg-black/5 hover:text-gray-800"
+      >
+        ✕
+      </button>
+      {children}
+    </div>
+  )
+}
+
 /**
  * Editor page (Plan 3b): loads a project by :id and binds a CodeMirror 6
  * editor to dbml_text with debounced autosave (Plan 2 contract preserved),
@@ -47,8 +67,8 @@ const EMPTY_TABLE_DOC: TableDocModel = { tables: [], enums: [] }
  * blank the diagram. Node positions seed from project.layout and reconcile by
  * name on each parse (ADR-0004) — placed tables keep their coords, new ones get
  * dagre — and round-trip through the existing debounced autosave (table drag +
- * Auto-arrange). The parse-status panel + a compact schema summary stay in a
- * sidebar beside the canvas.
+ * Auto-arrange). The parse-status panel + a compact schema summary float over
+ * the canvas top-right and are toggled via header buttons (T3).
  * Plan 5: the header carries an Export dropdown — diagram PNG/SVG/PDF capture
  * the canvas via a handle surfaced from ErdCanvas (onCaptureReady), and the
  * table-doc Excel/PDF builders + the in-app HTML view all consume the derived
@@ -87,6 +107,10 @@ export function EditorPage() {
   // Live, debounced parse of the editor text into the normalized model.
   const parse = useDbmlParse(dbmlText)
   const schema = parse.schema ?? parse.lastValidSchema
+
+  // T3 — floating panel visibility state.
+  const [showParse, setShowParse] = useState(true)
+  const [showSchema, setShowSchema] = useState(false)
 
   // Plan 5 — Export wiring (pages layer composes both export features).
   // Capture-handle ref filled once by ErdCanvas.onCaptureReady; the canvas
@@ -149,11 +173,27 @@ export function EditorPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b p-4">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <h1 className="text-xl font-bold">{project.name}</h1>
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="border-b px-4 py-2">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold">{project.name}</h1>
           <div className="flex items-center gap-4">
+            <Button
+              size="sm"
+              variant={showParse ? 'secondary' : 'outline'}
+              aria-pressed={showParse}
+              onClick={() => setShowParse(v => !v)}
+            >
+              Parse
+            </Button>
+            <Button
+              size="sm"
+              variant={showSchema ? 'secondary' : 'outline'}
+              aria-pressed={showSchema}
+              onClick={() => setShowSchema(v => !v)}
+            >
+              Schema
+            </Button>
             <span className="text-sm text-gray-600">
               {statusLabel[status]}
             </span>
@@ -185,13 +225,16 @@ export function EditorPage() {
         </div>
       </header>
 
-      <main className="flex-1 p-4">
-        <div className="mx-auto flex max-w-[90rem] flex-col gap-4 lg:h-[80vh] lg:flex-row">
-          <div className="flex flex-col gap-4 lg:w-[40%]">
-            <DbmlEditor value={dbmlText} onChange={setDbmlText} height="70vh" />
-          </div>
-          <div className="flex flex-1 flex-col gap-4 lg:flex-row">
-            <div ref={canvasWrapperRef} className="h-[60vh] flex-1">
+      <main className="min-h-0 flex-1">
+        <PanelGroup direction="horizontal" autoSaveId="erd-editor-split" className="h-full w-full">
+          <Panel defaultSize={35} minSize={20} className="min-w-0">
+            <div className="h-full min-h-0 min-w-0">
+              <DbmlEditor value={dbmlText} onChange={setDbmlText} height="100%" />
+            </div>
+          </Panel>
+          <PanelResizeHandle className="w-1.5 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400 data-[resize-handle-state=drag]:bg-blue-500" />
+          <Panel defaultSize={65} minSize={30} className="min-w-0">
+            <div ref={canvasWrapperRef} className="relative h-full min-h-0 min-w-0">
               <ErdCanvas
                 schema={schema}
                 savedPositions={positions}
@@ -200,13 +243,33 @@ export function EditorPage() {
                   captureHandleRef.current = handle
                 }}
               />
+              {/* T3 — floating panels anchored to the canvas top-right, offset
+                  DOWN (top-16) to clear ErdCanvas's top-right Auto-arrange button
+                  so the panel never covers it. pointer-events-none on the stack so
+                  the canvas stays pannable; pointer-events-auto on each
+                  FloatingPanel so interactions work. */}
+              <div className="pointer-events-none absolute right-3 top-16 z-10 flex w-72 max-w-[45%] flex-col gap-3">
+                {showParse && (
+                  <FloatingPanel label="parse status" onClose={() => setShowParse(false)}>
+                    <ParseErrorPanel
+                      status={parse.status}
+                      errors={parse.errors}
+                      className="bg-white/70 shadow-lg backdrop-blur"
+                    />
+                  </FloatingPanel>
+                )}
+                {showSchema && (
+                  <FloatingPanel label="schema" onClose={() => setShowSchema(false)}>
+                    <SchemaSummary
+                      schema={schema}
+                      className="bg-white/70 shadow-lg backdrop-blur"
+                    />
+                  </FloatingPanel>
+                )}
+              </div>
             </div>
-            <aside className="flex flex-col gap-4 lg:w-72">
-              <ParseErrorPanel status={parse.status} errors={parse.errors} />
-              <SchemaSummary schema={schema} />
-            </aside>
-          </div>
-        </div>
+          </Panel>
+        </PanelGroup>
       </main>
 
       <TableDocView

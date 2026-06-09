@@ -12,8 +12,28 @@ import * as exportDiagramLib from '@/features/export-diagram/lib/exportDiagram'
 import * as exportTableDoc from '@/features/export-table-doc'
 import * as download from '@/shared/lib/download'
 import type { DbmlSchema } from '@/entities/dbml'
+import type { ReactNode } from 'react'
 import * as sqlImport from '@/features/sql-import'
 import * as sqlExport from '@/features/sql-export'
+
+// react-resizable-panels registers a capture-phase `pointerdown` listener on
+// document.body for its hit-area resize detection. In jsdom every element shares
+// the same mocked getBoundingClientRect (top-left 0,0) and userEvent fires
+// pointer events at (0,0), so the global listener treats EVERY click as landing
+// on the resize handle and calls preventDefault/stopImmediatePropagation —
+// swallowing the click before radix's dropdown trigger ever sees it. The split
+// layout / resize behavior is verified by Playwright E2E, not jsdom; here we
+// stub the panels as passthrough wrappers so the page composition + dropdown
+// wiring can be asserted without the global listener interfering.
+vi.mock('react-resizable-panels', () => ({
+  PanelGroup: ({ children, className }: { children?: ReactNode; className?: string }) => (
+    <div className={className}>{children}</div>
+  ),
+  Panel: ({ children, className }: { children?: ReactNode; className?: string }) => (
+    <div className={className}>{children}</div>
+  ),
+  PanelResizeHandle: ({ className }: { className?: string }) => <div className={className} />,
+}))
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -97,7 +117,7 @@ describe('EditorPage', () => {
     expect(lastCall.baseline).toBe('Table users {\n  id int [pk]\n}')
   })
 
-  it('renders the parse status and schema summary panels', () => {
+  it('shows the parse panel by default and toggles the schema panel', async () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -114,7 +134,16 @@ describe('EditorPage', () => {
 
     renderEditor()
 
+    // Parse panel open by default → ParseErrorPanel Card title visible
     expect(screen.getByText(/parse status/i)).toBeInTheDocument()
+    // Schema panel closed by default
+    expect(screen.queryByText(/schema summary/i)).toBeNull()
+    // toggle buttons exist in the header
+    const schemaToggle = screen.getByRole('button', { name: /^schema$/i })
+    expect(schemaToggle).toBeInTheDocument()
+    // clicking the Schema toggle reveals the schema summary
+    const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
+    await user.click(schemaToggle)
     expect(screen.getByText(/schema summary/i)).toBeInTheDocument()
   })
 

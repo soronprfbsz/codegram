@@ -4,6 +4,7 @@ import CodeMirror, {
 } from '@uiw/react-codemirror'
 import type { Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
+import { dbmlLanguage } from '../lib/dbml-language'
 
 // Hoisted so their identity is stable across EditorPage's per-keystroke and
 // per-status re-renders — otherwise @uiw/react-codemirror's reconfigure effect
@@ -11,6 +12,7 @@ import { EditorView } from '@codemirror/view'
 // re-dispatches them every render, janking the typing hot path.
 const EDITOR_EXTENSIONS: Extension[] = [
   EditorView.contentAttributes.of({ 'aria-label': 'DBML editor' }),
+  dbmlLanguage,
 ]
 const EDITOR_BASIC_SETUP = {
   lineNumbers: true,
@@ -40,10 +42,11 @@ export interface DbmlEditorProps {
  * Controlled CodeMirror 6 editor bound to a string value/onChange — a drop-in
  * replacement for the Plan 2 <textarea>. @uiw/react-codemirror applies an
  * external `value` change via a minimal doc transaction, so re-seeding on a
- * project switch does not jump the cursor. Plain text only: DBML syntax
- * highlighting is out of scope for Plan 3a (no Lezer/StreamLanguage). The ref
- * is forwarded to the underlying CodeMirror (ReactCodeMirrorRef) so callers/
- * tests can reach the EditorView (e.g. view.dispatch).
+ * project switch does not jump the cursor. DBML syntax highlighting is provided
+ * by the hoisted dbmlLanguage extension (StreamLanguage tokenizer +
+ * HighlightStyle, dbdiagram-like light palette). The ref is forwarded to the
+ * underlying CodeMirror (ReactCodeMirrorRef) so callers/tests can reach the
+ * EditorView (e.g. view.dispatch).
  * features layer: depends on shared + CodeMirror (FSD downward imports).
  */
 export const DbmlEditor = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
@@ -54,7 +57,7 @@ export const DbmlEditor = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
     )
 
     return (
-      <div data-testid="dbml-editor" className="rounded border">
+      <div data-testid="dbml-editor" className="h-full overflow-hidden rounded border">
         <CodeMirror
           ref={ref}
           value={value}

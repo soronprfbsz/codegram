@@ -4,6 +4,8 @@ import type { DbmlSchema } from '@/entities/dbml'
 export interface SchemaSummaryProps {
   /** The latest normalized schema to summarize (undefined → placeholder). */
   schema?: DbmlSchema
+  /** Optional className forwarded to the root Card (e.g. for floating panel styles). */
+  className?: string
 }
 
 /**
@@ -13,10 +15,10 @@ export interface SchemaSummaryProps {
  * and to give the editor page (and Playwright) a verifiable target.
  * features layer: depends on shared + entities/dbml (FSD downward imports).
  */
-export function SchemaSummary({ schema }: SchemaSummaryProps) {
+export function SchemaSummary({ schema, className }: SchemaSummaryProps) {
   if (!schema) {
     return (
-      <Card size="sm">
+      <Card size="sm" className={className}>
         <CardHeader>
           <CardTitle className="text-sm">Schema summary</CardTitle>
         </CardHeader>
@@ -28,7 +30,7 @@ export function SchemaSummary({ schema }: SchemaSummaryProps) {
   }
 
   return (
-    <Card size="sm">
+    <Card size="sm" className={className}>
       <CardHeader>
         <CardTitle className="text-sm">Schema summary</CardTitle>
       </CardHeader>
