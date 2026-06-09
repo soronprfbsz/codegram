@@ -244,7 +244,8 @@ export function DbConnectDialog({
             disabled={
               introspect.isPending ||
               host.trim().length === 0 ||
-              database.trim().length === 0
+              database.trim().length === 0 ||
+              !(port > 0)
             }
           >
             {introspect.isPending ? 'Connecting…' : 'Connect'}

@@ -119,4 +119,14 @@ describe('DbConnectDialog', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('save failed')
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
+
+  it('disables Connect when the port is cleared', async () => {
+    const user = setup()
+    render(
+      <DbConnectDialog open onOpenChange={vi.fn()} onIntrospected={vi.fn()} />,
+    )
+    await fillRequired(user)
+    await user.clear(screen.getByTestId('db-connect-port'))
+    expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled()
+  })
 })
