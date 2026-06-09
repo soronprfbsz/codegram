@@ -14,6 +14,7 @@ import * as download from '@/shared/lib/download'
 import type { DbmlSchema } from '@/entities/dbml'
 import * as sqlImport from '@/features/sql-import'
 import * as sqlExport from '@/features/sql-export'
+import * as dbImport from '@/features/db-import'
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -708,5 +709,108 @@ describe('EditorPage — SQL import/export wiring', () => {
       await screen.findByRole('menuitem', { name: 'SQL · PostgreSQL' }),
     )
     expect(dl).toHaveBeenCalledWith(invalidText, 'postgres')
+  })
+})
+
+describe('EditorPage — DB Sync wiring', () => {
+  function mockLoadedProject(dbml_text: string) {
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        name: 'My Project',
+        dbml_text,
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof project.useProject>)
+  }
+
+  const setup = () =>
+    userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(canvas, 'ErdCanvas').mockImplementation(
+      (props: { onCaptureReady?: (h: canvas.ErdCaptureHandle) => void }) => {
+        props.onCaptureReady?.({
+          fitView: () => {},
+          getInstance: () => null as never,
+        })
+        return <div data-testid="erd-canvas-stub" />
+      },
+    )
+    // Stub DbConnectDialog: renders a trigger button when open that fires
+    // onIntrospected with a simple synced DBML + db name
+    vi.spyOn(dbImport, 'DbConnectDialog').mockImplementation(
+      (props: { open: boolean; onIntrospected: (d: string, n: string) => void }) =>
+        props.open ? (
+          <button
+            onClick={() =>
+              props.onIntrospected(
+                'Table synced {\n  id int [pk]\n}',
+                'db',
+              )
+            }
+          >
+            fire-sync-introspected
+          </button>
+        ) : <></>,
+    )
+  })
+
+  it('confirm path: Replace replaces the DBML and shows the synced table', async () => {
+    mockLoadedProject('Table old {\n  id int [pk]\n}')
+    const user = setup()
+    renderEditor()
+
+    // Sync button opens DbConnectDialog
+    await user.click(screen.getByRole('button', { name: /sync/i }))
+    // The stub fires onIntrospected which should show the overwrite confirm
+    await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
+
+    // Overwrite confirm dialog should be visible
+    expect(
+      screen.getByText(/sync from database\?/i),
+    ).toBeInTheDocument()
+
+    // Click Replace to confirm
+    await user.click(screen.getByRole('button', { name: /replace/i }))
+
+    // The synced table should now be visible in the info panel
+    await waitFor(() =>
+      expect(screen.getByTestId('tablelist-row-synced')).toBeInTheDocument(),
+    )
+    // Old table should be gone
+    expect(screen.queryByTestId('tablelist-row-old')).toBeNull()
+  })
+
+  it('cancel path: Cancel on confirm dialog does NOT replace the DBML', async () => {
+    mockLoadedProject('Table old {\n  id int [pk]\n}')
+    const user = setup()
+    renderEditor()
+
+    // Open sync and fire introspection
+    await user.click(screen.getByRole('button', { name: /sync/i }))
+    await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
+
+    // Confirm dialog visible
+    expect(screen.getByText(/sync from database\?/i)).toBeInTheDocument()
+
+    // Click Cancel
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    // Confirm dialog should close
+    expect(screen.queryByText(/sync from database\?/i)).toBeNull()
+
+    // Old table must still be shown — DBML was NOT replaced
+    await waitFor(() =>
+      expect(screen.getByTestId('tablelist-row-old')).toBeInTheDocument(),
+    )
+    expect(screen.queryByTestId('tablelist-row-synced')).toBeNull()
   })
 })

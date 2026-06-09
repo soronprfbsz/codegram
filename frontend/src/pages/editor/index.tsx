@@ -26,6 +26,16 @@ import { downloadSql } from '@/features/sql-export'
 import { SqlImportDialog } from '@/features/sql-import'
 import { TableDocView } from '@/widgets/table-doc-view'
 import { ErdTopBar } from '@/widgets/erd-topbar'
+import { DbConnectDialog } from '@/features/db-import'
+import { parseDbml } from '@/entities/dbml'
+import { computeSyncedPositions } from '@/entities/layout'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/shared/ui/dialog'
 
 const EMPTY_TABLE_DOC: TableDocModel = { tables: [], enums: [] }
 
@@ -96,6 +106,8 @@ export function EditorPage() {
   const canvasWrapperRef = useRef<HTMLDivElement>(null)
   const [tableDocViewOpen, setTableDocViewOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [syncOpen, setSyncOpen] = useState(false)
+  const [pendingSyncDbml, setPendingSyncDbml] = useState<string | null>(null)
 
   // Derive the 테이블 정의서 model once per schema change.
   const tableDoc = useMemo<TableDocModel>(
@@ -139,6 +151,15 @@ export function EditorPage() {
     }
   }, [project?.id])
 
+  function applySync(dbml: string) {
+    const parsed = parseDbml(dbml)
+    if (parsed.ok) {
+      setPositions(computeSyncedPositions(positions, parsed.schema))
+    }
+    setDbmlText(dbml)
+    setPendingSyncDbml(null)
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -168,7 +189,7 @@ export function EditorPage() {
         autosaveStatus={status}
         onImportSql={() => setImportOpen(true)}
         onBack={() => navigate('/')}
-        onSync={() => {}} // TODO(Task 3): wire to DB sync dialog
+        onSync={() => setSyncOpen(true)}
         exportMenu={
           <ExportMenu
             diagram={diagramCtx}
@@ -333,6 +354,38 @@ export function EditorPage() {
         hasExistingContent={dbmlText.trim().length > 0}
         onImport={(dbml) => setDbmlText(dbml)}
       />
+      <DbConnectDialog
+        open={syncOpen}
+        onOpenChange={setSyncOpen}
+        onIntrospected={(dbml) => {
+          setSyncOpen(false)
+          setPendingSyncDbml(dbml)
+        }}
+      />
+      <Dialog
+        open={pendingSyncDbml !== null}
+        onOpenChange={(o) => { if (!o) setPendingSyncDbml(null) }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sync from database?</DialogTitle>
+            <DialogDescription>
+              This replaces the current DBML with the database's schema. Table
+              positions are preserved and new tables are placed in empty space,
+              but manual notes, table groups, and colors not in the database
+              will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setPendingSyncDbml(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => { if (pendingSyncDbml) applySync(pendingSyncDbml) }}>
+              Replace
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
