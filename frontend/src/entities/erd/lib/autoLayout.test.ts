@@ -132,4 +132,18 @@ describe('autoLayout', () => {
     expect(typeof out[0].position.x).toBe('number')
     expect(typeof out[0].position.y).toBe('number')
   })
+
+  it('uses balanced grid (not dagre LR column) when there are no groups', () => {
+    const nodes = Array.from({ length: 8 }, (_, i) => tableNode(`public.t${i}`)) // ungrouped
+    const out = autoLayout(nodes, [])
+    const xs = new Set(out.map((n) => Math.round(n.position.x)))
+    expect(xs.size).toBeGreaterThan(1) // more than one column (not a single vertical stack)
+  })
+
+  it('still uses dagre compound clustering when groups are present', () => {
+    const nodes = [groupNode('group:core'), tableNode('public.a', 'group:core'), tableNode('public.b', 'group:core')]
+    const out = autoLayout(nodes, [])
+    expect(out.find((n) => n.id === 'group:core')!.style?.width).toBeTruthy()
+    expect(out.find((n) => n.id === 'public.a')!.parentId).toBe('group:core')
+  })
 })

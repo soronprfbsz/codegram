@@ -11,6 +11,7 @@
 import dagre from '@dagrejs/dagre'
 import type { ErdFlowNode, ErdFlowEdge } from '@/entities/erd/model/types'
 import { nodeSize, GROUP_PADDING, GROUP_LABEL_BAND } from './nodeSize'
+import { gridLayout } from './gridLayout'
 
 /**
  * Lay out nodes with dagre and return NEW nodes carrying computed positions.
@@ -25,6 +26,12 @@ export function autoLayout(
   edges: ErdFlowEdge[],
 ): ErdFlowNode[] {
   if (nodes.length === 0) return []
+
+  // No groups → balanced grid packing (ADR-0010); groups keep the dagre-compound
+  // clustering below (a grid can't host a multi-cell group backdrop cleanly).
+  if (!nodes.some((n) => n.type === 'group')) {
+    return gridLayout(nodes, edges)
+  }
 
   const g = new dagre.graphlib.Graph({ compound: true })
   g.setGraph({ rankdir: 'LR', nodesep: 60, ranksep: 160, marginx: 20, marginy: 20 })
