@@ -102,3 +102,19 @@ def test_build_ddl_mysql_dialect_parameterized():
     assert "posts" in ddl
     assert "PRIMARY KEY" in ddl
     assert "FOREIGN KEY" in ddl
+
+
+from app.services.introspect import (
+    ConnectionFailedError,
+    NoTablesFoundError,
+    IntrospectResult,
+    introspect_to_ddl,
+)
+
+
+def test_orchestrator_and_errors_importable():
+    assert issubclass(ConnectionFailedError, Exception)
+    assert issubclass(NoTablesFoundError, Exception)
+    assert callable(introspect_to_ddl)
+    r = IntrospectResult(import_dialect="postgres", ddl="x;", table_count=1)
+    assert r.import_dialect == "postgres" and r.table_count == 1

@@ -4,10 +4,12 @@ Credentials are used once and never persisted. Reflection is a SYNC SQLAlchemy
 API; the route runs introspect_to_ddl in a threadpool.
 """
 import ssl as ssl_module
+from dataclasses import dataclass
 
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, create_engine
 from sqlalchemy.engine import URL
 from sqlalchemy.engine.interfaces import Dialect
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.schema import CreateIndex, CreateTable
 
 from app.schemas.introspect import IntrospectRequest
@@ -68,3 +70,51 @@ def build_ddl(metadata: MetaData, dialect: Dialect) -> str:
         for index in sorted(table.indexes, key=lambda i: i.name or ""):
             parts.append(str(CreateIndex(index).compile(dialect=dialect)).strip() + ";")
     return "\n\n".join(parts)
+
+
+class IntrospectError(Exception):
+    """Base for introspection failures surfaced to the user."""
+
+
+class ConnectionFailedError(IntrospectError):
+    """Could not connect to / read from the target database."""
+
+
+class NoTablesFoundError(IntrospectError):
+    """The target schema/database has no tables to import."""
+
+
+@dataclass
+class IntrospectResult:
+    import_dialect: str
+    ddl: str
+    table_count: int
+
+
+def introspect_to_ddl(req: IntrospectRequest) -> IntrospectResult:
+    """Connect, reflect the target schema, and emit DDL. SYNC — run in a
+    threadpool from the async route. Always disposes the engine."""
+    url, connect_args, import_dialect = build_connection_url(req)
+    engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
+    try:
+        metadata = MetaData()
+        try:
+            with engine.connect() as conn:
+                metadata.reflect(bind=conn, schema=effective_schema(req))
+        except OperationalError as exc:
+            raise ConnectionFailedError(
+                "데이터베이스에 접속할 수 없습니다. 접속 정보를 확인하세요."
+            ) from exc
+        except SQLAlchemyError as exc:
+            raise ConnectionFailedError(
+                "스키마를 읽는 중 오류가 발생했습니다."
+            ) from exc
+        if not metadata.tables:
+            raise NoTablesFoundError("대상 schema에서 테이블을 찾지 못했습니다.")
+        return IntrospectResult(
+            import_dialect=import_dialect,
+            ddl=build_ddl(metadata, engine.dialect),
+            table_count=len(metadata.tables),
+        )
+    finally:
+        engine.dispose()
