@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Info, Upload, ArrowLeft } from 'lucide-react'
+import { Info, Upload, ArrowLeft, RefreshCw } from 'lucide-react'
 import logomarkUrl from '@/shared/assets/logomark.svg'
 import { ThemeToggle } from '@/shared/ui/ThemeToggle'
 import type { AutosaveStatus } from '@/features/project-autosave'
@@ -24,6 +24,8 @@ export interface ErdTopBarProps {
    * no-op affordance — wired for future use (Phase 3+).
    */
   onInfo?: () => void
+  /** Triggers a DB → DBML sync (wired to the sync dialog in Task 3). */
+  onSync: () => void
   /** The Export menu rendered in the actions group (passed as a child slot). */
   exportMenu: ReactNode
 }
@@ -77,6 +79,7 @@ export function ErdTopBar({
   onImportSql,
   onBack,
   onInfo,
+  onSync,
   exportMenu,
 }: ErdTopBarProps) {
   // Shared secondary button styles (README §Buttons)
@@ -228,6 +231,18 @@ export function ErdTopBar({
         >
           <Upload size={15} strokeWidth={2} />
           Import SQL
+        </button>
+
+        {/* Sync from DB button */}
+        <button
+          type="button"
+          className="erd-topbar-btn"
+          style={btnSecondary}
+          onClick={onSync}
+          aria-label="Sync from DB"
+        >
+          <RefreshCw size={15} strokeWidth={2} />
+          Sync from DB
         </button>
 
         {/* Export menu (rendered by page) */}

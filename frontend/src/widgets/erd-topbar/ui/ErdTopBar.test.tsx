@@ -19,6 +19,7 @@ function renderTopBar(overrides: Partial<Parameters<typeof ErdTopBar>[0]> = {}) 
     autosaveStatus: 'idle',
     onImportSql: vi.fn(),
     onBack: vi.fn(),
+    onSync: vi.fn(),
     exportMenu: <button>Export</button>,
     ...overrides,
   }
@@ -90,5 +91,22 @@ describe('ErdTopBar', () => {
   it('renders ThemeToggle', () => {
     renderTopBar()
     expect(screen.getByRole('button', { name: '테마 전환' })).toBeInTheDocument()
+  })
+
+  it('renders a Sync from DB button and fires onSync', async () => {
+    const user = userEvent.setup()
+    const onSync = vi.fn()
+    render(
+      <ErdTopBar
+        projectName="P"
+        autosaveStatus="idle"
+        onImportSql={vi.fn()}
+        onBack={vi.fn()}
+        onSync={onSync}
+        exportMenu={<div />}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Sync from DB' }))
+    expect(onSync).toHaveBeenCalledTimes(1)
   })
 })

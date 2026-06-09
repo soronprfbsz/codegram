@@ -168,6 +168,7 @@ export function EditorPage() {
         autosaveStatus={status}
         onImportSql={() => setImportOpen(true)}
         onBack={() => navigate('/')}
+        onSync={() => {}} // TODO(Task 3): wire to DB sync dialog
         exportMenu={
           <ExportMenu
             diagram={diagramCtx}
