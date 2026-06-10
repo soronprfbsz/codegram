@@ -2,7 +2,6 @@ import { memo, useMemo } from 'react'
 import {
   BaseEdge,
   getSmoothStepPath,
-  useNodes,
   useStore,
   Position,
   type EdgeProps,
@@ -40,23 +39,6 @@ function markerPath(kind: MarkerKind): string {
     : 'M11 2 L11 14'
 }
 
-/** Absolute top-left + measured size of a node (handles grouped children). */
-function nodeRect(n: {
-  position: { x: number; y: number }
-  measured?: { width?: number; height?: number }
-  width?: number
-  height?: number
-  internals?: { positionAbsolute?: { x: number; y: number } }
-}): Rect {
-  const pos = n.internals?.positionAbsolute ?? n.position
-  return {
-    x: pos.x,
-    y: pos.y,
-    width: n.measured?.width ?? n.width ?? 240,
-    height: n.measured?.height ?? n.height ?? 80,
-  }
-}
-
 /**
  * Custom React Flow edge for a DBML relationship — Backstage spec restyle
  * (Phase 4) + orthogonal obstacle-avoiding routing (gutter routing). The path is
@@ -81,13 +63,16 @@ function RelationEdgeImpl({
   targetPosition,
   data,
 }: RelationEdgeProps) {
-  const nodes = useNodes()
+  // nodeLookup (InternalNode map) carries `internals.positionAbsolute` — correct
+  // for grouped children too — and a stable reference across pan/zoom (it only
+  // changes when nodes change), so we don't re-route on viewport moves.
+  const nodeLookup = useStore((s) => s.nodeLookup)
   // Skip the (expensive) re-route while any node is being dragged — the layout
   // is in flux; smoothstep is good enough mid-drag and routing settles on stop.
-  const dragging = useStore((s) => {
-    for (const n of s.nodeLookup.values()) if (n.dragging) return true
+  const dragging = useMemo(() => {
+    for (const n of nodeLookup.values()) if (n.dragging) return true
     return false
-  })
+  }, [nodeLookup])
 
   const [smoothPath] = getSmoothStepPath({
     sourceX,
@@ -105,14 +90,18 @@ function RelationEdgeImpl({
   // links (those stay smoothstep). Memoized so A* runs only when inputs change.
   const orthoPath = useMemo(() => {
     if (dragging || isEnumLink) return null
-    const obstacles: Rect[] = nodes
-      .filter(
-        (n) =>
-          n.id !== source &&
-          n.id !== target &&
-          (n.type === 'table' || n.type === 'enum' || n.type === 'sticky'),
-      )
-      .map((n) => nodeRect(n))
+    const obstacles: Rect[] = []
+    for (const n of nodeLookup.values()) {
+      if (n.id === source || n.id === target) continue
+      if (n.type !== 'table' && n.type !== 'enum' && n.type !== 'sticky') continue
+      const pos = n.internals.positionAbsolute
+      obstacles.push({
+        x: pos.x,
+        y: pos.y,
+        width: n.measured?.width ?? 240,
+        height: n.measured?.height ?? 80,
+      })
+    }
     const points = routeOrthogonal(
       { x: sourceX, y: sourceY },
       { x: targetX, y: targetY },
@@ -124,7 +113,7 @@ function RelationEdgeImpl({
   }, [
     dragging,
     isEnumLink,
-    nodes,
+    nodeLookup,
     source,
     target,
     sourceX,
