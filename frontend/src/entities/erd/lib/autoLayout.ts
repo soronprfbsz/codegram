@@ -17,6 +17,7 @@ import {
   GROUP_PAD_BOTTOM,
 } from './nodeSize'
 import { gridLayout } from './gridLayout'
+import { separateGroups } from './separateGroups'
 
 /**
  * Lay out nodes with dagre and return NEW nodes carrying computed positions.
@@ -129,5 +130,7 @@ export function autoLayout(
     }
   })
 
-  return finalNodes
+  // Push any overlapping group boxes apart (dagre + the directional insets can
+  // leave group regions overlapping). Members follow their group automatically.
+  return separateGroups(finalNodes)
 }
