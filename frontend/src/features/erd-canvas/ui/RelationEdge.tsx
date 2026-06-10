@@ -82,11 +82,10 @@ function RelationEdgeImpl({
   const startKind = startMarkerKind(relation)
   const endKind = endMarkerKind(relation)
 
-  // CSS variables cannot be used directly in SVG fill/stroke attributes —
-  // use currentColor bridging via a wrapper or inline fallback strings.
-  // We use a CSS class on the path and let the marker paths inherit stroke
-  // through explicit attribute (CSS vars work in presentation attributes in
-  // modern browsers via the var() function in inline styles).
+  // SVG presentation ATTRIBUTES (stroke="...") do NOT support var() — only CSS
+  // (the `style` prop) does. The marker paths therefore set stroke via `style`,
+  // not the stroke attribute, otherwise the crow-foot markers are invisible
+  // (this regressed in the Phase 4 restyle when concrete hex became a var()).
   const strokeColor = isActive ? 'var(--erd-accent)' : 'var(--erd-edge)'
   const strokeWidth = isActive ? 2 : 1.5
 
@@ -104,9 +103,8 @@ function RelationEdgeImpl({
         >
           <path
             d={markerPath(startKind)}
-            stroke={strokeColor}
-            strokeWidth={strokeWidth}
             fill="none"
+            style={{ stroke: strokeColor, strokeWidth }}
           />
         </marker>
         <marker
@@ -120,9 +118,8 @@ function RelationEdgeImpl({
         >
           <path
             d={markerPath(endKind)}
-            stroke={strokeColor}
-            strokeWidth={strokeWidth}
             fill="none"
+            style={{ stroke: strokeColor, strokeWidth }}
           />
         </marker>
       </defs>
