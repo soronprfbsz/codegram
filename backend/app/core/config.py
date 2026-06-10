@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # Database (asyncpg driver is mandatory for the async engine).
     database_url: str = (
-        "postgresql+asyncpg://erddbml_user:postgres_dev@localhost:5432/erddbml_dev"
+        "postgresql+asyncpg://codegram_user:postgres_dev@localhost:5432/codegram_dev"
     )
 
     # CORS allowed origins (comma-separated in env).

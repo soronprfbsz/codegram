@@ -79,9 +79,9 @@ test('db-sync: introspect replaces schema, preserves positions, removes dropped 
   await page.getByTestId('db-connect-dialect').selectOption('postgresql')
   await page.getByTestId('db-connect-host').fill('postgres')
   await page.getByTestId('db-connect-port').fill('5432')
-  await page.getByTestId('db-connect-username').fill('erddbml_user')
+  await page.getByTestId('db-connect-username').fill('codegram_user')
   await page.getByTestId('db-connect-password').fill('postgres_dev')
-  await page.getByTestId('db-connect-database').fill('erddbml_dev')
+  await page.getByTestId('db-connect-database').fill('codegram_dev')
   await page.getByTestId('db-connect-schema').fill('public')
 
   // ── Step 3: Connect — wait for introspect response ────────────────────────

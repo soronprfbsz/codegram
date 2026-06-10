@@ -1,4 +1,4 @@
-# ERD-DBML — Plan 3a: DBML Editor & Parse (Implementation Plan)
+# Codegram — Plan 3a: DBML Editor & Parse (Implementation Plan)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -44,8 +44,8 @@
 ### Task 1: Add @dbml/core dependency + import smoke test
 
 **Files:**
-- Modify: `/home/soron/projects/erd-dbml/frontend/package.json` (add `@dbml/core` dependency)
-- Test: `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/lib/smoke.test.ts` (import smoke test — deleted after this task)
+- Modify: `/home/soron/projects/codegram/frontend/package.json` (add `@dbml/core` dependency)
+- Test: `/home/soron/projects/codegram/frontend/src/entities/dbml/lib/smoke.test.ts` (import smoke test — deleted after this task)
 
 This task installs `@dbml/core@8.2.5` (verified latest, published 2026-06-03) and proves it imports + parses inside the existing Vitest + jsdom setup. The research confirmed **no `optimizeDeps`/`ssr.noExternal` config is needed** — `@dbml/core` ships a clean ESM build (`./lib/index.mjs`) and all transitive deps (`@dbml/parse`, `antlr4`, `lodash-es`, `luxon`, `parsimmon`, `pluralize`) are browser-safe. So `vite.config.ts` / `vitest.config.ts` are left untouched. This is a dep-install + verification task; the smoke test IS the red→green signal.
 
@@ -53,21 +53,21 @@ This task installs `@dbml/core@8.2.5` (verified latest, published 2026-06-03) an
 
 - [ ] **Step 1: Install the dependency.** Run this exact command:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm install @dbml/core@8.2.5
+  cd /home/soron/projects/codegram/frontend && npm install @dbml/core@8.2.5
   ```
   Expected output includes a line like `added N packages` and exit code 0. Verify the version landed:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && node -e "console.log(require('@dbml/core/package.json').version)"
+  cd /home/soron/projects/codegram/frontend && node -e "console.log(require('@dbml/core/package.json').version)"
   ```
   Expected output: `8.2.5`
 
 - [ ] **Step 2: Confirm package.json updated.** Run:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && node -e "console.log(require('./package.json').dependencies['@dbml/core'])"
+  cd /home/soron/projects/codegram/frontend && node -e "console.log(require('./package.json').dependencies['@dbml/core'])"
   ```
   Expected output: a version string beginning `8.2.5` (e.g. `8.2.5` or `^8.2.5`). If npm wrote a caret range, leave it; the lockfile pins 8.2.5.
 
-- [ ] **Step 3: Write the import smoke test (RED).** Create `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/lib/smoke.test.ts` with this exact content:
+- [ ] **Step 3: Write the import smoke test (RED).** Create `/home/soron/projects/codegram/frontend/src/entities/dbml/lib/smoke.test.ts` with this exact content:
   ```typescript
   import { describe, it, expect } from 'vitest'
   import { Parser, CompilerError } from '@dbml/core'
@@ -100,19 +100,19 @@ This task installs `@dbml/core@8.2.5` (verified latest, published 2026-06-03) an
 
 - [ ] **Step 4: Run the smoke test, see it PASS (GREEN).** The red phase here is artificial — the test cannot exist before the dep is installed in Step 1, and it verifies the install, so run it directly:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/dbml/lib/smoke.test.ts
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/dbml/lib/smoke.test.ts
   ```
   Expected output: `Test Files  1 passed (1)` and `Tests  3 passed (3)`. If you instead see a module-resolution error (`Failed to resolve import "@dbml/core"`) or `Parser is not a function`, the install failed — re-run Step 1.
 
 - [ ] **Step 5: Delete the smoke test.** It has served its purpose (the real adapter tests in Task 3 supersede it). Run:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && rm src/entities/dbml/lib/smoke.test.ts
+  cd /home/soron/projects/codegram/frontend && rm src/entities/dbml/lib/smoke.test.ts
   ```
   Expected: no output, exit code 0.
 
 - [ ] **Step 6: Commit.** Run:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add package.json package-lock.json && git commit -m "build(dbml): add @dbml/core 8.2.5 dependency"
+  cd /home/soron/projects/codegram/frontend && git add package.json package-lock.json && git commit -m "build(dbml): add @dbml/core 8.2.5 dependency"
   ```
   Expected output: a commit summary listing `package.json` and `package-lock.json` changed.
 
@@ -121,7 +121,7 @@ This task installs `@dbml/core@8.2.5` (verified latest, published 2026-06-03) an
 ### Task 2: Normalized DBML model types
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/model/types.ts` (normalized schema types + parse-result discriminated union)
+- Create: `/home/soron/projects/codegram/frontend/src/entities/dbml/model/types.ts` (normalized schema types + parse-result discriminated union)
 
 This task defines the framework-agnostic, app-owned model that Plan 3b will consume. These are plain TS types with **zero** `@dbml/core` imports — that confinement is the whole point of D2/D7. This is a type-only step; a failing-test red phase is artificial for pure type declarations, so there is no test here. Task 3's tests and Task 4's adapter exercise these types and will fail to compile if a type is wrong, which is the real verification.
 
@@ -131,7 +131,7 @@ This task defines the framework-agnostic, app-owned model that Plan 3b will cons
 > - Stable name-based keys (`id`) follow ADR-0004: `schema.table` for tables, `schema.table.column` for columns, and a deterministic ref id. These let Plan 4 reconcile Layout by name.
 > - `DbmlParseError.line` / `.column` are **1-indexed** (verified) and optional because not every diagnostic carries a usable location.
 
-- [ ] **Step 1: Create the types file.** Create `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/model/types.ts` with this exact content:
+- [ ] **Step 1: Create the types file.** Create `/home/soron/projects/codegram/frontend/src/entities/dbml/model/types.ts` with this exact content:
   ```typescript
   /**
    * Normalized, framework-agnostic DBML schema model.
@@ -266,13 +266,13 @@ This task defines the framework-agnostic, app-owned model that Plan 3b will cons
 
 - [ ] **Step 2: Type-check the new file (GREEN).** Confirm it compiles cleanly:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run type-check
+  cd /home/soron/projects/codegram/frontend && npm run type-check
   ```
   Expected output: no errors (the command exits 0 and prints nothing). If `tsc` reports `'X' is declared but its value is never read`, that is fine for exported types — `noUnusedLocals` does not flag exported declarations.
 
 - [ ] **Step 3: Commit.** Run:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/entities/dbml/model/types.ts && git commit -m "feat(dbml): add normalized schema model types"
+  cd /home/soron/projects/codegram/frontend && git add src/entities/dbml/model/types.ts && git commit -m "feat(dbml): add normalized schema model types"
   ```
   Expected output: a commit summary listing `src/entities/dbml/model/types.ts` added.
 
@@ -281,7 +281,7 @@ This task defines the framework-agnostic, app-owned model that Plan 3b will cons
 ### Task 3: Comprehensive failing tests for parseDbml (real @dbml/core, RED)
 
 **Files:**
-- Test: `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/lib/parse.test.ts` (unit tests with REAL @dbml/core — not mocked)
+- Test: `/home/soron/projects/codegram/frontend/src/entities/dbml/lib/parse.test.ts` (unit tests with REAL @dbml/core — not mocked)
 
 This task writes the comprehensive `parseDbml` test suite FIRST and runs it to FAIL (the adapter does not exist yet) — the genuine RED phase. Task 4 then implements the adapter to GREEN. The suite proves the adapter against representative DBML covering all six feature kinds plus error safety. Per D7 the parser is NOT mocked. Note the **verified DBML syntax gotcha**: each column, enum value, and table-group member MUST be on its own line — packing them on one line is a parse error. The fixtures below use correct multi-line DBML and were validated against `@dbml/core@8.2.5`.
 
@@ -295,7 +295,7 @@ This task writes the comprehensive `parseDbml` test suite FIRST and runs it to F
 > - Standalone `Note n { '...' }` → one entry in `schema.notes`.
 > - Invalid DBML (`Table users { id int [pk`) → `{ ok: false }` with at least one error carrying a message; never throws.
 
-- [ ] **Step 1: Write the test file (RED).** Create `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/lib/parse.test.ts` with this exact content:
+- [ ] **Step 1: Write the test file (RED).** Create `/home/soron/projects/codegram/frontend/src/entities/dbml/lib/parse.test.ts` with this exact content:
   ```typescript
   import { describe, it, expect } from 'vitest'
   import { parseDbml } from '@/entities/dbml/lib/parse'
@@ -531,13 +531,13 @@ This task writes the comprehensive `parseDbml` test suite FIRST and runs it to F
 
 - [ ] **Step 2: Run the tests, see them FAIL (RED).** The adapter does not exist yet, so the suite cannot resolve its import. Run:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/dbml/lib/parse.test.ts
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/dbml/lib/parse.test.ts
   ```
   Expected output: collection fails with `Failed to resolve import "@/entities/dbml/lib/parse"` / `Cannot find module` — because `parse.ts` does not exist yet. Exit code non-zero. This is the genuine RED phase: the adapter is implemented in Task 4 to turn it GREEN.
 
 - [ ] **Step 3: Commit the failing tests.** Run:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/entities/dbml/lib/parse.test.ts && git commit -m "test(dbml): cover parseDbml with real @dbml/core fixtures (RED)"
+  cd /home/soron/projects/codegram/frontend && git add src/entities/dbml/lib/parse.test.ts && git commit -m "test(dbml): cover parseDbml with real @dbml/core fixtures (RED)"
   ```
   Expected output: a commit summary listing `src/entities/dbml/lib/parse.test.ts` added.
 
@@ -546,7 +546,7 @@ This task writes the comprehensive `parseDbml` test suite FIRST and runs it to F
 ### Task 4: Implement the parseDbml adapter (@dbml/core → normalized model, error-safe, GREEN)
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/lib/parse.ts` (the adapter)
+- Create: `/home/soron/projects/codegram/frontend/src/entities/dbml/lib/parse.ts` (the adapter)
 
 This is the core deliverable: a pure function `parseDbml(text): DbmlParseResult` that wraps `@dbml/core`, calls `.normalize()`, maps the ID-keyed normalized model into our name-based model, and **catches** `CompilerError` to return `{ ok: false, errors }` — never throwing out. Its verification is the comprehensive test suite written in Task 3, which is currently RED; implementing this adapter turns it GREEN. The mapping logic below was verified against the live `@dbml/core@8.2.5` runtime; do not change the property paths.
 
@@ -562,7 +562,7 @@ This is the core deliverable: a pure function `parseDbml(text): DbmlParseResult`
 > - On error, `err instanceof CompilerError` is `true` and `err.diags` is `{ message, location: { start: { line, column } }, code }[]` (1-indexed line/column).
 > - Empty string parses successfully to 0 tables (no throw).
 
-- [ ] **Step 1: Implement the adapter (GREEN).** The Task 3 suite (`parse.test.ts`) is currently failing because this file does not exist; implement it to turn the suite GREEN. Create `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/lib/parse.ts` with this exact content:
+- [ ] **Step 1: Implement the adapter (GREEN).** The Task 3 suite (`parse.test.ts`) is currently failing because this file does not exist; implement it to turn the suite GREEN. Create `/home/soron/projects/codegram/frontend/src/entities/dbml/lib/parse.ts` with this exact content:
   ```typescript
   import { Parser, CompilerError } from '@dbml/core'
   import type {
@@ -791,19 +791,19 @@ This is the core deliverable: a pure function `parseDbml(text): DbmlParseResult`
 
 - [ ] **Step 2: Run the Task 3 suite, see it PASS (GREEN).** The comprehensive tests from Task 3 now have an adapter to run against. Run:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/dbml/lib/parse.test.ts
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/dbml/lib/parse.test.ts
   ```
   Expected output: `Test Files  1 passed (1)` and `Tests  13 passed (13)`. If any test fails, the failure message names the exact assertion — fix the adapter mapping in `parse.ts` (NOT the test fixtures, which are verified-correct DBML), then re-run. Do not weaken assertions to make them pass.
 
 - [ ] **Step 3: Type-check.** Confirm the adapter compiles under strict mode:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run type-check
+  cd /home/soron/projects/codegram/frontend && npm run type-check
   ```
   Expected output: no errors, exit 0. `CompilerError` exposes `.diags` (typed) but NO `.message` and does NOT extend `Error` — the adapter above is written to never read `err.message` on a `CompilerError`, so it type-checks under `strict`. If `tsc` complains that `CompilerError` has no `diags` member, the `@dbml/core` type defs are looser than the runtime — narrow with `(err as CompilerError & { diags?: ... })`. Do NOT change the runtime logic, and do NOT reintroduce `err.message` on the `CompilerError` branch.
 
 - [ ] **Step 4: Commit.** Run:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/entities/dbml/lib/parse.ts && git commit -m "feat(dbml): add parseDbml adapter over @dbml/core (GREEN)"
+  cd /home/soron/projects/codegram/frontend && git add src/entities/dbml/lib/parse.ts && git commit -m "feat(dbml): add parseDbml adapter over @dbml/core (GREEN)"
   ```
   Expected output: a commit summary listing `src/entities/dbml/lib/parse.ts` added.
 
@@ -812,12 +812,12 @@ This is the core deliverable: a pure function `parseDbml(text): DbmlParseResult`
 ### Task 5: entities/dbml barrel (public re-exports)
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/index.ts` (public API of the entity)
-- Test: `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/index.test.ts` (barrel guard test)
+- Create: `/home/soron/projects/codegram/frontend/src/entities/dbml/index.ts` (public API of the entity)
+- Test: `/home/soron/projects/codegram/frontend/src/entities/dbml/index.test.ts` (barrel guard test)
 
 This task exposes the entity's public surface so `features/dbml-editor` and `pages/editor` import from `@/entities/dbml` (not deep paths), honoring FSD. The barrel itself is a re-export-only artifact; its verification is a guard test confirming the barrel exposes `parseDbml` (and, by type-check, the model types) plus a whole-project type-check.
 
-- [ ] **Step 1: Create the barrel.** Create `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/index.ts` with this exact content:
+- [ ] **Step 1: Create the barrel.** Create `/home/soron/projects/codegram/frontend/src/entities/dbml/index.ts` with this exact content:
   ```typescript
   export { parseDbml } from './lib/parse'
   export type {
@@ -835,7 +835,7 @@ This task exposes the entity's public surface so `features/dbml-editor` and `pag
   } from './model/types'
   ```
 
-- [ ] **Step 2: Write a barrel guard test (RED then GREEN).** Create `/home/soron/projects/erd-dbml/frontend/src/entities/dbml/index.test.ts` with this exact content:
+- [ ] **Step 2: Write a barrel guard test (RED then GREEN).** Create `/home/soron/projects/codegram/frontend/src/entities/dbml/index.test.ts` with this exact content:
   ```typescript
   import { describe, it, expect } from 'vitest'
   import { parseDbml } from '@/entities/dbml'
@@ -850,25 +850,25 @@ This task exposes the entity's public surface so `features/dbml-editor` and `pag
   ```
   This test cannot pass before the barrel exists, giving a genuine red→green. Run it:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/dbml/index.test.ts
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/dbml/index.test.ts
   ```
   Expected output: `Test Files  1 passed (1)` and `Tests  1 passed (1)`. (Before Step 1, the same command would fail with `Failed to resolve import "@/entities/dbml"`.)
 
 - [ ] **Step 3: Type-check the whole project.** Confirm nothing downstream broke and the barrel resolves:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run type-check
+  cd /home/soron/projects/codegram/frontend && npm run type-check
   ```
   Expected output: no errors, exit 0.
 
 - [ ] **Step 4: Run the full Vitest suite once** to confirm the new entity coexists with the Plan 0/1/2 tests:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run
+  cd /home/soron/projects/codegram/frontend && npm run test:run
   ```
   Expected output: all test files pass, including `src/entities/dbml/lib/parse.test.ts` (13) and `src/entities/dbml/index.test.ts` (1). No failures.
 
 - [ ] **Step 5: Commit.** Run:
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/entities/dbml/index.ts src/entities/dbml/index.test.ts && git commit -m "feat(dbml): expose entities/dbml public barrel"
+  cd /home/soron/projects/codegram/frontend && git add src/entities/dbml/index.ts src/entities/dbml/index.test.ts && git commit -m "feat(dbml): expose entities/dbml public barrel"
   ```
   Expected output: a commit summary listing `src/entities/dbml/index.ts` and `src/entities/dbml/index.test.ts` added.
 
@@ -877,7 +877,7 @@ This task exposes the entity's public surface so `features/dbml-editor` and `pag
 ### Task 6: Add CodeMirror 6 dependencies
 
 **Files:**
-- Modify: `/home/soron/projects/erd-dbml/frontend/package.json`
+- Modify: `/home/soron/projects/codegram/frontend/package.json`
 
 This is a dependency-install task; a red (failing-test) phase is artificial, so there is no test here. Verification is that the packages install cleanly, resolve under Vite/Vitest's ESM resolution (no extra config — the research confirmed `@codemirror/*` and `@uiw/react-codemirror` are ESM-only and Vite resolves them natively), and the existing test suite still passes.
 
@@ -886,7 +886,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm install @uiw/react-codemirror@^4.25.0 @codemirror/state@^6.6.0 @codemirror/view@^6.28.0
+  cd /home/soron/projects/codegram/frontend && npm install @uiw/react-codemirror@^4.25.0 @codemirror/state@^6.6.0 @codemirror/view@^6.28.0
   ```
 
   Expected output: npm prints `added N packages` (where N includes `@uiw/react-codemirror`, `@codemirror/state`, `@codemirror/view`, and their transitive `@codemirror/*` deps) with no `ERESOLVE` peer-dependency errors. `@uiw/react-codemirror` pulls `codemirror` and the `@codemirror/commands`, `@codemirror/language`, `@codemirror/search` bundle transitively; `@codemirror/state` and `@codemirror/view` are pinned explicitly so the editor component can import them directly if needed.
@@ -896,7 +896,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && node -e "const p=require('./package.json'); const need=['@uiw/react-codemirror','@codemirror/state','@codemirror/view']; const miss=need.filter(k=>!p.dependencies[k]); if(miss.length){console.error('MISSING',miss); process.exit(1)} console.log('deps ok', need.map(k=>k+'@'+p.dependencies[k]).join(' '))"
+  cd /home/soron/projects/codegram/frontend && node -e "const p=require('./package.json'); const need=['@uiw/react-codemirror','@codemirror/state','@codemirror/view']; const miss=need.filter(k=>!p.dependencies[k]); if(miss.length){console.error('MISSING',miss); process.exit(1)} console.log('deps ok', need.map(k=>k+'@'+p.dependencies[k]).join(' '))"
   ```
 
   Expected output: a single line, e.g. `deps ok @uiw/react-codemirror@^4.25.0 @codemirror/state@^6.6.0 @codemirror/view@^6.28.0`, and exit code 0. (Exact patch carets may differ; the assertion only requires the three keys to be present.)
@@ -905,7 +905,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
 
   ```json
   {
-    "name": "erd-dbml-frontend",
+    "name": "codegram-frontend",
     "private": true,
     "version": "0.1.0",
     "type": "module",
@@ -965,7 +965,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run
+  cd /home/soron/projects/codegram/frontend && npm run test:run
   ```
 
   Expected output: Vitest runs all existing test files (Plan 0/1/2 + the parse adapter + barrel tests from Tasks 3–5) and ends with `Test Files  N passed (N)` / `Tests  M passed (M)`, exit code 0. The editor page test (`src/pages/editor/index.test.tsx`) is still green at this point because the page still renders the `<textarea>` — it is replaced in Task 12.
@@ -975,7 +975,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add package.json package-lock.json && git commit -m "build(frontend): add CodeMirror 6 deps for DBML editor"
+  cd /home/soron/projects/codegram/frontend && git add package.json package-lock.json && git commit -m "build(frontend): add CodeMirror 6 deps for DBML editor"
   ```
 
 ---
@@ -983,8 +983,8 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
 ### Task 7: DbmlEditor — controlled CodeMirror 6 component
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/DbmlEditor.tsx`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/DbmlEditor.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/DbmlEditor.tsx`
+- Test: `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/DbmlEditor.test.tsx`
 
 `DbmlEditor` is a thin controlled wrapper over `@uiw/react-codemirror`: it takes `value` + `onChange` (string in/out, mirroring the `<textarea>` contract it replaces) so the existing seed/baseline/autosave wiring in the page is untouched. `@uiw/react-codemirror` already applies external `value` changes via a minimal transaction (not a full state swap), so an external re-seed does not jump the cursor — we rely on that documented behaviour rather than reimplementing it.
 
@@ -992,7 +992,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
 
 - [ ] **Step 1: Write the failing test.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/DbmlEditor.test.tsx`:
+  Create `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/DbmlEditor.test.tsx`:
 
   ```tsx
   import { describe, it, expect, vi } from 'vitest'
@@ -1042,14 +1042,14 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/dbml-editor/ui/DbmlEditor.test.tsx
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/dbml-editor/ui/DbmlEditor.test.tsx
   ```
 
   Expected output: the run fails to even collect the suite, printing an error like `Failed to resolve import "./DbmlEditor"` / `Error: Cannot find module './DbmlEditor'` — because `DbmlEditor.tsx` does not exist yet. Exit code non-zero.
 
 - [ ] **Step 3: Implement `DbmlEditor.tsx`.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/DbmlEditor.tsx`:
+  Create `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/DbmlEditor.tsx`:
 
   ```tsx
   import { forwardRef, useCallback } from 'react'
@@ -1119,7 +1119,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/dbml-editor/ui/DbmlEditor.test.tsx
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/dbml-editor/ui/DbmlEditor.test.tsx
   ```
 
   Expected output: `Test Files  1 passed (1)` / `Tests  2 passed (2)`, exit code 0.
@@ -1129,7 +1129,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/dbml-editor/ui/DbmlEditor.tsx src/features/dbml-editor/ui/DbmlEditor.test.tsx && git commit -m "feat(dbml-editor): controlled CodeMirror 6 DbmlEditor component"
+  cd /home/soron/projects/codegram/frontend && git add src/features/dbml-editor/ui/DbmlEditor.tsx src/features/dbml-editor/ui/DbmlEditor.test.tsx && git commit -m "feat(dbml-editor): controlled CodeMirror 6 DbmlEditor component"
   ```
 
 ---
@@ -1137,8 +1137,8 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
 ### Task 8: useDbmlParse — debounced live-parse hook
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/model/useDbmlParse.ts`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/model/useDbmlParse.test.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/features/dbml-editor/model/useDbmlParse.ts`
+- Test: `/home/soron/projects/codegram/frontend/src/features/dbml-editor/model/useDbmlParse.test.ts`
 
 `useDbmlParse(text, delayMs?)` debounces the editor text (reusing the existing `useDebouncedCallback` from `shared/hooks/useDebounce`) and runs the pure `parseDbml` adapter from `entities/dbml`. It holds `{ status, schema?, errors?, lastValidSchema? }`. Empty text → `idle`. On a non-empty change it goes `pending`, then after the debounce settles to `success` (with `schema` + cached `lastValidSchema`) or `error` (with `errors`; `lastValidSchema` retained so the summary can keep showing the last good model — the D4 choice). Default delay is 300ms (within the D6 300–500ms range).
 
@@ -1146,7 +1146,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
 
 - [ ] **Step 1: Write the failing test.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/model/useDbmlParse.test.ts`:
+  Create `/home/soron/projects/codegram/frontend/src/features/dbml-editor/model/useDbmlParse.test.ts`:
 
   ```ts
   import { describe, it, expect, vi, afterEach } from 'vitest'
@@ -1224,14 +1224,14 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/dbml-editor/model/useDbmlParse.test.ts
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/dbml-editor/model/useDbmlParse.test.ts
   ```
 
   Expected output: collection fails with `Failed to resolve import "./useDbmlParse"` / `Cannot find module './useDbmlParse'` — the hook does not exist yet. Exit code non-zero.
 
 - [ ] **Step 3: Implement `useDbmlParse.ts`.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/model/useDbmlParse.ts`:
+  Create `/home/soron/projects/codegram/frontend/src/features/dbml-editor/model/useDbmlParse.ts`:
 
   ```ts
   import { useCallback, useEffect, useState } from 'react'
@@ -1306,7 +1306,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/dbml-editor/model/useDbmlParse.test.ts
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/dbml-editor/model/useDbmlParse.test.ts
   ```
 
   Expected output: `Test Files  1 passed (1)` / `Tests  3 passed (3)`, exit code 0.
@@ -1316,7 +1316,7 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/dbml-editor/model/useDbmlParse.ts src/features/dbml-editor/model/useDbmlParse.test.ts && git commit -m "feat(dbml-editor): debounced useDbmlParse hook over the parse adapter"
+  cd /home/soron/projects/codegram/frontend && git add src/features/dbml-editor/model/useDbmlParse.ts src/features/dbml-editor/model/useDbmlParse.test.ts && git commit -m "feat(dbml-editor): debounced useDbmlParse hook over the parse adapter"
   ```
 
 ---
@@ -1324,14 +1324,14 @@ This is a dependency-install task; a red (failing-test) phase is artificial, so 
 ### Task 9: ParseErrorPanel — error/valid status display
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/ParseErrorPanel.tsx`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/ParseErrorPanel.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/ParseErrorPanel.tsx`
+- Test: `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/ParseErrorPanel.test.tsx`
 
 A read-only panel that shows the parse status: a "valid" affordance when there are no errors, or a list of `DbmlParseError`s (message + line/column when present) when there are. It takes the discriminated parse state as simple props (`status` + optional `errors`) so it is a pure presentational component with no parsing of its own.
 
 - [ ] **Step 1: Write the failing test.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/ParseErrorPanel.test.tsx`:
+  Create `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/ParseErrorPanel.test.tsx`:
 
   ```tsx
   import { describe, it, expect } from 'vitest'
@@ -1377,14 +1377,14 @@ A read-only panel that shows the parse status: a "valid" affordance when there a
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/dbml-editor/ui/ParseErrorPanel.test.tsx
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/dbml-editor/ui/ParseErrorPanel.test.tsx
   ```
 
   Expected output: collection fails with `Failed to resolve import "./ParseErrorPanel"` / `Cannot find module './ParseErrorPanel'`. Exit code non-zero.
 
 - [ ] **Step 3: Implement `ParseErrorPanel.tsx`.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/ParseErrorPanel.tsx`:
+  Create `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/ParseErrorPanel.tsx`:
 
   ```tsx
   import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -1447,7 +1447,7 @@ A read-only panel that shows the parse status: a "valid" affordance when there a
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/dbml-editor/ui/ParseErrorPanel.test.tsx
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/dbml-editor/ui/ParseErrorPanel.test.tsx
   ```
 
   Expected output: `Test Files  1 passed (1)` / `Tests  3 passed (3)`, exit code 0.
@@ -1457,7 +1457,7 @@ A read-only panel that shows the parse status: a "valid" affordance when there a
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/dbml-editor/ui/ParseErrorPanel.tsx src/features/dbml-editor/ui/ParseErrorPanel.test.tsx && git commit -m "feat(dbml-editor): ParseErrorPanel for parse status + errors"
+  cd /home/soron/projects/codegram/frontend && git add src/features/dbml-editor/ui/ParseErrorPanel.tsx src/features/dbml-editor/ui/ParseErrorPanel.test.tsx && git commit -m "feat(dbml-editor): ParseErrorPanel for parse status + errors"
   ```
 
 ---
@@ -1465,8 +1465,8 @@ A read-only panel that shows the parse status: a "valid" affordance when there a
 ### Task 10: SchemaSummary — read-only model summary (NOT a diagram)
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/SchemaSummary.tsx`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/SchemaSummary.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/SchemaSummary.tsx`
+- Test: `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/SchemaSummary.test.tsx`
 
 A read-only summary of the normalized `DbmlSchema`: counts (tables / refs / enums / table groups / notes) and the list of table names. This is explicitly NOT a diagram — no canvas, nodes, or edges (that is Plan 3b). It proves the parse produced a consumable model and gives a verifiable target for the Playwright smoke. When no schema is available it shows a neutral placeholder.
 
@@ -1474,7 +1474,7 @@ A read-only summary of the normalized `DbmlSchema`: counts (tables / refs / enum
 
 - [ ] **Step 1: Write the failing test.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/SchemaSummary.test.tsx`:
+  Create `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/SchemaSummary.test.tsx`:
 
   ```tsx
   import { describe, it, expect } from 'vitest'
@@ -1527,14 +1527,14 @@ A read-only summary of the normalized `DbmlSchema`: counts (tables / refs / enum
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/dbml-editor/ui/SchemaSummary.test.tsx
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/dbml-editor/ui/SchemaSummary.test.tsx
   ```
 
   Expected output: collection fails with `Failed to resolve import "./SchemaSummary"` / `Cannot find module './SchemaSummary'`. Exit code non-zero.
 
 - [ ] **Step 3: Implement `SchemaSummary.tsx`.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/ui/SchemaSummary.tsx`:
+  Create `/home/soron/projects/codegram/frontend/src/features/dbml-editor/ui/SchemaSummary.tsx`:
 
   ```tsx
   import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
@@ -1609,7 +1609,7 @@ A read-only summary of the normalized `DbmlSchema`: counts (tables / refs / enum
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/dbml-editor/ui/SchemaSummary.test.tsx
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/dbml-editor/ui/SchemaSummary.test.tsx
   ```
 
   Expected output: `Test Files  1 passed (1)` / `Tests  2 passed (2)`, exit code 0.
@@ -1619,7 +1619,7 @@ A read-only summary of the normalized `DbmlSchema`: counts (tables / refs / enum
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/dbml-editor/ui/SchemaSummary.tsx src/features/dbml-editor/ui/SchemaSummary.test.tsx && git commit -m "feat(dbml-editor): read-only SchemaSummary of the normalized model"
+  cd /home/soron/projects/codegram/frontend && git add src/features/dbml-editor/ui/SchemaSummary.tsx src/features/dbml-editor/ui/SchemaSummary.test.tsx && git commit -m "feat(dbml-editor): read-only SchemaSummary of the normalized model"
   ```
 
 ---
@@ -1627,13 +1627,13 @@ A read-only summary of the normalized `DbmlSchema`: counts (tables / refs / enum
 ### Task 11: features/dbml-editor barrel
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/index.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/features/dbml-editor/index.ts`
 
 Public re-exports of the feature. This is a re-export/scaffolding step — a red phase is artificial. Verification is that the barrel type-checks and the importing page (Task 12) can resolve everything from `@/features/dbml-editor`.
 
 - [ ] **Step 1: Create the barrel.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/dbml-editor/index.ts`:
+  Create `/home/soron/projects/codegram/frontend/src/features/dbml-editor/index.ts`:
 
   ```ts
   export { DbmlEditor } from './ui/DbmlEditor'
@@ -1654,7 +1654,7 @@ Public re-exports of the feature. This is a re-export/scaffolding step — a red
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run type-check
+  cd /home/soron/projects/codegram/frontend && npm run type-check
   ```
 
   Expected output: `tsc --noEmit` prints nothing and exits 0 (no type errors). This confirms every re-exported symbol exists and the FSD imports resolve.
@@ -1664,7 +1664,7 @@ Public re-exports of the feature. This is a re-export/scaffolding step — a red
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/dbml-editor/index.ts && git commit -m "feat(dbml-editor): public barrel exports"
+  cd /home/soron/projects/codegram/frontend && git add src/features/dbml-editor/index.ts && git commit -m "feat(dbml-editor): public barrel exports"
   ```
 
 ---
@@ -1672,9 +1672,9 @@ Public re-exports of the feature. This is a re-export/scaffolding step — a red
 ### Task 12: Wire the editor page — replace `<textarea>` with `<DbmlEditor>` + live parse
 
 **Files:**
-- Modify: `/home/soron/projects/erd-dbml/frontend/src/pages/editor/index.tsx`
-- Modify (test): `/home/soron/projects/erd-dbml/frontend/src/pages/editor/index.test.tsx`
-- Modify (e2e): `/home/soron/projects/erd-dbml/frontend/e2e/projects.spec.ts` (the Plan 2 spec drives the editor via `getByRole('textbox')`, which CodeMirror no longer exposes — Step 5 updates it)
+- Modify: `/home/soron/projects/codegram/frontend/src/pages/editor/index.tsx`
+- Modify (test): `/home/soron/projects/codegram/frontend/src/pages/editor/index.test.tsx`
+- Modify (e2e): `/home/soron/projects/codegram/frontend/e2e/projects.spec.ts` (the Plan 2 spec drives the editor via `getByRole('textbox')`, which CodeMirror no longer exposes — Step 5 updates it)
 
 Replace the `<textarea>` with `<DbmlEditor value={dbmlText} onChange={setDbmlText} />`, and add `useDbmlParse(dbmlText)` driving `<ParseErrorPanel>` + `<SchemaSummary>` beside it. The seed/baseline `useEffect`, the `useProjectAutosave({ projectId: id, dbmlText, baseline })` call, and the status-label header are PRESERVED EXACTLY — only the `<main>` body changes. The existing page test asserts `getByRole('textbox')`, which CodeMirror's contenteditable does not expose, so that test is updated to assert on the editor wrapper (`data-testid="dbml-editor"`) and that autosave is still called with the exact `{ projectId, dbmlText, baseline }` contract. The existing Plan 2 e2e spec `e2e/projects.spec.ts` ALSO drives the editor via `getByRole('textbox').fill(...)` / `toHaveValue(...)` — those break against CodeMirror's contenteditable and MUST be updated too (Step 5), or Playwright will fail when run.
 
@@ -1682,7 +1682,7 @@ Replace the `<textarea>` with `<DbmlEditor value={dbmlText} onChange={setDbmlTex
 
 - [ ] **Step 1: Update the page test to the CodeMirror contract (this is the red phase).**
 
-  Replace the ENTIRE contents of `/home/soron/projects/erd-dbml/frontend/src/pages/editor/index.test.tsx` with:
+  Replace the ENTIRE contents of `/home/soron/projects/codegram/frontend/src/pages/editor/index.test.tsx` with:
 
   ```tsx
   import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -1814,14 +1814,14 @@ Replace the `<textarea>` with `<DbmlEditor value={dbmlText} onChange={setDbmlTex
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/pages/editor/index.test.tsx
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/pages/editor/index.test.tsx
   ```
 
   Expected output: failures because the page still renders a `<textarea>` (no `data-testid="dbml-editor"`, no "Parse status"/"Schema summary"). Messages like `Unable to find an element by: [data-testid="dbml-editor"]` and `Unable to find an element with the text: /parse status/i`. Exit code non-zero. (The not-found test may still pass; the new editor/summary assertions fail.)
 
 - [ ] **Step 3: Replace the editor page body.**
 
-  Replace the ENTIRE contents of `/home/soron/projects/erd-dbml/frontend/src/pages/editor/index.tsx` with:
+  Replace the ENTIRE contents of `/home/soron/projects/codegram/frontend/src/pages/editor/index.tsx` with:
 
   ```tsx
   import { useEffect, useState } from 'react'
@@ -1931,7 +1931,7 @@ Replace the `<textarea>` with `<DbmlEditor value={dbmlText} onChange={setDbmlTex
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/pages/editor/index.test.tsx
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/pages/editor/index.test.tsx
   ```
 
   Expected output: `Test Files  1 passed (1)` / `Tests  4 passed (4)`, exit code 0.
@@ -1961,7 +1961,7 @@ Replace the `<textarea>` with `<DbmlEditor value={dbmlText} onChange={setDbmlTex
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run && npm run type-check
+  cd /home/soron/projects/codegram/frontend && npm run test:run && npm run type-check
   ```
 
   Expected output: Vitest ends with `Test Files  N passed (N)` / `Tests  M passed (M)` (all Plan 0/1/2/3a tests green), then `tsc --noEmit` exits 0 with no output. Exit code 0 overall. (Vitest does not run `e2e/*.spec.ts`; if Playwright is available, also run `npm run e2e` to confirm the updated `projects.spec.ts` is green.)
@@ -1971,7 +1971,7 @@ Replace the `<textarea>` with `<DbmlEditor value={dbmlText} onChange={setDbmlTex
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/pages/editor/index.tsx src/pages/editor/index.test.tsx e2e/projects.spec.ts && git commit -m "feat(editor): replace textarea with CodeMirror DbmlEditor + live parse panels"
+  cd /home/soron/projects/codegram/frontend && git add src/pages/editor/index.tsx src/pages/editor/index.test.tsx e2e/projects.spec.ts && git commit -m "feat(editor): replace textarea with CodeMirror DbmlEditor + live parse panels"
   ```
 
 ---
@@ -1979,7 +1979,7 @@ Replace the `<textarea>` with `<DbmlEditor value={dbmlText} onChange={setDbmlTex
 ### Task 13 (OPTIONAL): Playwright editor smoke — CodeMirror renders, typing updates the summary
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/e2e/editor.spec.ts`
+- Create: `/home/soron/projects/codegram/frontend/e2e/editor.spec.ts`
 
 A real-browser smoke that the editor mounts and live parsing updates the summary/status. This is OPTIONAL (it requires a running backend + an authenticated session + a seeded project, matching the existing `projects.spec.ts` flow). It asserts the CodeMirror editor renders and that typing valid DBML updates the parse status to "Valid DBML" and the table count to 1 — it does NOT assert any diagram.
 
@@ -1990,14 +1990,14 @@ A real-browser smoke that the editor mounts and live parsing updates the summary
   Run (exact command):
 
   ```bash
-  cat /home/soron/projects/erd-dbml/frontend/e2e/projects.spec.ts
+  cat /home/soron/projects/codegram/frontend/e2e/projects.spec.ts
   ```
 
   Expected: prints the existing project spec so its login + create-project + navigate-to-editor steps can be reused verbatim. Note the exact helper/setup calls it uses (the next step references them as `<reuse projects.spec.ts auth+seed>`).
 
 - [ ] **Step 2: Write the smoke spec.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/e2e/editor.spec.ts` (adapt the marked auth/seed block to the helpers found in Step 1):
+  Create `/home/soron/projects/codegram/frontend/e2e/editor.spec.ts` (adapt the marked auth/seed block to the helpers found in Step 1):
 
   ```ts
   import { test, expect } from '@playwright/test'
@@ -2037,7 +2037,7 @@ A real-browser smoke that the editor mounts and live parsing updates the summary
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run e2e -- editor.spec.ts
+  cd /home/soron/projects/codegram/frontend && npm run e2e -- editor.spec.ts
   ```
 
   Expected output: Playwright boots the dev server (per `playwright.config.ts`) and reports `1 passed`. If the auth/seed harness is unavailable, the spec fails fast at `gotoEditor` — in that case mark this OPTIONAL task skipped (do NOT block the plan on it) and note it in the commit/PR.
@@ -2047,7 +2047,7 @@ A real-browser smoke that the editor mounts and live parsing updates the summary
   Run (exact command):
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add e2e/editor.spec.ts && git commit -m "test(e2e): editor smoke — CodeMirror renders, typing updates summary"
+  cd /home/soron/projects/codegram/frontend && git add e2e/editor.spec.ts && git commit -m "test(e2e): editor smoke — CodeMirror renders, typing updates summary"
   ```
 
 ---

@@ -80,7 +80,7 @@ Each entry stores `x`/`y` exactly as React Flow reports `node.position` (ABSOLUT
 
 # Block A — entities/layout (PURE reconciliation + types)
 
-New FSD `entities/layout` slice: types + pure `reconcile`/`nodesToLayout`/`fitGroupBoxes`, Vitest only, NO React/React Flow runtime. Reuses `autoLayout`. Locks the `StoredLayout` shape and node-id-as-name-key reconciliation here so Block B has a stable contract. All commands run from `/home/soron/projects/erd-dbml/frontend`.
+New FSD `entities/layout` slice: types + pure `reconcile`/`nodesToLayout`/`fitGroupBoxes`, Vitest only, NO React/React Flow runtime. Reuses `autoLayout`. Locks the `StoredLayout` shape and node-id-as-name-key reconciliation here so Block B has a stable contract. All commands run from `/home/soron/projects/codegram/frontend`.
 
 ## Task 1: Create the `entities/layout` types (StoredLayout / positions)
 
@@ -143,7 +143,7 @@ export type { XYPosition }
 The root tsconfig is solution-style, so `tsc --noEmit` misses new files; `npm run build` (= `tsc -b && vite build`) is the real gate. Run from `frontend/`:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run build 2>&1 | tail -20
+cd /home/soron/projects/codegram/frontend && npm run build 2>&1 | tail -20
 ```
 
 Expected: `✓ built in …` (no TS errors). The new slice compiles even though nothing imports it yet.
@@ -151,7 +151,7 @@ Expected: `✓ built in …` (no TS errors). The new slice compiles even though 
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && \
+cd /home/soron/projects/codegram/frontend && \
   git add src/entities/layout/model/types.ts && \
   git commit -m "feat(layout): add StoredLayout/LayoutPositions persisted-layout types
 
@@ -257,7 +257,7 @@ describe('reconcileLayout (ungrouped)', () => {
 - [ ] **Step 2: Run the test — expect a FAIL (module does not exist).**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -25
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -25
 ```
 
 Expected FAIL: `Failed to resolve import "./reconcile"` (or `Cannot find module './reconcile'`) — the implementation file does not exist yet.
@@ -367,7 +367,7 @@ export function fitGroupBoxes(nodes: ErdFlowNode[]): ErdFlowNode[] {
 - [ ] **Step 5: Run the test — expect PASS.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -20
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -20
 ```
 
 Expected: all 5 tests in `reconcile.test.ts` pass (`Test Files 1 passed`).
@@ -375,7 +375,7 @@ Expected: all 5 tests in `reconcile.test.ts` pass (`Test Files 1 passed`).
 - [ ] **Step 6: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && \
+cd /home/soron/projects/codegram/frontend && \
   git add src/entities/layout/lib/reconcile.ts src/entities/layout/lib/reconcile.test.ts src/entities/layout/lib/groupBox.ts && \
   git commit -m "feat(layout): reconcileLayout overrides dagre baseline with stored positions by id
 
@@ -432,7 +432,7 @@ describe('reconcileLayout (ADR-0004 id semantics)', () => {
 - [ ] **Step 2: Run the test — expect PASS (semantics already correct).**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -20
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -20
 ```
 
 Expected: both new cases pass (id-based override + the orphan never being produced are inherent to mapping over `flowNodes`). If either fails, the Task 2 override loop must be reviewed before continuing.
@@ -440,7 +440,7 @@ Expected: both new cases pass (id-based override + the orphan never being produc
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && \
+cd /home/soron/projects/codegram/frontend && \
   git add src/entities/layout/lib/reconcile.test.ts && \
   git commit -m "test(layout): rename loses position + orphan stored entries dropped (ADR-0004)
 
@@ -540,7 +540,7 @@ describe('reconcileLayout (grouped-member frame guard)', () => {
 - [ ] **Step 2: Run the test — expect PASS (frameMatches already implements the guard).**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -20
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -20
 ```
 
 Expected: all four frame-guard cases pass. The keep-case asserts `{x:24,y:12}` exactly — this holds while `fitGroupBoxes` is still the identity stub (Task 2). **Task 5 makes `fitGroupBoxes` re-base members, so its Step 1 changes this single assertion to a containment check.** Do not assert exact relative coords once the real refit lands.
@@ -548,7 +548,7 @@ Expected: all four frame-guard cases pass. The keep-case asserts `{x:24,y:12}` e
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && \
+cd /home/soron/projects/codegram/frontend && \
   git add src/entities/layout/lib/reconcile.test.ts && \
   git commit -m "test(layout): grouped-member frame guard keeps/drops by parentId match
 
@@ -686,7 +686,7 @@ describe('fitGroupBoxes', () => {
 - [ ] **Step 3: Run the test — expect FAIL (stub returns input unchanged).**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/layout/lib/groupBox.test.ts 2>&1 | tail -25
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/layout/lib/groupBox.test.ts 2>&1 | tail -25
 ```
 
 Expected FAIL: the first case fails on `expect(groupW).toBe(...)` — the stub leaves `style.width` at `10`, so `Number(group.style?.width)` is `10`, not `500 + 240 + 48`.
@@ -804,7 +804,7 @@ export function fitGroupBoxes(nodes: ErdFlowNode[]): ErdFlowNode[] {
 - [ ] **Step 5: Run BOTH affected test files — expect PASS.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/layout/lib/groupBox.test.ts src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -25
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/layout/lib/groupBox.test.ts src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -25
 ```
 
 Expected: both files green. `groupBox.test.ts` (3 cases) passes; `reconcile.test.ts` still passes including the now-containment-based grouped keep-case.
@@ -812,7 +812,7 @@ Expected: both files green. `groupBox.test.ts` (3 cases) passes; `reconcile.test
 - [ ] **Step 6: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && \
+cd /home/soron/projects/codegram/frontend && \
   git add src/entities/layout/lib/groupBox.ts src/entities/layout/lib/groupBox.test.ts src/entities/layout/lib/reconcile.test.ts && \
   git commit -m "feat(layout): fitGroupBoxes re-fits group box to dragged members and re-bases
 
@@ -894,7 +894,7 @@ describe('nodesToLayout', () => {
 - [ ] **Step 2: Run the test — expect PASS (`nodesToLayout` implemented in Task 2).**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -20
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/layout/lib/reconcile.test.ts 2>&1 | tail -20
 ```
 
 Expected: all `nodesToLayout` cases pass alongside the earlier reconcile cases. (If `nodesToLayout` is missing the `parentId` spread or the group-skip, fix `reconcile.ts` now.)
@@ -902,7 +902,7 @@ Expected: all `nodesToLayout` cases pass alongside the earlier reconcile cases. 
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && \
+cd /home/soron/projects/codegram/frontend && \
   git add src/entities/layout/lib/reconcile.test.ts && \
   git commit -m "test(layout): nodesToLayout extracts positions, records parentId, skips groups
 
@@ -935,7 +935,7 @@ export type {
 - [ ] **Step 2: Run the FULL unit suite — expect PASS.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run 2>&1 | tail -25
+cd /home/soron/projects/codegram/frontend && npm run test:run 2>&1 | tail -25
 ```
 
 Expected: every test file passes (the new `reconcile.test.ts` + `groupBox.test.ts` plus all pre-existing suites — Block A touches no runtime, so nothing else changes).
@@ -943,7 +943,7 @@ Expected: every test file passes (the new `reconcile.test.ts` + `groupBox.test.t
 - [ ] **Step 3: Run the TRUE type gate — expect PASS.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run build 2>&1 | tail -20
+cd /home/soron/projects/codegram/frontend && npm run build 2>&1 | tail -20
 ```
 
 Expected: `✓ built in …` with no TS errors. This is the gate that proves the new files type-check (solution-style tsconfig means `tsc --noEmit` would miss them).
@@ -951,7 +951,7 @@ Expected: `✓ built in …` with no TS errors. This is the gate that proves the
 - [ ] **Step 4: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && \
+cd /home/soron/projects/codegram/frontend && \
   git add src/entities/layout/index.ts && \
   git commit -m "feat(layout): barrel exports for reconcile/nodesToLayout/fitGroupBoxes + types
 
@@ -973,7 +973,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 # Block B — Features wiring (canvas controlled nodes, autosave fix, persistence hook, editor compose)
 
-Wires the pure `entities/layout` slice (Block A) into the live app: fixes the autosave layout-only-skip bug, converts `ErdCanvas` to controlled nodes with drag capture and an Auto-arrange button, adds a `features/layout-persistence` hook that holds the live positions state, and composes everything in `EditorPage`. TDD strict (failing Vitest test first). The type gate is `npm run build` (run from `frontend/`); unit runner is `npm run test:run`. All `npm` commands run from `/home/soron/projects/erd-dbml/frontend`.
+Wires the pure `entities/layout` slice (Block A) into the live app: fixes the autosave layout-only-skip bug, converts `ErdCanvas` to controlled nodes with drag capture and an Auto-arrange button, adds a `features/layout-persistence` hook that holds the live positions state, and composes everything in `EditorPage`. TDD strict (failing Vitest test first). The type gate is `npm run build` (run from `frontend/`); unit runner is `npm run test:run`. All `npm` commands run from `/home/soron/projects/codegram/frontend`.
 
 **Block B depends on Block A:** `@/entities/layout` must already export `reconcileLayout`, `nodesToLayout`, and the `StoredLayout` / `LayoutPositions` / `StoredPosition` types. Do not start Block B until Block A's gate (`npm run test:run` + `npm run build`) is green.
 
@@ -1075,7 +1075,7 @@ The bug (confirmed): in `useProjectAutosave.ts` the save-decision effect deps al
 
 - [ ] **Step 2: Run the new tests — expect FAIL.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/project-autosave/api/useProjectAutosave.test.tsx 2>&1 | tail -25
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/project-autosave/api/useProjectAutosave.test.tsx 2>&1 | tail -25
   ```
   Expected: the first new case (`saves on a layout-only change ...`) fails with `expected "spy" to be called 1 times, but got 0 times` (the `dbmlText === baseline` guard skips the layout-only change). Compilation also fails because `layoutBaseline` is not yet a known option (`Object literal may only specify known properties`).
 
@@ -1154,13 +1154,13 @@ The bug (confirmed): in `useProjectAutosave.ts` the save-decision effect deps al
 
 - [ ] **Step 5: Run the full autosave suite — expect PASS.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/project-autosave/api/useProjectAutosave.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/project-autosave/api/useProjectAutosave.test.tsx 2>&1 | tail -20
   ```
   Expected: all cases pass, including the pre-existing payload assertion `{ dbml_text: 'edited', layout: undefined }` (layout defaults to `undefined`) and the three new cases.
 
 - [ ] **Step 6: Commit.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && \
+  cd /home/soron/projects/codegram/frontend && \
     git add src/features/project-autosave/api/useProjectAutosave.ts src/features/project-autosave/api/useProjectAutosave.test.tsx && \
     git commit -m "fix(project-autosave): fire on layout-only changes via dual serialized baseline
 
@@ -1194,7 +1194,7 @@ Convert `ErdCanvasInner` from derive-and-pass to controlled `useNodesState`, rec
 
 - [ ] **Step 2: Run the test — expect FAIL.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx 2>&1 | tail -20
   ```
   Expected: a TypeScript/compile error — `Property 'savedPositions' does not exist on type 'IntrinsicAttributes & ErdCanvasProps'` (the prop is not yet declared).
 
@@ -1328,13 +1328,13 @@ Convert `ErdCanvasInner` from derive-and-pass to controlled `useNodesState`, rec
 
 - [ ] **Step 6: Run the canvas suite — expect PASS.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx 2>&1 | tail -20
   ```
   Expected: all cases pass, including the new `renders nodes with savedPositions ...` and the existing `schemaSignature` cases.
 
 - [ ] **Step 7: Commit.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && \
+  cd /home/soron/projects/codegram/frontend && \
     git add src/features/erd-canvas/ui/ErdCanvas.tsx src/features/erd-canvas/ui/ErdCanvas.test.tsx && \
     git commit -m "feat(erd-canvas): controlled nodes reconciling savedPositions via entities/layout
 
@@ -1440,7 +1440,7 @@ Verify the `onNodeDragStop` → `onLayoutChange(nodesToLayout(...))` wiring fire
 
 - [ ] **Step 2: Run the wiring test file — expect FAIL.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx 2>&1 | tail -25
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx 2>&1 | tail -25
   ```
   Expected: the new case fails. If Task 9's `onNodeDragStop` is present it may already emit; the explicit condition this task locks in is the **group non-draggable** guard (next step) and the dedicated assertion. If `onNodeDragStop` were missing it would fail with `props.onNodeDragStop is not a function`.
   > NOTE: the `@xyflow/react` mock lives in the SEPARATE `ErdCanvas.wiring.test.tsx` file (the chosen split, above), so Task 9's `findByText('users')`/`getByText('posts')` label assertions in `ErdCanvas.test.tsx` keep the REAL React Flow and are unaffected. The mock here renders `props.children`, so the `<Panel>`/`<Button>` added in Task 11 will mount; it does NOT render real `TableNode` bodies (no RF store/context), so this file asserts only on the captured `__rfProps` (wired handlers + `nodes` array), never on node label text.
@@ -1461,13 +1461,13 @@ Verify the `onNodeDragStop` → `onLayoutChange(nodesToLayout(...))` wiring fire
 
 - [ ] **Step 4: Run both canvas test files — expect PASS.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx 2>&1 | tail -20
   ```
   Expected: both files pass — the new wiring case in `ErdCanvas.wiring.test.tsx` AND the untouched Task 9 real-render label assertions in `ErdCanvas.test.tsx` (which keep the real React Flow because the mock is scoped to the wiring file only).
 
 - [ ] **Step 5: Commit.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && \
+  cd /home/soron/projects/codegram/frontend && \
     git add src/features/erd-canvas/ui/ErdCanvas.tsx src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx && \
     git commit -m "feat(erd-canvas): lift StoredLayout on drag-stop; group nodes non-draggable
 
@@ -1539,7 +1539,7 @@ Add a `<Panel position="top-right">` button that discards all saved positions, r
 
 - [ ] **Step 2: Run the wiring test file — expect FAIL.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx 2>&1 | tail -20
   ```
   Expected: `Unable to find an accessible element with the role "button" and name /auto-arrange/i` — the button does not exist yet. (The mocked `ReactFlow` already renders `props.children`, so once the `<Panel>`/`<Button>` are implemented in Step 3 they WILL mount and `getByRole` will resolve — this FAIL is purely "no button yet", not a dropped-children artifact.)
 
@@ -1604,13 +1604,13 @@ Add a `<Panel position="top-right">` button that discards all saved positions, r
 
 - [ ] **Step 4: Run both canvas test files — expect PASS.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx 2>&1 | tail -20
   ```
   Expected: all cases pass. Because the mocked `ReactFlow` renders `props.children`, the `<Panel>` child mounts and the mocked `Panel` renders the Auto-arrange `<Button>`, so `getByRole('button', { name: /auto-arrange/i })` resolves and clicking it emits the recomputed `StoredLayout` via `onLayoutChange`. The Task 9 real-render label assertions in `ErdCanvas.test.tsx` remain green (unaffected by the wiring-file mock).
 
 - [ ] **Step 5: Commit.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && \
+  cd /home/soron/projects/codegram/frontend && \
     git add src/features/erd-canvas/ui/ErdCanvas.tsx src/features/erd-canvas/ui/ErdCanvas.wiring.test.tsx && \
     git commit -m "feat(erd-canvas): one-shot Auto-arrange button discarding saved positions
 
@@ -1740,7 +1740,7 @@ A small feature hook that owns the live `positions` state, seeds it from `projec
 
 - [ ] **Step 2: Run the test — expect FAIL.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/layout-persistence/api/useLayoutPersistence.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/layout-persistence/api/useLayoutPersistence.test.tsx 2>&1 | tail -20
   ```
   Expected: `Failed to resolve import "./useLayoutPersistence"` (module does not exist yet).
 
@@ -1834,13 +1834,13 @@ A small feature hook that owns the live `positions` state, seeds it from `projec
 
 - [ ] **Step 4: Run the test — expect PASS.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/layout-persistence/api/useLayoutPersistence.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/layout-persistence/api/useLayoutPersistence.test.tsx 2>&1 | tail -20
   ```
   Expected: all six cases pass. (The "stable identity" case relies on `useMemo([positions])` returning the same `layout` object when `positions` is unchanged; the new "loading -> loaded transition" case proves the seed fires on the undefined -> id transition, matching production timing.)
 
 - [ ] **Step 5: Commit.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && \
+  cd /home/soron/projects/codegram/frontend && \
     git add src/features/layout-persistence/api/useLayoutPersistence.ts src/features/layout-persistence/api/useLayoutPersistence.test.tsx src/features/layout-persistence/index.ts && \
     git commit -m "feat(layout-persistence): positions state hook seeding from project.layout
 
@@ -1931,7 +1931,7 @@ Thread `useLayoutPersistence` into `EditorPage`: seed positions from `project.la
 
 - [ ] **Step 2: Run the tests — expect FAIL.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/pages/editor/index.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/pages/editor/index.test.tsx 2>&1 | tail -20
   ```
   Expected: `seeds layout ...` fails because `lastCall.layout` is `undefined` (EditorPage passes no layout yet); `passes savedPositions ...` fails because `props.savedPositions` is `undefined`.
 
@@ -1978,13 +1978,13 @@ Thread `useLayoutPersistence` into `EditorPage`: seed positions from `project.la
 
 - [ ] **Step 5: Run the editor suite — expect PASS.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/pages/editor/index.test.tsx 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/pages/editor/index.test.tsx 2>&1 | tail -20
   ```
   Expected: all cases pass, including the pre-existing autosave-contract assertion (`projectId`, `dbmlText`, `baseline` are unchanged; `layout`/`layoutBaseline` are additive).
 
 - [ ] **Step 6: Commit.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && \
+  cd /home/soron/projects/codegram/frontend && \
     git add src/pages/editor/index.tsx src/pages/editor/index.test.tsx && \
     git commit -m "feat(editor): thread saved positions + layout autosave through the canvas
 
@@ -2001,19 +2001,19 @@ Confirm the whole frontend unit suite and the true type gate pass after Block B'
 
 - [ ] **Step 1: Run the full unit suite.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run 2>&1 | tail -25
+  cd /home/soron/projects/codegram/frontend && npm run test:run 2>&1 | tail -25
   ```
   Expected: all suites pass (autosave, erd-canvas, layout-persistence, editor, plus Block A's `entities/layout` tests and all pre-existing tests).
 
 - [ ] **Step 2: Run the true type gate.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run build 2>&1 | tail -20
+  cd /home/soron/projects/codegram/frontend && npm run build 2>&1 | tail -20
   ```
   (= `tsc -b && vite build`. The root tsconfig is solution-style, so `tsc --noEmit` misses new files — `npm run build` is the authoritative gate, especially for the new `features/layout-persistence` slice.) Expected: build succeeds with no type errors.
 
 - [ ] **Step 3: If either step surfaced an issue, fix it minimally and re-run both, then commit.**
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && \
+  cd /home/soron/projects/codegram/frontend && \
     git add -A && \
     git commit -m "chore(layout): block B gate fixes (tests + type build green)
 
@@ -2259,7 +2259,7 @@ test.describe('Editor manual layout persistence', () => {
 
 - [ ] **Step 3: Commit the spec.** From repo root:
 ```bash
-cd /home/soron/projects/erd-dbml && \
+cd /home/soron/projects/codegram && \
   git add frontend/e2e/editor-layout.spec.ts && \
   git commit -m "test(e2e): drag persists table layout and survives reload (ADR-0004)
 
@@ -2346,7 +2346,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 - [ ] **Step 3: Commit.**
 ```bash
-cd /home/soron/projects/erd-dbml && \
+cd /home/soron/projects/codegram && \
   git add frontend/e2e/editor-layout.spec.ts && \
   git commit -m "test(e2e): new table gets dagre position, placed tables stay put
 
@@ -2441,7 +2441,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 - [ ] **Step 3: Commit.**
 ```bash
-cd /home/soron/projects/erd-dbml && \
+cd /home/soron/projects/codegram && \
   git add frontend/e2e/editor-layout.spec.ts && \
   git commit -m "test(e2e): renaming a table drops its manual position (ADR-0004)
 
@@ -2510,7 +2510,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 - [ ] **Step 3: Commit.**
 ```bash
-cd /home/soron/projects/erd-dbml && \
+cd /home/soron/projects/codegram && \
   git add frontend/e2e/editor-layout.spec.ts && \
   git commit -m "test(e2e): Auto-arrange discards manual positions and re-runs dagre
 
@@ -2525,7 +2525,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 > **CONTROLLER ONLY — subagents do NOT run E2E.**
 
-- [ ] **Step 1: Bring up the full stack and flush Vite HMR.** From the repo root (`/home/soron/projects/erd-dbml`):
+- [ ] **Step 1: Bring up the full stack and flush Vite HMR.** From the repo root (`/home/soron/projects/codegram`):
 ```bash
 docker compose up -d
 docker compose restart frontend     # Plan 3b gotcha: HMR can miss new CSS/plugin/canvas code
@@ -2533,13 +2533,13 @@ docker compose restart frontend     # Plan 3b gotcha: HMR can miss new CSS/plugi
 
 - [ ] **Step 2: Run only the layout spec first (fast feedback).** From `frontend/`:
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx playwright test e2e/editor-layout.spec.ts
+cd /home/soron/projects/codegram/frontend && npx playwright test e2e/editor-layout.spec.ts
 ```
 Expected (after Blocks A + B implemented): **4 passed** (drag-restore, add-table, rename, Auto-arrange).
 
 - [ ] **Step 3: Run the full E2E suite to confirm no regressions.** From `frontend/`:
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx playwright test
+cd /home/soron/projects/codegram/frontend && npx playwright test
 ```
 Expected: the existing `auth.spec.ts`, `home.spec.ts`, `projects.spec.ts`, `editor-erd.spec.ts` plus the new `editor-layout.spec.ts` all pass. If a flake appears on a screen-pixel assertion, re-read the "tiny nudge after reload" rationale in Task 15 — never tighten the px delta below the documented thresholds; the persisted (pre-viewport) coordinate, not the screen transform, is the source of truth.
 

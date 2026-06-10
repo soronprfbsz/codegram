@@ -10,7 +10,7 @@ export function HomePage() {
     <div className="min-h-screen">
       <header className="border-b">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <h1 className="text-2xl font-bold">ERD-DBML</h1>
+          <h1 className="text-2xl font-bold">Codegram</h1>
           <div className="flex items-center gap-4">
             {user && (
               <span className="text-sm text-gray-600">

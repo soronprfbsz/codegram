@@ -1,4 +1,4 @@
-# ERD-DBML — Plan 0: Foundation & Scaffolding (Implementation Plan)
+# Codegram — Plan 0: Foundation & Scaffolding (Implementation Plan)
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stand up a running, testable monorepo dev environment (Docker Compose: postgres + FastAPI backend + Vite/React frontend) with a DB-backed health endpoint and passing backend/frontend/E2E smoke tests, and nothing from later plans.
@@ -86,20 +86,20 @@ FSD import rule (enforced by convention; ESLint enforcement is a later plan): a 
 ### Task 1: Initialize repository
 
 **Files:**
-- Run: `git init` in `/home/soron/projects/erd-dbml`
-- Create: `/home/soron/projects/erd-dbml/.gitignore`
-- Create: `/home/soron/projects/erd-dbml/README.md`
+- Run: `git init` in `/home/soron/projects/codegram`
+- Create: `/home/soron/projects/codegram/.gitignore`
+- Create: `/home/soron/projects/codegram/README.md`
 
-- [ ] **Step 1: Initialize the git repository. Run from `/home/soron/projects/erd-dbml`.**
+- [ ] **Step 1: Initialize the git repository. Run from `/home/soron/projects/codegram`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git init
+cd /home/soron/projects/codegram && git init
 ```
-Expected output: `Initialized empty Git repository in /home/soron/projects/erd-dbml/.git/`.
+Expected output: `Initialized empty Git repository in /home/soron/projects/codegram/.git/`.
 
 - [ ] **Step 2: Create the root `.gitignore` covering python, node, env, virtualenv, and build artifacts.**
 
-`/home/soron/projects/erd-dbml/.gitignore`
+`/home/soron/projects/codegram/.gitignore`
 ```gitignore
 # Python
 __pycache__/
@@ -130,9 +130,9 @@ test-results/
 
 - [ ] **Step 3: Create the `README.md`.**
 
-`/home/soron/projects/erd-dbml/README.md`
+`/home/soron/projects/codegram/README.md`
 ```markdown
-# ERD-DBML
+# Codegram
 
 A web service that renders, edits, and exports ERDs from DBML text.
 
@@ -161,10 +161,10 @@ docker compose up -d --build
 - E2E: `cd frontend && npx playwright test`
 ```
 
-- [ ] **Step 4: Make the initial commit. Run from `/home/soron/projects/erd-dbml`.**
+- [ ] **Step 4: Make the initial commit. Run from `/home/soron/projects/codegram`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add .gitignore README.md CONTEXT.md docs && git commit -m "chore: initialize repository with gitignore and readme"
+cd /home/soron/projects/codegram && git add .gitignore README.md CONTEXT.md docs && git commit -m "chore: initialize repository with gitignore and readme"
 ```
 Expected output: a commit summary listing `.gitignore`, `README.md`, `CONTEXT.md`, and the `docs/` files as created.
 
@@ -173,31 +173,31 @@ Expected output: a commit summary listing `.gitignore`, `README.md`, `CONTEXT.md
 ### Task 2: Backend package skeleton, pyproject, and test scaffolding
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/backend/pyproject.toml`
-- Create: `/home/soron/projects/erd-dbml/backend/app/__init__.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/core/__init__.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/db/__init__.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/api/__init__.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/api/routes/__init__.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/schemas/__init__.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/services/__init__.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/repositories/__init__.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/models/__init__.py`
-- Create: `/home/soron/projects/erd-dbml/backend/tests/__init__.py`
-- Test: `/home/soron/projects/erd-dbml/backend/tests/test_smoke.py`
+- Create: `/home/soron/projects/codegram/backend/pyproject.toml`
+- Create: `/home/soron/projects/codegram/backend/app/__init__.py`
+- Create: `/home/soron/projects/codegram/backend/app/core/__init__.py`
+- Create: `/home/soron/projects/codegram/backend/app/db/__init__.py`
+- Create: `/home/soron/projects/codegram/backend/app/api/__init__.py`
+- Create: `/home/soron/projects/codegram/backend/app/api/routes/__init__.py`
+- Create: `/home/soron/projects/codegram/backend/app/schemas/__init__.py`
+- Create: `/home/soron/projects/codegram/backend/app/services/__init__.py`
+- Create: `/home/soron/projects/codegram/backend/app/repositories/__init__.py`
+- Create: `/home/soron/projects/codegram/backend/app/models/__init__.py`
+- Create: `/home/soron/projects/codegram/backend/tests/__init__.py`
+- Test: `/home/soron/projects/codegram/backend/tests/test_smoke.py`
 
 - [ ] **Step 1: Write the `pyproject.toml` with pinned dependencies and pytest asyncio config.**
 
-`/home/soron/projects/erd-dbml/backend/pyproject.toml`
+`/home/soron/projects/codegram/backend/pyproject.toml`
 ```toml
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "erd-dbml-backend"
+name = "codegram-backend"
 version = "0.1.0"
-description = "ERD-DBML Backend Service"
+description = "Codegram Backend Service"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi==0.136.3",
@@ -231,12 +231,12 @@ addopts = "-v --tb=short"
 
 - [ ] **Step 2: Write the smoke test that asserts the `app` package is importable and exposes its docstring.**
 
-`/home/soron/projects/erd-dbml/backend/tests/__init__.py`
+`/home/soron/projects/codegram/backend/tests/__init__.py`
 ```python
 """Backend test suite."""
 ```
 
-`/home/soron/projects/erd-dbml/backend/tests/test_smoke.py`
+`/home/soron/projects/codegram/backend/tests/test_smoke.py`
 ```python
 """Smoke test: the app package imports cleanly."""
 import importlib
@@ -244,74 +244,74 @@ import importlib
 
 def test_app_package_imports():
     module = importlib.import_module("app")
-    assert module.__doc__ == "ERD-DBML backend application package."
+    assert module.__doc__ == "Codegram backend application package."
 ```
 
-- [ ] **Step 3: Create the virtual environment and install only the test runner (NOT the project), then run the smoke test and see it FAIL.** The project itself is not installed yet (and the `app/` package does not exist), so the import target is absent — this is the red phase. Run from `/home/soron/projects/erd-dbml/backend`.
+- [ ] **Step 3: Create the virtual environment and install only the test runner (NOT the project), then run the smoke test and see it FAIL.** The project itself is not installed yet (and the `app/` package does not exist), so the import target is absent — this is the red phase. Run from `/home/soron/projects/codegram/backend`.
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && python -m venv .venv && . .venv/bin/activate && pip install pytest && pytest tests/test_smoke.py
+cd /home/soron/projects/codegram/backend && python -m venv .venv && . .venv/bin/activate && pip install pytest && pytest tests/test_smoke.py
 ```
 Expected failure: `tests/test_smoke.py::test_app_package_imports FAILED` with `ModuleNotFoundError: No module named 'app'` (the package markers do not exist yet).
 
 - [ ] **Step 4: Create the empty package markers to make the import succeed.** Each of the following files contains exactly one line: a module docstring (so the file is never zero-bytes and the package intent is clear).
 
-`/home/soron/projects/erd-dbml/backend/app/__init__.py`
+`/home/soron/projects/codegram/backend/app/__init__.py`
 ```python
-"""ERD-DBML backend application package."""
+"""Codegram backend application package."""
 ```
 
-`/home/soron/projects/erd-dbml/backend/app/core/__init__.py`
+`/home/soron/projects/codegram/backend/app/core/__init__.py`
 ```python
 """Core package: configuration and cross-cutting concerns."""
 ```
 
-`/home/soron/projects/erd-dbml/backend/app/db/__init__.py`
+`/home/soron/projects/codegram/backend/app/db/__init__.py`
 ```python
 """Database package: declarative base, engine, and session."""
 ```
 
-`/home/soron/projects/erd-dbml/backend/app/api/__init__.py`
+`/home/soron/projects/codegram/backend/app/api/__init__.py`
 ```python
 """API package: FastAPI routers."""
 ```
 
-`/home/soron/projects/erd-dbml/backend/app/api/routes/__init__.py`
+`/home/soron/projects/codegram/backend/app/api/routes/__init__.py`
 ```python
 """API route modules."""
 ```
 
-`/home/soron/projects/erd-dbml/backend/app/schemas/__init__.py`
+`/home/soron/projects/codegram/backend/app/schemas/__init__.py`
 ```python
 """Pydantic DTO schemas."""
 ```
 
-`/home/soron/projects/erd-dbml/backend/app/services/__init__.py`
+`/home/soron/projects/codegram/backend/app/services/__init__.py`
 ```python
 """Service layer (business logic). Populated in Plan 2+."""
 ```
 
-`/home/soron/projects/erd-dbml/backend/app/repositories/__init__.py`
+`/home/soron/projects/codegram/backend/app/repositories/__init__.py`
 ```python
 """Repository layer (data access). Populated in Plan 2+."""
 ```
 
-`/home/soron/projects/erd-dbml/backend/app/models/__init__.py`
+`/home/soron/projects/codegram/backend/app/models/__init__.py`
 ```python
 """SQLAlchemy ORM models. Populated in Plan 1+."""
 ```
 
-- [ ] **Step 5: Install the backend with dev extras now that `app/` exists (hatchling can build the wheel), then run the smoke test and see it PASS.** Run from `/home/soron/projects/erd-dbml/backend` with the venv active.
+- [ ] **Step 5: Install the backend with dev extras now that `app/` exists (hatchling can build the wheel), then run the smoke test and see it PASS.** Run from `/home/soron/projects/codegram/backend` with the venv active.
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pip install -e ".[dev]" && pytest tests/test_smoke.py
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pip install -e ".[dev]" && pytest tests/test_smoke.py
 ```
-Expected output: pip prints `Successfully installed ... erd-dbml-backend-0.1.0 ...`, then `tests/test_smoke.py::test_app_package_imports PASSED` and `1 passed`.
+Expected output: pip prints `Successfully installed ... codegram-backend-0.1.0 ...`, then `tests/test_smoke.py::test_app_package_imports PASSED` and `1 passed`.
 
 - [ ] **Step 6: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add backend/pyproject.toml backend/app backend/tests && git commit -m "chore(backend): scaffold package skeleton, pyproject, and smoke test"
+cd /home/soron/projects/codegram && git add backend/pyproject.toml backend/app backend/tests && git commit -m "chore(backend): scaffold package skeleton, pyproject, and smoke test"
 ```
 
 ---
@@ -319,12 +319,12 @@ cd /home/soron/projects/erd-dbml && git add backend/pyproject.toml backend/app b
 ### Task 3: Pydantic-settings configuration
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/backend/app/core/config.py`
-- Test: `/home/soron/projects/erd-dbml/backend/tests/test_config.py`
+- Create: `/home/soron/projects/codegram/backend/app/core/config.py`
+- Test: `/home/soron/projects/codegram/backend/tests/test_config.py`
 
 - [ ] **Step 1: Write the failing test for `Settings`. It asserts defaults and that environment variables override them.**
 
-`/home/soron/projects/erd-dbml/backend/tests/test_config.py`
+`/home/soron/projects/codegram/backend/tests/test_config.py`
 ```python
 """Tests for application settings loading."""
 from app.core.config import Settings
@@ -362,16 +362,16 @@ def test_cors_origins_parsed_from_csv(monkeypatch):
     ]
 ```
 
-- [ ] **Step 2: Run the test and see it FAIL (the module does not exist yet). Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 2: Run the test and see it FAIL (the module does not exist yet). Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pytest tests/test_config.py
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pytest tests/test_config.py
 ```
 Expected failure: collection error `ModuleNotFoundError: No module named 'app.core.config'`.
 
 - [ ] **Step 3: Write the `Settings` implementation. The `CORS_ORIGINS` env var is a comma-separated string parsed into a list via a field validator.**
 
-`/home/soron/projects/erd-dbml/backend/app/core/config.py`
+`/home/soron/projects/codegram/backend/app/core/config.py`
 ```python
 """Application configuration via pydantic-settings."""
 from typing import Annotated
@@ -385,7 +385,7 @@ class Settings(BaseSettings):
 
     # Database (asyncpg driver is mandatory for the async engine).
     database_url: str = (
-        "postgresql+asyncpg://erddbml_user:postgres_dev@localhost:5432/erddbml_dev"
+        "postgresql+asyncpg://codegram_user:postgres_dev@localhost:5432/codegram_dev"
     )
 
     # CORS allowed origins (comma-separated in env).
@@ -416,17 +416,17 @@ class Settings(BaseSettings):
 settings = Settings()
 ```
 
-- [ ] **Step 4: Run the test and see it PASS. Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 4: Run the test and see it PASS. Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pytest tests/test_config.py
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pytest tests/test_config.py
 ```
 Expected output: `3 passed`.
 
 - [ ] **Step 5: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add backend/app/core/config.py backend/tests/test_config.py && git commit -m "feat(backend): add pydantic-settings configuration"
+cd /home/soron/projects/codegram && git add backend/app/core/config.py backend/tests/test_config.py && git commit -m "feat(backend): add pydantic-settings configuration"
 ```
 
 ---
@@ -434,13 +434,13 @@ cd /home/soron/projects/erd-dbml && git add backend/app/core/config.py backend/t
 ### Task 4: Async SQLAlchemy declarative base, engine, session, and `get_session` dependency
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/backend/app/db/base.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/db/session.py`
-- Test: `/home/soron/projects/erd-dbml/backend/tests/test_session.py`
+- Create: `/home/soron/projects/codegram/backend/app/db/base.py`
+- Create: `/home/soron/projects/codegram/backend/app/db/session.py`
+- Test: `/home/soron/projects/codegram/backend/tests/test_session.py`
 
 - [ ] **Step 1: Write the failing test. It asserts `Base` is a declarative base with a `metadata` attribute, and that `get_session` is an async generator dependency yielding a working `AsyncSession` (verified with `SELECT 1` against in-memory SQLite).**
 
-`/home/soron/projects/erd-dbml/backend/tests/test_session.py`
+`/home/soron/projects/codegram/backend/tests/test_session.py`
 ```python
 """Tests for the declarative base and async session dependency."""
 import inspect
@@ -482,16 +482,16 @@ async def test_get_session_yields_working_session(monkeypatch):
     await test_engine.dispose()
 ```
 
-- [ ] **Step 2: Run the test and see it FAIL (the modules do not exist yet). Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 2: Run the test and see it FAIL (the modules do not exist yet). Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pytest tests/test_session.py
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pytest tests/test_session.py
 ```
 Expected failure: collection error `ModuleNotFoundError: No module named 'app.db.base'`.
 
 - [ ] **Step 3: Write the declarative base.**
 
-`/home/soron/projects/erd-dbml/backend/app/db/base.py`
+`/home/soron/projects/codegram/backend/app/db/base.py`
 ```python
 """SQLAlchemy 2.0 declarative base."""
 from sqlalchemy.orm import DeclarativeBase
@@ -503,7 +503,7 @@ class Base(DeclarativeBase):
 
 - [ ] **Step 4: Write the async engine, session maker, and `get_session` dependency.**
 
-`/home/soron/projects/erd-dbml/backend/app/db/session.py`
+`/home/soron/projects/codegram/backend/app/db/session.py`
 ```python
 """Async SQLAlchemy engine, session maker, and FastAPI session dependency."""
 from collections.abc import AsyncGenerator
@@ -536,17 +536,17 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 ```
 
-- [ ] **Step 5: Run the test and see it PASS. Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 5: Run the test and see it PASS. Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pytest tests/test_session.py
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pytest tests/test_session.py
 ```
 Expected output: `3 passed`.
 
 - [ ] **Step 6: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add backend/app/db/base.py backend/app/db/session.py backend/tests/test_session.py && git commit -m "feat(backend): add async SQLAlchemy base, engine, and session dependency"
+cd /home/soron/projects/codegram && git add backend/app/db/base.py backend/app/db/session.py backend/tests/test_session.py && git commit -m "feat(backend): add async SQLAlchemy base, engine, and session dependency"
 ```
 
 ---
@@ -554,14 +554,14 @@ cd /home/soron/projects/erd-dbml && git add backend/app/db/base.py backend/app/d
 ### Task 5: FastAPI app factory and API router wiring
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/backend/app/api/router.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/main.py`
-- Create: `/home/soron/projects/erd-dbml/backend/tests/conftest.py`
-- Test: `/home/soron/projects/erd-dbml/backend/tests/test_app.py`
+- Create: `/home/soron/projects/codegram/backend/app/api/router.py`
+- Create: `/home/soron/projects/codegram/backend/app/main.py`
+- Create: `/home/soron/projects/codegram/backend/tests/conftest.py`
+- Test: `/home/soron/projects/codegram/backend/tests/test_app.py`
 
 - [ ] **Step 1: Write the shared test fixtures. These provide an in-memory async test DB, override `get_session`, and yield an httpx `AsyncClient` bound to the ASGI app. They will be reused by Task 6.**
 
-`/home/soron/projects/erd-dbml/backend/tests/conftest.py`
+`/home/soron/projects/codegram/backend/tests/conftest.py`
 ```python
 """Shared pytest fixtures: async test DB, session override, and AsyncClient."""
 from collections.abc import AsyncGenerator
@@ -617,7 +617,7 @@ async def client(test_session) -> AsyncGenerator[AsyncClient, None]:
 
 - [ ] **Step 2: Write the failing test. It asserts the ASGI app exists, is titled, and serves docs under `/api`.**
 
-`/home/soron/projects/erd-dbml/backend/tests/test_app.py`
+`/home/soron/projects/codegram/backend/tests/test_app.py`
 ```python
 """Tests for the FastAPI app factory and router mounting."""
 from fastapi import FastAPI
@@ -627,7 +627,7 @@ from app.main import app
 
 def test_app_is_fastapi_instance():
     assert isinstance(app, FastAPI)
-    assert app.title == "ERD-DBML API"
+    assert app.title == "Codegram API"
 
 
 def test_api_router_mounted_under_api_prefix():
@@ -636,16 +636,16 @@ def test_api_router_mounted_under_api_prefix():
     assert app.openapi_url == "/api/openapi.json"
 ```
 
-- [ ] **Step 3: Run the test and see it FAIL (`app.main` does not exist). Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 3: Run the test and see it FAIL (`app.main` does not exist). Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pytest tests/test_app.py
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pytest tests/test_app.py
 ```
 Expected failure: collection error `ModuleNotFoundError: No module named 'app.main'`.
 
 - [ ] **Step 4: Write the aggregate API router. It is empty of routes for now; Task 6 includes the health router into it.**
 
-`/home/soron/projects/erd-dbml/backend/app/api/router.py`
+`/home/soron/projects/codegram/backend/app/api/router.py`
 ```python
 """Aggregate API router mounted under /api."""
 from fastapi import APIRouter
@@ -655,7 +655,7 @@ api_router = APIRouter()
 
 - [ ] **Step 5: Write the FastAPI app factory. Docs are served under `/api` and the aggregate router is mounted with the `/api` prefix; CORS is configured from settings.**
 
-`/home/soron/projects/erd-dbml/backend/app/main.py`
+`/home/soron/projects/codegram/backend/app/main.py`
 ```python
 """FastAPI application factory."""
 from fastapi import FastAPI
@@ -668,7 +668,7 @@ from app.core.config import settings
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     application = FastAPI(
-        title="ERD-DBML API",
+        title="Codegram API",
         version="0.1.0",
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
@@ -689,17 +689,17 @@ def create_app() -> FastAPI:
 app = create_app()
 ```
 
-- [ ] **Step 6: Run the test and see it PASS. Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 6: Run the test and see it PASS. Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pytest tests/test_app.py
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pytest tests/test_app.py
 ```
 Expected output: `2 passed`.
 
 - [ ] **Step 7: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add backend/app/api/router.py backend/app/main.py backend/tests/conftest.py backend/tests/test_app.py && git commit -m "feat(backend): add FastAPI app factory and api router wiring"
+cd /home/soron/projects/codegram && git add backend/app/api/router.py backend/app/main.py backend/tests/conftest.py backend/tests/test_app.py && git commit -m "feat(backend): add FastAPI app factory and api router wiring"
 ```
 
 ---
@@ -707,14 +707,14 @@ cd /home/soron/projects/erd-dbml && git add backend/app/api/router.py backend/ap
 ### Task 6: GET /api/health endpoint with DB connectivity check
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/backend/app/schemas/health.py`
-- Create: `/home/soron/projects/erd-dbml/backend/app/api/routes/health.py`
-- Modify: `/home/soron/projects/erd-dbml/backend/app/api/router.py`
-- Test: `/home/soron/projects/erd-dbml/backend/tests/test_health.py`
+- Create: `/home/soron/projects/codegram/backend/app/schemas/health.py`
+- Create: `/home/soron/projects/codegram/backend/app/api/routes/health.py`
+- Modify: `/home/soron/projects/codegram/backend/app/api/router.py`
+- Test: `/home/soron/projects/codegram/backend/tests/test_health.py`
 
 - [ ] **Step 1: Write the failing test using the `client` fixture from `conftest.py`. It asserts `GET /api/health` returns 200 and `{"status": "ok"}` (the endpoint runs `SELECT 1` against the overridden test session).**
 
-`/home/soron/projects/erd-dbml/backend/tests/test_health.py`
+`/home/soron/projects/codegram/backend/tests/test_health.py`
 ```python
 """Tests for the /api/health endpoint."""
 
@@ -728,16 +728,16 @@ async def test_health_returns_ok(client):
     assert response.json() == {"status": "ok"}
 ```
 
-- [ ] **Step 2: Run the test and see it FAIL (route not yet defined -> 404). Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 2: Run the test and see it FAIL (route not yet defined -> 404). Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pytest tests/test_health.py
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pytest tests/test_health.py
 ```
 Expected failure: `AssertionError: assert 404 == 200` (the `/api/health` route does not exist yet).
 
 - [ ] **Step 3: Write the response schema.**
 
-`/home/soron/projects/erd-dbml/backend/app/schemas/health.py`
+`/home/soron/projects/codegram/backend/app/schemas/health.py`
 ```python
 """Health-check response schema."""
 from pydantic import BaseModel
@@ -751,7 +751,7 @@ class HealthResponse(BaseModel):
 
 - [ ] **Step 4: Write the health route. It depends on `get_session`, executes `SELECT 1` to confirm DB connectivity, and returns `{"status": "ok"}`.**
 
-`/home/soron/projects/erd-dbml/backend/app/api/routes/health.py`
+`/home/soron/projects/codegram/backend/app/api/routes/health.py`
 ```python
 """Health-check route: verifies DB connectivity via SELECT 1."""
 from fastapi import APIRouter, Depends
@@ -774,7 +774,7 @@ async def health(session: AsyncSession = Depends(get_session)) -> HealthResponse
 
 - [ ] **Step 5: Wire the health router into the aggregate API router.**
 
-`/home/soron/projects/erd-dbml/backend/app/api/router.py`
+`/home/soron/projects/codegram/backend/app/api/router.py`
 ```python
 """Aggregate API router mounted under /api."""
 from fastapi import APIRouter
@@ -785,24 +785,24 @@ api_router = APIRouter()
 api_router.include_router(health.router)
 ```
 
-- [ ] **Step 6: Run the test and see it PASS. Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 6: Run the test and see it PASS. Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pytest tests/test_health.py
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pytest tests/test_health.py
 ```
 Expected output: `tests/test_health.py::test_health_returns_ok PASSED` and `1 passed`.
 
-- [ ] **Step 7: Run the full backend suite to confirm nothing regressed. Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 7: Run the full backend suite to confirm nothing regressed. Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && pytest
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && pytest
 ```
 Expected output: `10 passed` (smoke 1 + config 3 + session 3 + app 2 + health 1).
 
 - [ ] **Step 8: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add backend/app/schemas/health.py backend/app/api/routes/health.py backend/app/api/router.py backend/tests/test_health.py && git commit -m "feat(backend): add GET /api/health endpoint with DB connectivity check"
+cd /home/soron/projects/codegram && git add backend/app/schemas/health.py backend/app/api/routes/health.py backend/app/api/router.py backend/tests/test_health.py && git commit -m "feat(backend): add GET /api/health endpoint with DB connectivity check"
 ```
 
 ---
@@ -810,14 +810,14 @@ cd /home/soron/projects/erd-dbml && git add backend/app/schemas/health.py backen
 ### Task 7: Alembic async initialization wired to the engine
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/backend/alembic.ini`
-- Create: `/home/soron/projects/erd-dbml/backend/alembic/env.py`
-- Create: `/home/soron/projects/erd-dbml/backend/alembic/script.py.mako`
-- Create: `/home/soron/projects/erd-dbml/backend/alembic/versions/.gitkeep`
+- Create: `/home/soron/projects/codegram/backend/alembic.ini`
+- Create: `/home/soron/projects/codegram/backend/alembic/env.py`
+- Create: `/home/soron/projects/codegram/backend/alembic/script.py.mako`
+- Create: `/home/soron/projects/codegram/backend/alembic/versions/.gitkeep`
 
 - [ ] **Step 1: Write `alembic.ini`. The `sqlalchemy.url` is intentionally left blank because `env.py` injects it from `settings.database_url` at runtime.**
 
-`/home/soron/projects/erd-dbml/backend/alembic.ini`
+`/home/soron/projects/codegram/backend/alembic.ini`
 ```ini
 [alembic]
 script_location = alembic
@@ -862,7 +862,7 @@ datefmt = %H:%M:%S
 
 - [ ] **Step 2: Write the async `env.py`. It pulls the URL from `settings`, imports `Base.metadata` as the autogenerate target, and runs migrations through an async engine via `run_sync`.**
 
-`/home/soron/projects/erd-dbml/backend/alembic/env.py`
+`/home/soron/projects/codegram/backend/alembic/env.py`
 ```python
 """Alembic environment: async engine wired to app settings and Base.metadata."""
 import asyncio
@@ -934,7 +934,7 @@ else:
 
 - [ ] **Step 3: Write the migration script template used by `alembic revision`.**
 
-`/home/soron/projects/erd-dbml/backend/alembic/script.py.mako`
+`/home/soron/projects/codegram/backend/alembic/script.py.mako`
 ```mako
 """${message}
 
@@ -966,28 +966,28 @@ def downgrade() -> None:
 
 - [ ] **Step 4: Create the empty versions directory marker.**
 
-`/home/soron/projects/erd-dbml/backend/alembic/versions/.gitkeep`
+`/home/soron/projects/codegram/backend/alembic/versions/.gitkeep`
 ```text
 ```
 
-- [ ] **Step 5: Verify Alembic is wired correctly by running `upgrade head` against a throwaway SQLite database. With zero migrations present this is a no-op that must still connect, configure, and exit cleanly — proving `env.py` loads settings, builds the async engine, and runs. Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 5: Verify Alembic is wired correctly by running `upgrade head` against a throwaway SQLite database. With zero migrations present this is a no-op that must still connect, configure, and exit cleanly — proving `env.py` loads settings, builds the async engine, and runs. Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && DATABASE_URL="sqlite+aiosqlite:///./alembic_check.db" alembic upgrade head; echo "EXIT=$?"; rm -f alembic_check.db
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && DATABASE_URL="sqlite+aiosqlite:///./alembic_check.db" alembic upgrade head; echo "EXIT=$?"; rm -f alembic_check.db
 ```
 Expected output: Alembic logs `Context impl SQLiteImpl.` and `Will assume non-transactional DDL.`, no traceback, and `EXIT=0`. (No revisions are applied because the `versions/` directory is empty — the success criterion is a clean connect-and-exit, confirming the async `env.py` is correctly wired.)
 
-- [ ] **Step 6: Verify autogenerate sees `Base.metadata` and produces an empty migration (no domain tables yet), then delete it. This confirms `target_metadata` is wired. Run from `/home/soron/projects/erd-dbml/backend` with the venv active.**
+- [ ] **Step 6: Verify autogenerate sees `Base.metadata` and produces an empty migration (no domain tables yet), then delete it. This confirms `target_metadata` is wired. Run from `/home/soron/projects/codegram/backend` with the venv active.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/backend && . .venv/bin/activate && DATABASE_URL="sqlite+aiosqlite:///./alembic_check.db" alembic revision --autogenerate -m "verify wiring" && grep -c "op.create_table" alembic/versions/*verify_wiring*.py; echo "EXIT=$?"; rm -f alembic/versions/*verify_wiring*.py alembic_check.db
+cd /home/soron/projects/codegram/backend && . .venv/bin/activate && DATABASE_URL="sqlite+aiosqlite:///./alembic_check.db" alembic revision --autogenerate -m "verify wiring" && grep -c "op.create_table" alembic/versions/*verify_wiring*.py; echo "EXIT=$?"; rm -f alembic/versions/*verify_wiring*.py alembic_check.db
 ```
 Expected output: Alembic logs `Generating ... verify_wiring.py`; the grep prints `0` (no `op.create_table` calls, since no models exist); `EXIT=0`. The generated file is then removed so the repo ships with zero domain migrations.
 
 - [ ] **Step 7: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add backend/alembic.ini backend/alembic/env.py backend/alembic/script.py.mako backend/alembic/versions/.gitkeep && git commit -m "feat(backend): add async Alembic initialization wired to the engine"
+cd /home/soron/projects/codegram && git add backend/alembic.ini backend/alembic/env.py backend/alembic/script.py.mako backend/alembic/versions/.gitkeep && git commit -m "feat(backend): add async Alembic initialization wired to the engine"
 ```
 
 ---
@@ -995,21 +995,21 @@ cd /home/soron/projects/erd-dbml && git add backend/alembic.ini backend/alembic/
 ### Task 8: Frontend npm manifest + Vite/React 19/TS scaffold (config + entry)
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/package.json`
-- Create: `/home/soron/projects/erd-dbml/frontend/index.html`
-- Create: `/home/soron/projects/erd-dbml/frontend/vite.config.ts`
-- Create: `/home/soron/projects/erd-dbml/frontend/tsconfig.json`
-- Create: `/home/soron/projects/erd-dbml/frontend/tsconfig.app.json`
-- Create: `/home/soron/projects/erd-dbml/frontend/tsconfig.node.json`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/vite-env.d.ts`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/main.tsx`
+- Create: `/home/soron/projects/codegram/frontend/package.json`
+- Create: `/home/soron/projects/codegram/frontend/index.html`
+- Create: `/home/soron/projects/codegram/frontend/vite.config.ts`
+- Create: `/home/soron/projects/codegram/frontend/tsconfig.json`
+- Create: `/home/soron/projects/codegram/frontend/tsconfig.app.json`
+- Create: `/home/soron/projects/codegram/frontend/tsconfig.node.json`
+- Create: `/home/soron/projects/codegram/frontend/src/vite-env.d.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/main.tsx`
 
 - [ ] **Step 1: Create `frontend/package.json` with pinned June-2026 versions and scripts.**
 
-`/home/soron/projects/erd-dbml/frontend/package.json`
+`/home/soron/projects/codegram/frontend/package.json`
 ```json
 {
-  "name": "erd-dbml-frontend",
+  "name": "codegram-frontend",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -1047,14 +1047,14 @@ cd /home/soron/projects/erd-dbml && git add backend/alembic.ini backend/alembic/
 
 - [ ] **Step 2: Create `frontend/index.html` (Vite HTML entry that mounts `#root`).**
 
-`/home/soron/projects/erd-dbml/frontend/index.html`
+`/home/soron/projects/codegram/frontend/index.html`
 ```html
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ERD-DBML</title>
+    <title>Codegram</title>
   </head>
   <body>
     <div id="root"></div>
@@ -1065,7 +1065,7 @@ cd /home/soron/projects/erd-dbml && git add backend/alembic.ini backend/alembic/
 
 - [ ] **Step 3: Create `frontend/vite.config.ts` (React plugin, `@` alias to `src`, `/api` dev proxy to backend).**
 
-`/home/soron/projects/erd-dbml/frontend/vite.config.ts`
+`/home/soron/projects/codegram/frontend/vite.config.ts`
 ```typescript
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -1093,7 +1093,7 @@ export default defineConfig({
 
 - [ ] **Step 4: Create `frontend/tsconfig.json` (project-references root).**
 
-`/home/soron/projects/erd-dbml/frontend/tsconfig.json`
+`/home/soron/projects/codegram/frontend/tsconfig.json`
 ```json
 {
   "files": [],
@@ -1106,7 +1106,7 @@ export default defineConfig({
 
 - [ ] **Step 5: Create `frontend/tsconfig.app.json` (app code config with `@` path + jsx transform).**
 
-`/home/soron/projects/erd-dbml/frontend/tsconfig.app.json`
+`/home/soron/projects/codegram/frontend/tsconfig.app.json`
 ```json
 {
   "compilerOptions": {
@@ -1137,7 +1137,7 @@ export default defineConfig({
 
 - [ ] **Step 6: Create `frontend/tsconfig.node.json` (config-files build context).**
 
-`/home/soron/projects/erd-dbml/frontend/tsconfig.node.json`
+`/home/soron/projects/codegram/frontend/tsconfig.node.json`
 ```json
 {
   "compilerOptions": {
@@ -1156,14 +1156,14 @@ export default defineConfig({
 
 - [ ] **Step 7: Create `frontend/src/vite-env.d.ts` (Vite client types).**
 
-`/home/soron/projects/erd-dbml/frontend/src/vite-env.d.ts`
+`/home/soron/projects/codegram/frontend/src/vite-env.d.ts`
 ```typescript
 /// <reference types="vite/client" />
 ```
 
 - [ ] **Step 8: Create `frontend/src/main.tsx` (React 19 entry mounting `<App />`).**
 
-`/home/soron/projects/erd-dbml/frontend/src/main.tsx`
+`/home/soron/projects/codegram/frontend/src/main.tsx`
 ```typescript
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -1181,24 +1181,24 @@ createRoot(rootElement).render(
 )
 ```
 
-- [ ] **Step 9: Install dependencies. Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 9: Install dependencies. Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm install
+cd /home/soron/projects/codegram/frontend && npm install
 ```
 Expected output: `npm install` completes, creating `frontend/node_modules/` and `frontend/package-lock.json` with no resolution errors.
 
-- [ ] **Step 10: Verify TypeScript can locate the config (expected: errors about missing `@/app` import only — this is EXPECTED, it is created in Task 12). Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 10: Verify TypeScript can locate the config (expected: errors about missing `@/app` import only — this is EXPECTED, it is created in Task 12). Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx tsc -b --noEmit || echo "EXPECTED: unresolved @/app until Task 12"
+cd /home/soron/projects/codegram/frontend && npx tsc -b --noEmit || echo "EXPECTED: unresolved @/app until Task 12"
 ```
 Expected output: a `Cannot find module '@/app'` error from `src/main.tsx`. This is expected; later tasks resolve it.
 
 - [ ] **Step 11: Commit the scaffold.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add frontend/package.json frontend/package-lock.json frontend/index.html frontend/vite.config.ts frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.node.json frontend/src/vite-env.d.ts frontend/src/main.tsx && git commit -m "chore(frontend): scaffold Vite + React 19 + TypeScript with @ alias"
+cd /home/soron/projects/codegram && git add frontend/package.json frontend/package-lock.json frontend/index.html frontend/vite.config.ts frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.node.json frontend/src/vite-env.d.ts frontend/src/main.tsx && git commit -m "chore(frontend): scaffold Vite + React 19 + TypeScript with @ alias"
 ```
 
 ---
@@ -1206,30 +1206,30 @@ cd /home/soron/projects/erd-dbml && git add frontend/package.json frontend/packa
 ### Task 9: shadcn init via preset + align components to `src/shared/ui`
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/components.json`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/shared/ui/.gitkeep`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/shared/lib/utils.ts`
-- Modify: `/home/soron/projects/erd-dbml/frontend/package.json` (shadcn may add deps; commit lockfile changes)
+- Create: `/home/soron/projects/codegram/frontend/components.json`
+- Create: `/home/soron/projects/codegram/frontend/src/shared/ui/.gitkeep`
+- Create: `/home/soron/projects/codegram/frontend/src/shared/lib/utils.ts`
+- Modify: `/home/soron/projects/codegram/frontend/package.json` (shadcn may add deps; commit lockfile changes)
 
 Note: The preset code `b1FlFygMM` is opaque — pass it verbatim, do NOT decode or substitute. shadcn's CLI generates `components.json`, `src/lib/utils.ts`, Tailwind/CSS files, and lands UI components per the `aliases.ui` path. To honor FSD we point that alias at `src/shared/ui`.
 
-- [ ] **Step 1: Create the destination directory placeholder so the FSD slot exists before generation.** Run from `/home/soron/projects/erd-dbml`.
+- [ ] **Step 1: Create the destination directory placeholder so the FSD slot exists before generation.** Run from `/home/soron/projects/codegram`.
 
 ```bash
-mkdir -p /home/soron/projects/erd-dbml/frontend/src/shared/ui && touch /home/soron/projects/erd-dbml/frontend/src/shared/ui/.gitkeep
+mkdir -p /home/soron/projects/codegram/frontend/src/shared/ui && touch /home/soron/projects/codegram/frontend/src/shared/ui/.gitkeep
 ```
-Expected result: the command exits 0 and `frontend/src/shared/ui/.gitkeep` now exists (verify with `ls -l /home/soron/projects/erd-dbml/frontend/src/shared/ui/.gitkeep`).
+Expected result: the command exits 0 and `frontend/src/shared/ui/.gitkeep` now exists (verify with `ls -l /home/soron/projects/codegram/frontend/src/shared/ui/.gitkeep`).
 
-- [ ] **Step 2: Run the shadcn initializer with the preset (verbatim).** This generates `components.json`, `src/lib/utils.ts`, Tailwind config, and `src/index.css`. Run from `/home/soron/projects/erd-dbml/frontend`.
+- [ ] **Step 2: Run the shadcn initializer with the preset (verbatim).** This generates `components.json`, `src/lib/utils.ts`, Tailwind config, and `src/index.css`. Run from `/home/soron/projects/codegram/frontend`.
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx shadcn@latest init --preset b1FlFygMM
+cd /home/soron/projects/codegram/frontend && npx shadcn@latest init --preset b1FlFygMM
 ```
 Expected output: shadcn reports it created `components.json` and base files; it installs `tailwindcss`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react` (recorded in `package.json`).
 
 - [ ] **Step 3: Open `frontend/components.json` and set the UI alias to the FSD path so future `npx shadcn@latest add <comp>` components land in `src/shared/ui`. Ensure the `aliases` block reads exactly as below (keep any preset-provided `style`, `tailwind`, `iconLibrary` keys generated above; only the `aliases` values are normative here).**
 
-`/home/soron/projects/erd-dbml/frontend/components.json`
+`/home/soron/projects/codegram/frontend/components.json`
 ```json
 {
   "$schema": "https://ui.shadcn.com/schema.json",
@@ -1254,24 +1254,24 @@ Expected output: shadcn reports it created `components.json` and base files; it 
 }
 ```
 
-- [ ] **Step 4: Move the generated utils file into the FSD `shared/lib` location referenced by the alias above (shadcn defaults to `src/lib/utils.ts`). Run from `/home/soron/projects/erd-dbml`.**
+- [ ] **Step 4: Move the generated utils file into the FSD `shared/lib` location referenced by the alias above (shadcn defaults to `src/lib/utils.ts`). Run from `/home/soron/projects/codegram`.**
 
 ```bash
-mkdir -p /home/soron/projects/erd-dbml/frontend/src/shared/lib && [ -f /home/soron/projects/erd-dbml/frontend/src/lib/utils.ts ] && git -C /home/soron/projects/erd-dbml mv frontend/src/lib/utils.ts frontend/src/shared/lib/utils.ts 2>/dev/null || mv /home/soron/projects/erd-dbml/frontend/src/lib/utils.ts /home/soron/projects/erd-dbml/frontend/src/shared/lib/utils.ts; rmdir /home/soron/projects/erd-dbml/frontend/src/lib 2>/dev/null || true
+mkdir -p /home/soron/projects/codegram/frontend/src/shared/lib && [ -f /home/soron/projects/codegram/frontend/src/lib/utils.ts ] && git -C /home/soron/projects/codegram mv frontend/src/lib/utils.ts frontend/src/shared/lib/utils.ts 2>/dev/null || mv /home/soron/projects/codegram/frontend/src/lib/utils.ts /home/soron/projects/codegram/frontend/src/shared/lib/utils.ts; rmdir /home/soron/projects/codegram/frontend/src/lib 2>/dev/null || true
 ```
 Expected result: `frontend/src/shared/lib/utils.ts` exists; `frontend/src/lib/` is gone.
 
-- [ ] **Step 5: Verify the alias path is valid by adding one component, confirming it lands in `src/shared/ui`. Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 5: Verify the alias path is valid by adding one component, confirming it lands in `src/shared/ui`. Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx shadcn@latest add button
+cd /home/soron/projects/codegram/frontend && npx shadcn@latest add button
 ```
 Expected output: a `button.tsx` file is created under `frontend/src/shared/ui/` (proving the alias points at the FSD location).
 
 - [ ] **Step 6: Commit the shadcn setup.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add frontend/components.json frontend/src/shared/ui frontend/src/shared/lib frontend/src/index.css frontend/package.json frontend/package-lock.json && git commit -m "chore(frontend): init shadcn via preset b1FlFygMM, alias UI to src/shared/ui"
+cd /home/soron/projects/codegram && git add frontend/components.json frontend/src/shared/ui frontend/src/shared/lib frontend/src/index.css frontend/package.json frontend/package-lock.json && git commit -m "chore(frontend): init shadcn via preset b1FlFygMM, alias UI to src/shared/ui"
 ```
 
 ---
@@ -1279,25 +1279,25 @@ cd /home/soron/projects/erd-dbml && git add frontend/components.json frontend/sr
 ### Task 10: FSD layer skeleton (.gitkeep + shared api/env)
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/widgets/.gitkeep`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/.gitkeep`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/entities/.gitkeep`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/shared/api/client.ts`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/shared/config/env.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/widgets/.gitkeep`
+- Create: `/home/soron/projects/codegram/frontend/src/features/.gitkeep`
+- Create: `/home/soron/projects/codegram/frontend/src/entities/.gitkeep`
+- Create: `/home/soron/projects/codegram/frontend/src/shared/api/client.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/shared/config/env.ts`
 
 FSD import rule (enforced by convention; ESLint enforcement is a later plan): a layer may import only from layers strictly below it — `app > pages > widgets > features > entities > shared`. `shared` imports nothing upward; same-layer cross-imports are disallowed.
 
-- [ ] **Step 1: Create the FSD layer placeholder directories.** Run from `/home/soron/projects/erd-dbml`.
+- [ ] **Step 1: Create the FSD layer placeholder directories.** Run from `/home/soron/projects/codegram`.
 
 ```bash
-mkdir -p /home/soron/projects/erd-dbml/frontend/src/widgets /home/soron/projects/erd-dbml/frontend/src/features /home/soron/projects/erd-dbml/frontend/src/entities /home/soron/projects/erd-dbml/frontend/src/shared/api /home/soron/projects/erd-dbml/frontend/src/shared/config
-touch /home/soron/projects/erd-dbml/frontend/src/widgets/.gitkeep /home/soron/projects/erd-dbml/frontend/src/features/.gitkeep /home/soron/projects/erd-dbml/frontend/src/entities/.gitkeep
+mkdir -p /home/soron/projects/codegram/frontend/src/widgets /home/soron/projects/codegram/frontend/src/features /home/soron/projects/codegram/frontend/src/entities /home/soron/projects/codegram/frontend/src/shared/api /home/soron/projects/codegram/frontend/src/shared/config
+touch /home/soron/projects/codegram/frontend/src/widgets/.gitkeep /home/soron/projects/codegram/frontend/src/features/.gitkeep /home/soron/projects/codegram/frontend/src/entities/.gitkeep
 ```
-Expected result: the command exits 0; `frontend/src/widgets/.gitkeep`, `frontend/src/features/.gitkeep`, and `frontend/src/entities/.gitkeep` exist (verify with `ls -l /home/soron/projects/erd-dbml/frontend/src/widgets/.gitkeep /home/soron/projects/erd-dbml/frontend/src/features/.gitkeep /home/soron/projects/erd-dbml/frontend/src/entities/.gitkeep`).
+Expected result: the command exits 0; `frontend/src/widgets/.gitkeep`, `frontend/src/features/.gitkeep`, and `frontend/src/entities/.gitkeep` exist (verify with `ls -l /home/soron/projects/codegram/frontend/src/widgets/.gitkeep /home/soron/projects/codegram/frontend/src/features/.gitkeep /home/soron/projects/codegram/frontend/src/entities/.gitkeep`).
 
 - [ ] **Step 2: Create `frontend/src/shared/config/env.ts` (typed accessor for `VITE_API_URL`).**
 
-`/home/soron/projects/erd-dbml/frontend/src/shared/config/env.ts`
+`/home/soron/projects/codegram/frontend/src/shared/config/env.ts`
 ```typescript
 /**
  * Typed access to Vite environment variables.
@@ -1310,7 +1310,7 @@ export const env = {
 
 - [ ] **Step 3: Create `frontend/src/shared/api/client.ts` (fetch wrapper reading `env.apiUrl`).**
 
-`/home/soron/projects/erd-dbml/frontend/src/shared/api/client.ts`
+`/home/soron/projects/codegram/frontend/src/shared/api/client.ts`
 ```typescript
 import { env } from '@/shared/config/env'
 
@@ -1341,17 +1341,17 @@ export async function apiFetch<T>(
 }
 ```
 
-- [ ] **Step 4: Verify the new shared files type-check in isolation (expected: no errors from these files; the only outstanding error is the unresolved `@/app` from Task 8). Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 4: Verify the new shared files type-check in isolation (expected: no errors from these files; the only outstanding error is the unresolved `@/app` from Task 8). Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx tsc -b --noEmit || echo "EXPECTED: only @/app unresolved until Task 12"
+cd /home/soron/projects/codegram/frontend && npx tsc -b --noEmit || echo "EXPECTED: only @/app unresolved until Task 12"
 ```
 Expected output: no errors originating in `src/shared/**`; any error is the known `@/app` import in `src/main.tsx`.
 
 - [ ] **Step 5: Commit the FSD skeleton.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add frontend/src/widgets/.gitkeep frontend/src/features/.gitkeep frontend/src/entities/.gitkeep frontend/src/shared/api/client.ts frontend/src/shared/config/env.ts && git commit -m "chore(frontend): add FSD layer skeleton + shared api client/env config"
+cd /home/soron/projects/codegram && git add frontend/src/widgets/.gitkeep frontend/src/features/.gitkeep frontend/src/entities/.gitkeep frontend/src/shared/api/client.ts frontend/src/shared/config/env.ts && git commit -m "chore(frontend): add FSD layer skeleton + shared api client/env config"
 ```
 
 ---
@@ -1359,12 +1359,12 @@ cd /home/soron/projects/erd-dbml && git add frontend/src/widgets/.gitkeep fronte
 ### Task 11: TanStack Query provider + Zustand example store
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/app/providers/query.tsx`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/shared/store/ui.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/app/providers/query.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/shared/store/ui.ts`
 
 - [ ] **Step 1: Create `frontend/src/shared/store/ui.ts` (example Zustand client-state store).**
 
-`/home/soron/projects/erd-dbml/frontend/src/shared/store/ui.ts`
+`/home/soron/projects/codegram/frontend/src/shared/store/ui.ts`
 ```typescript
 import { create } from 'zustand'
 
@@ -1387,7 +1387,7 @@ export const useUiStore = create<UiState>((set) => ({
 
 - [ ] **Step 2: Create `frontend/src/app/providers/query.tsx` (TanStack Query v5 provider; note `gcTime`, not `cacheTime`).**
 
-`/home/soron/projects/erd-dbml/frontend/src/app/providers/query.tsx`
+`/home/soron/projects/codegram/frontend/src/app/providers/query.tsx`
 ```typescript
 import { type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -1412,17 +1412,17 @@ export function QueryProvider({ children }: { children: ReactNode }) {
 }
 ```
 
-- [ ] **Step 3: Verify both files type-check (expected: still only the known `@/app` error). Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 3: Verify both files type-check (expected: still only the known `@/app` error). Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx tsc -b --noEmit || echo "EXPECTED: only @/app unresolved until Task 12"
+cd /home/soron/projects/codegram/frontend && npx tsc -b --noEmit || echo "EXPECTED: only @/app unresolved until Task 12"
 ```
 Expected output: no errors in `src/app/providers/query.tsx` or `src/shared/store/ui.ts`.
 
 - [ ] **Step 4: Commit the provider + store.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add frontend/src/app/providers/query.tsx frontend/src/shared/store/ui.ts && git commit -m "feat(frontend): add TanStack Query provider and example Zustand UI store"
+cd /home/soron/projects/codegram && git add frontend/src/app/providers/query.tsx frontend/src/shared/store/ui.ts && git commit -m "feat(frontend): add TanStack Query provider and example Zustand UI store"
 ```
 
 ---
@@ -1430,18 +1430,18 @@ cd /home/soron/projects/erd-dbml && git add frontend/src/app/providers/query.tsx
 ### Task 12: React Router with Home page + App composition
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/pages/home/index.tsx`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/app/providers/router.tsx`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/app/index.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/pages/home/index.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/app/providers/router.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/app/index.tsx`
 
 - [ ] **Step 1: Create `frontend/src/pages/home/index.tsx` (Home page with a recognizable heading for unit + e2e assertions).**
 
-`/home/soron/projects/erd-dbml/frontend/src/pages/home/index.tsx`
+`/home/soron/projects/codegram/frontend/src/pages/home/index.tsx`
 ```typescript
 export function HomePage() {
   return (
     <main>
-      <h1>ERD-DBML</h1>
+      <h1>Codegram</h1>
       <p>Render, edit, and export ERDs from DBML text.</p>
     </main>
   )
@@ -1450,7 +1450,7 @@ export function HomePage() {
 
 - [ ] **Step 2: Create `frontend/src/app/providers/router.tsx` (React Router v7 `createBrowserRouter` config -> Home).**
 
-`/home/soron/projects/erd-dbml/frontend/src/app/providers/router.tsx`
+`/home/soron/projects/codegram/frontend/src/app/providers/router.tsx`
 ```typescript
 import { createBrowserRouter, RouterProvider } from 'react-router'
 import { HomePage } from '@/pages/home'
@@ -1469,7 +1469,7 @@ export function AppRouter() {
 
 - [ ] **Step 3: Create `frontend/src/app/index.tsx` (App: composes Query provider around the router). This resolves the `@/app` import from `src/main.tsx`.**
 
-`/home/soron/projects/erd-dbml/frontend/src/app/index.tsx`
+`/home/soron/projects/codegram/frontend/src/app/index.tsx`
 ```typescript
 import { QueryProvider } from '@/app/providers/query'
 import { AppRouter } from '@/app/providers/router'
@@ -1483,24 +1483,24 @@ export function App() {
 }
 ```
 
-- [ ] **Step 4: Verify the whole app now type-checks cleanly (the previously-expected `@/app` error is gone). Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 4: Verify the whole app now type-checks cleanly (the previously-expected `@/app` error is gone). Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx tsc -b --noEmit
+cd /home/soron/projects/codegram/frontend && npx tsc -b --noEmit
 ```
 Expected output: no errors; the command exits 0.
 
-- [ ] **Step 5: Verify the dev server builds the app (production build as a smoke check). Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 5: Verify the dev server builds the app (production build as a smoke check). Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run build
+cd /home/soron/projects/codegram/frontend && npm run build
 ```
 Expected output: `tsc -b` passes and Vite reports `built in <time>` with output in `frontend/dist/`.
 
 - [ ] **Step 6: Commit the router + Home page + App.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add frontend/src/pages/home/index.tsx frontend/src/app/providers/router.tsx frontend/src/app/index.tsx && git commit -m "feat(frontend): add React Router v7 with Home page and App composition"
+cd /home/soron/projects/codegram && git add frontend/src/pages/home/index.tsx frontend/src/app/providers/router.tsx frontend/src/app/index.tsx && git commit -m "feat(frontend): add React Router v7 with Home page and App composition"
 ```
 
 ---
@@ -1508,15 +1508,15 @@ cd /home/soron/projects/erd-dbml && git add frontend/src/pages/home/index.tsx fr
 ### Task 13: Vitest config + setup + Home characterization unit test (deliberate-wrong-assertion red phase)
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/vitest.config.ts`
-- Create: `/home/soron/projects/erd-dbml/frontend/src/test/setup.ts`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/pages/home/index.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/vitest.config.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/test/setup.ts`
+- Test: `/home/soron/projects/codegram/frontend/src/pages/home/index.test.tsx`
 
-> TDD note: `HomePage` was implemented in Task 12 (it is needed there to make `@/app` type-check and `npm run build` pass). These are therefore characterization/smoke tests for pre-existing UI, not a genuine red->green-on-new-implementation cycle. The deliberately-wrong assertion (`"Welcome to ERD-DBML"`) in Step 3 is an explicit stand-in red phase: it verifies the test harness actually exercises the component and can fail, before we correct the assertion to the real heading. The real implementation does not transition red->green here because it already exists.
+> TDD note: `HomePage` was implemented in Task 12 (it is needed there to make `@/app` type-check and `npm run build` pass). These are therefore characterization/smoke tests for pre-existing UI, not a genuine red->green-on-new-implementation cycle. The deliberately-wrong assertion (`"Welcome to Codegram"`) in Step 3 is an explicit stand-in red phase: it verifies the test harness actually exercises the component and can fail, before we correct the assertion to the real heading. The real implementation does not transition red->green here because it already exists.
 
 - [ ] **Step 1: Create `frontend/vitest.config.ts` (jsdom env, globals, setup file, `@` alias).**
 
-`/home/soron/projects/erd-dbml/frontend/vitest.config.ts`
+`/home/soron/projects/codegram/frontend/vitest.config.ts`
 ```typescript
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
@@ -1540,7 +1540,7 @@ export default defineConfig({
 
 - [ ] **Step 2: Create `frontend/src/test/setup.ts` (jest-dom matchers + cleanup after each test).**
 
-`/home/soron/projects/erd-dbml/frontend/src/test/setup.ts`
+`/home/soron/projects/codegram/frontend/src/test/setup.ts`
 ```typescript
 import { afterEach } from 'vitest'
 import { cleanup } from '@testing-library/react'
@@ -1551,9 +1551,9 @@ afterEach(() => {
 })
 ```
 
-- [ ] **Step 3: Write the failing Home smoke test. Assert a heading string that does NOT yet match to force a first failure: assert `"Welcome to ERD-DBML"` (deliberately wrong), then correct it after observing the failure.**
+- [ ] **Step 3: Write the failing Home smoke test. Assert a heading string that does NOT yet match to force a first failure: assert `"Welcome to Codegram"` (deliberately wrong), then correct it after observing the failure.**
 
-`/home/soron/projects/erd-dbml/frontend/src/pages/home/index.test.tsx`
+`/home/soron/projects/codegram/frontend/src/pages/home/index.test.tsx`
 ```typescript
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -1563,22 +1563,22 @@ describe('HomePage', () => {
   it('renders the app heading', () => {
     render(<HomePage />)
     expect(
-      screen.getByRole('heading', { name: 'Welcome to ERD-DBML' }),
+      screen.getByRole('heading', { name: 'Welcome to Codegram' }),
     ).toBeInTheDocument()
   })
 })
 ```
 
-- [ ] **Step 4: Run the test and SEE IT FAIL (the heading is `ERD-DBML`, not `Welcome to ERD-DBML`). Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 4: Run the test and SEE IT FAIL (the heading is `Codegram`, not `Welcome to Codegram`). Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run
+cd /home/soron/projects/codegram/frontend && npm run test:run
 ```
-Expected output: 1 failed test — `Unable to find an accessible element with the role "heading" and name "Welcome to ERD-DBML"` (the rendered heading is `ERD-DBML`).
+Expected output: 1 failed test — `Unable to find an accessible element with the role "heading" and name "Welcome to Codegram"` (the rendered heading is `Codegram`).
 
 - [ ] **Step 5: Correct the assertion to match the real heading.**
 
-`/home/soron/projects/erd-dbml/frontend/src/pages/home/index.test.tsx`
+`/home/soron/projects/codegram/frontend/src/pages/home/index.test.tsx`
 ```typescript
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -1588,23 +1588,23 @@ describe('HomePage', () => {
   it('renders the app heading', () => {
     render(<HomePage />)
     expect(
-      screen.getByRole('heading', { name: 'ERD-DBML' }),
+      screen.getByRole('heading', { name: 'Codegram' }),
     ).toBeInTheDocument()
   })
 })
 ```
 
-- [ ] **Step 6: Run the test and SEE IT PASS. Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 6: Run the test and SEE IT PASS. Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run
+cd /home/soron/projects/codegram/frontend && npm run test:run
 ```
 Expected output: `1 passed (1)` — `Test Files 1 passed`, exit code 0.
 
 - [ ] **Step 7: Commit the Vitest setup + passing smoke test.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add frontend/vitest.config.ts frontend/src/test/setup.ts frontend/src/pages/home/index.test.tsx && git commit -m "test(frontend): add Vitest config, setup, and Home smoke unit test"
+cd /home/soron/projects/codegram && git add frontend/vitest.config.ts frontend/src/test/setup.ts frontend/src/pages/home/index.test.tsx && git commit -m "test(frontend): add Vitest config, setup, and Home smoke unit test"
 ```
 
 ---
@@ -1612,14 +1612,14 @@ cd /home/soron/projects/erd-dbml && git add frontend/vitest.config.ts frontend/s
 ### Task 14: Playwright config + smoke E2E (webServer = vite dev)
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/playwright.config.ts`
-- Test: `/home/soron/projects/erd-dbml/frontend/e2e/home.spec.ts`
+- Create: `/home/soron/projects/codegram/frontend/playwright.config.ts`
+- Test: `/home/soron/projects/codegram/frontend/e2e/home.spec.ts`
 
-> TDD note: As in Task 13, `HomePage` already exists from Task 12, so this is a characterization/smoke E2E for pre-existing UI rather than a red->green-on-new-implementation cycle. The deliberately-wrong assertion (`"Welcome to ERD-DBML"`) in Step 2 is an explicit stand-in red phase confirming the E2E harness actually loads the page and can fail, before correcting it to the real heading.
+> TDD note: As in Task 13, `HomePage` already exists from Task 12, so this is a characterization/smoke E2E for pre-existing UI rather than a red->green-on-new-implementation cycle. The deliberately-wrong assertion (`"Welcome to Codegram"`) in Step 2 is an explicit stand-in red phase confirming the E2E harness actually loads the page and can fail, before correcting it to the real heading.
 
 - [ ] **Step 1: Create `frontend/playwright.config.ts` (testDir `e2e`, `webServer` runs `npm run dev`, baseURL `http://localhost:5173`).**
 
-`/home/soron/projects/erd-dbml/frontend/playwright.config.ts`
+`/home/soron/projects/codegram/frontend/playwright.config.ts`
 ```typescript
 import { defineConfig, devices } from '@playwright/test'
 
@@ -1649,52 +1649,52 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 2: Write the failing smoke E2E. To force a first failure, assert text that is NOT present yet (`"Welcome to ERD-DBML"`), then correct it after observing the failure.**
+- [ ] **Step 2: Write the failing smoke E2E. To force a first failure, assert text that is NOT present yet (`"Welcome to Codegram"`), then correct it after observing the failure.**
 
-`/home/soron/projects/erd-dbml/frontend/e2e/home.spec.ts`
+`/home/soron/projects/codegram/frontend/e2e/home.spec.ts`
 ```typescript
 import { test, expect } from '@playwright/test'
 
 test('home page renders the app heading', async ({ page }) => {
   await page.goto('/')
   await expect(
-    page.getByRole('heading', { name: 'Welcome to ERD-DBML' }),
+    page.getByRole('heading', { name: 'Welcome to Codegram' }),
   ).toBeVisible()
 })
 ```
 
-- [ ] **Step 3: Install Playwright browsers (one-time), then run the E2E and SEE IT FAIL. Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 3: Install Playwright browsers (one-time), then run the E2E and SEE IT FAIL. Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx playwright install chromium && npx playwright test
+cd /home/soron/projects/codegram/frontend && npx playwright install chromium && npx playwright test
 ```
-Expected output: 1 failed test — Playwright times out waiting for heading `"Welcome to ERD-DBML"` to be visible (the page renders `ERD-DBML`).
+Expected output: 1 failed test — Playwright times out waiting for heading `"Welcome to Codegram"` to be visible (the page renders `Codegram`).
 
 - [ ] **Step 4: Correct the assertion to match the real heading.**
 
-`/home/soron/projects/erd-dbml/frontend/e2e/home.spec.ts`
+`/home/soron/projects/codegram/frontend/e2e/home.spec.ts`
 ```typescript
 import { test, expect } from '@playwright/test'
 
 test('home page renders the app heading', async ({ page }) => {
   await page.goto('/')
   await expect(
-    page.getByRole('heading', { name: 'ERD-DBML' }),
+    page.getByRole('heading', { name: 'Codegram' }),
   ).toBeVisible()
 })
 ```
 
-- [ ] **Step 5: Run the E2E and SEE IT PASS. Run from `/home/soron/projects/erd-dbml/frontend`.**
+- [ ] **Step 5: Run the E2E and SEE IT PASS. Run from `/home/soron/projects/codegram/frontend`.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx playwright test
+cd /home/soron/projects/codegram/frontend && npx playwright test
 ```
 Expected output: `1 passed` — Playwright starts the Vite dev server, loads `/`, finds the visible heading, and exits 0.
 
 - [ ] **Step 6: Commit the Playwright smoke E2E.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add frontend/playwright.config.ts frontend/e2e/home.spec.ts && git commit -m "test(frontend): add Playwright smoke E2E for Home page"
+cd /home/soron/projects/codegram && git add frontend/playwright.config.ts frontend/e2e/home.spec.ts && git commit -m "test(frontend): add Playwright smoke E2E for Home page"
 ```
 
 ---
@@ -1702,13 +1702,13 @@ cd /home/soron/projects/erd-dbml && git add frontend/playwright.config.ts fronte
 ### Task 15: Backend Dockerfile
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/backend/Dockerfile`
+- Create: `/home/soron/projects/codegram/backend/Dockerfile`
 
 This Dockerfile builds the backend dev image. Source code is bind-mounted at runtime (not COPYed) so `uvicorn --reload` sees host edits. Because `app/` is not present at build time and the hatchling project builds a wheel from `packages = ["app"]`, we must NOT install the project itself (`pip install ".[dev]"` would fail with "Unable to determine which files to ship inside the wheel"). Instead we create a minimal stub package so hatchling has something to build, install the project for its dependencies, then remove the stub — the real `app/` arrives via the runtime bind-mount and the installed dependencies remain. We use an anonymous volume for `/app/.venv` in compose to avoid the bind-mount clobbering any local virtualenv. `postgresql-client` is included so `pg_isready`-style checks and `psql` are available inside the container if needed.
 
 - [ ] **Step 1: Write the backend Dockerfile.**
 
-`/home/soron/projects/erd-dbml/backend/Dockerfile`
+`/home/soron/projects/codegram/backend/Dockerfile`
 ```dockerfile
 FROM python:3.13-slim
 
@@ -1736,7 +1736,7 @@ RUN mkdir -p app \
     && echo '"""stub package replaced by bind-mounted source at runtime."""' > app/__init__.py \
     && pip install --upgrade pip \
     && pip install ".[dev]" \
-    && pip uninstall -y erd-dbml-backend \
+    && pip uninstall -y codegram-backend \
     && rm -rf app
 
 EXPOSE 8000
@@ -1747,14 +1747,14 @@ CMD ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000
 - [ ] **Step 2: Verify the Dockerfile builds.**
 
 ```bash
-docker build -t erddbml-backend:dev /home/soron/projects/erd-dbml/backend
+docker build -t codegram-backend:dev /home/soron/projects/codegram/backend
 ```
-Expected result: the build completes successfully, ending with a line like `Successfully tagged erddbml-backend:dev` (or `naming to docker.io/library/erddbml-backend:dev done` with BuildKit). The `pip install ".[dev]"` layer installs FastAPI, uvicorn, SQLAlchemy, asyncpg, alembic, pydantic, pytest, etc. without errors.
+Expected result: the build completes successfully, ending with a line like `Successfully tagged codegram-backend:dev` (or `naming to docker.io/library/codegram-backend:dev done` with BuildKit). The `pip install ".[dev]"` layer installs FastAPI, uvicorn, SQLAlchemy, asyncpg, alembic, pydantic, pytest, etc. without errors.
 
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add backend/Dockerfile && git commit -m "build(backend): add dev Dockerfile (python 3.13-slim, uvicorn --reload)"
+cd /home/soron/projects/codegram && git add backend/Dockerfile && git commit -m "build(backend): add dev Dockerfile (python 3.13-slim, uvicorn --reload)"
 ```
 Expected output: one file changed, indicating `backend/Dockerfile` was committed.
 
@@ -1763,13 +1763,13 @@ Expected output: one file changed, indicating `backend/Dockerfile` was committed
 ### Task 16: Frontend Dockerfile
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/Dockerfile`
+- Create: `/home/soron/projects/codegram/frontend/Dockerfile`
 
 This Dockerfile builds the frontend dev image. We install node modules with `npm ci` (lockfile-faithful), and source is bind-mounted at runtime. An anonymous volume for `/app/node_modules` in compose prevents the host bind-mount from hiding the container's installed modules. The dev server binds to `0.0.0.0` so the host can reach Vite + HMR.
 
 - [ ] **Step 1: Write the frontend Dockerfile.**
 
-`/home/soron/projects/erd-dbml/frontend/Dockerfile`
+`/home/soron/projects/codegram/frontend/Dockerfile`
 ```dockerfile
 FROM node:22-alpine
 
@@ -1788,14 +1788,14 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 - [ ] **Step 2: Verify the Dockerfile builds.**
 
 ```bash
-docker build -t erddbml-frontend:dev /home/soron/projects/erd-dbml/frontend
+docker build -t codegram-frontend:dev /home/soron/projects/codegram/frontend
 ```
-Expected result: the build completes successfully, ending with `Successfully tagged erddbml-frontend:dev` (or `naming to docker.io/library/erddbml-frontend:dev done` with BuildKit). The `npm ci` layer installs all dependencies from `package-lock.json` without errors.
+Expected result: the build completes successfully, ending with `Successfully tagged codegram-frontend:dev` (or `naming to docker.io/library/codegram-frontend:dev done` with BuildKit). The `npm ci` layer installs all dependencies from `package-lock.json` without errors.
 
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add frontend/Dockerfile && git commit -m "build(frontend): add dev Dockerfile (node 22-alpine, vite dev --host 0.0.0.0)"
+cd /home/soron/projects/codegram && git add frontend/Dockerfile && git commit -m "build(frontend): add dev Dockerfile (node 22-alpine, vite dev --host 0.0.0.0)"
 ```
 Expected output: one file changed, indicating `frontend/Dockerfile` was committed.
 
@@ -1804,45 +1804,45 @@ Expected output: one file changed, indicating `frontend/Dockerfile` was committe
 ### Task 17: docker-compose.yml (postgres + backend + frontend with healthchecks)
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/docker-compose.yml`
+- Create: `/home/soron/projects/codegram/docker-compose.yml`
 
 This compose file wires the three services on a shared bridge network. Postgres has a `pg_isready` healthcheck; the backend uses `depends_on: condition: service_healthy` so it only starts once the DB accepts connections. The backend's `DATABASE_URL` uses the `postgresql+asyncpg://` scheme (required for the async SQLAlchemy engine — a plain `postgresql://` scheme would block the event loop). Anonymous volumes protect `/app/.venv` and `/app/node_modules` from bind-mount clobbering. The frontend dev-proxy to `/api` is configured in `vite.config.ts` (Task 8); here we provide `VITE_API_URL` for the browser client and `VITE_PROXY_TARGET` for the in-container Vite proxy. The Vite dev server runs INSIDE the frontend container, so its proxy must target the backend via compose DNS (`http://backend:8000`), not `localhost:8000` (which would resolve to the frontend container itself).
 
 - [ ] **Step 1: Write docker-compose.yml.**
 
-`/home/soron/projects/erd-dbml/docker-compose.yml`
+`/home/soron/projects/codegram/docker-compose.yml`
 ```yaml
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: erddbml-postgres
+    container_name: codegram-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-erddbml_user}
+      POSTGRES_USER: ${POSTGRES_USER:-codegram_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_dev}
-      POSTGRES_DB: ${POSTGRES_DB:-erddbml_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-codegram_dev}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erddbml_user} -d ${POSTGRES_DB:-erddbml_dev}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-codegram_user} -d ${POSTGRES_DB:-codegram_dev}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
     networks:
-      - erddbml-network
+      - codegram-network
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: erddbml-backend
+    container_name: codegram-backend
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-erddbml_user}:${POSTGRES_PASSWORD:-postgres_dev}@postgres:5432/${POSTGRES_DB:-erddbml_dev}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-codegram_user}:${POSTGRES_PASSWORD:-postgres_dev}@postgres:5432/${POSTGRES_DB:-codegram_dev}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       ENVIRONMENT: development
       DEBUG: "true"
@@ -1852,14 +1852,14 @@ services:
     ports:
       - "8000:8000"
     networks:
-      - erddbml-network
+      - codegram-network
     command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: erddbml-frontend
+    container_name: codegram-frontend
     depends_on:
       - backend
     environment:
@@ -1871,7 +1871,7 @@ services:
     ports:
       - "5173:5173"
     networks:
-      - erddbml-network
+      - codegram-network
     command: npm run dev -- --host 0.0.0.0
 
 volumes:
@@ -1879,21 +1879,21 @@ volumes:
     driver: local
 
 networks:
-  erddbml-network:
+  codegram-network:
     driver: bridge
 ```
 
 - [ ] **Step 2: Validate the compose file.**
 
 ```bash
-docker compose -f /home/soron/projects/erd-dbml/docker-compose.yml config --quiet
+docker compose -f /home/soron/projects/codegram/docker-compose.yml config --quiet
 ```
-Expected result: the command exits with status 0 and prints nothing (a non-empty error message would indicate invalid YAML or schema). To double-check, you may run `docker compose -f /home/soron/projects/erd-dbml/docker-compose.yml config` (without `--quiet`) and confirm it prints the fully-resolved config with all three services (`postgres`, `backend`, `frontend`) and the `postgres_data` volume + `erddbml-network` network.
+Expected result: the command exits with status 0 and prints nothing (a non-empty error message would indicate invalid YAML or schema). To double-check, you may run `docker compose -f /home/soron/projects/codegram/docker-compose.yml config` (without `--quiet`) and confirm it prints the fully-resolved config with all three services (`postgres`, `backend`, `frontend`) and the `postgres_data` volume + `codegram-network` network.
 
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add docker-compose.yml && git commit -m "build: add docker-compose for postgres + backend + frontend (healthcheck + depends_on)"
+cd /home/soron/projects/codegram && git add docker-compose.yml && git commit -m "build: add docker-compose for postgres + backend + frontend (healthcheck + depends_on)"
 ```
 Expected output: one file changed, indicating `docker-compose.yml` was committed.
 
@@ -1902,22 +1902,22 @@ Expected output: one file changed, indicating `docker-compose.yml` was committed
 ### Task 18: .env.example
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/.env.example`
+- Create: `/home/soron/projects/codegram/.env.example`
 
 This file documents every environment variable that `docker-compose.yml` reads, with safe development defaults. Developers copy it to `.env` before running compose. The `DATABASE_URL` here uses the `postgresql+asyncpg://` scheme and the `postgres` service hostname (in-compose DNS). `VITE_API_URL=/api` makes the browser hit the Vite dev-proxy, which forwards `/api` to the backend. `VITE_PROXY_TARGET=http://backend:8000` tells the in-container Vite dev server where to forward those `/api` requests via compose DNS (using `localhost:8000` here would resolve to the frontend container itself, not the backend).
 
 - [ ] **Step 1: Write .env.example.**
 
-`/home/soron/projects/erd-dbml/.env.example`
+`/home/soron/projects/codegram/.env.example`
 ```bash
 # PostgreSQL
-POSTGRES_USER=erddbml_user
+POSTGRES_USER=codegram_user
 POSTGRES_PASSWORD=postgres_dev
-POSTGRES_DB=erddbml_dev
+POSTGRES_DB=codegram_dev
 
 # Backend (async SQLAlchemy requires the postgresql+asyncpg:// scheme;
 # host "postgres" is the compose service name resolved via the shared network)
-DATABASE_URL=postgresql+asyncpg://erddbml_user:postgres_dev@postgres:5432/erddbml_dev
+DATABASE_URL=postgresql+asyncpg://codegram_user:postgres_dev@postgres:5432/codegram_dev
 CORS_ORIGINS=http://localhost:5173
 ENVIRONMENT=development
 DEBUG=true
@@ -1929,17 +1929,17 @@ VITE_API_URL=/api
 VITE_PROXY_TARGET=http://backend:8000
 ```
 
-- [ ] **Step 2: Verify .env.example exists and confirm `.env` is gitignored. Run from `/home/soron/projects/erd-dbml`.**
+- [ ] **Step 2: Verify .env.example exists and confirm `.env` is gitignored. Run from `/home/soron/projects/codegram`.**
 
 ```bash
-ls -l /home/soron/projects/erd-dbml/.env.example && git -C /home/soron/projects/erd-dbml check-ignore .env || echo "WARNING: .env is NOT ignored"
+ls -l /home/soron/projects/codegram/.env.example && git -C /home/soron/projects/codegram check-ignore .env || echo "WARNING: .env is NOT ignored"
 ```
-Expected result: `ls` prints the `.env.example` file line, and `git check-ignore .env` prints `.env` (confirming the root `.gitignore` from Task 1 ignores it). If you instead see `WARNING: .env is NOT ignored`, stop and add `.env` to `/home/soron/projects/erd-dbml/.gitignore` before continuing.
+Expected result: `ls` prints the `.env.example` file line, and `git check-ignore .env` prints `.env` (confirming the root `.gitignore` from Task 1 ignores it). If you instead see `WARNING: .env is NOT ignored`, stop and add `.env` to `/home/soron/projects/codegram/.gitignore` before continuing.
 
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml && git add .env.example && git commit -m "build: add .env.example with dev defaults for compose"
+cd /home/soron/projects/codegram && git add .env.example && git commit -m "build: add .env.example with dev defaults for compose"
 ```
 Expected output: one file changed, indicating `.env.example` was committed.
 
@@ -1955,23 +1955,23 @@ This is the gate for Plan 0. We bring the whole stack up via Docker Compose, wai
 - [ ] **Step 1: Create `.env` from the example.**
 
 ```bash
-cp /home/soron/projects/erd-dbml/.env.example /home/soron/projects/erd-dbml/.env
+cp /home/soron/projects/codegram/.env.example /home/soron/projects/codegram/.env
 ```
 Expected result: the command prints nothing and exits 0. The (gitignored) `.env` now exists with dev defaults.
 
 - [ ] **Step 2: Build and start the full stack in the background.**
 
 ```bash
-docker compose -f /home/soron/projects/erd-dbml/docker-compose.yml up -d --build
+docker compose -f /home/soron/projects/codegram/docker-compose.yml up -d --build
 ```
-Expected result: images build, then three containers start. The final lines include `Container erddbml-postgres  Started`, `Container erddbml-backend  Started`, and `Container erddbml-frontend  Started`. The backend only starts after postgres reports healthy (because of `depends_on: condition: service_healthy`).
+Expected result: images build, then three containers start. The final lines include `Container codegram-postgres  Started`, `Container codegram-backend  Started`, and `Container codegram-frontend  Started`. The backend only starts after postgres reports healthy (because of `depends_on: condition: service_healthy`).
 
 - [ ] **Step 3: Wait for the backend to be reachable, then check service status.**
 
 ```bash
-for i in $(seq 1 30); do curl -sf http://localhost:8000/api/health >/dev/null 2>&1 && break; sleep 2; done; docker compose -f /home/soron/projects/erd-dbml/docker-compose.yml ps
+for i in $(seq 1 30); do curl -sf http://localhost:8000/api/health >/dev/null 2>&1 && break; sleep 2; done; docker compose -f /home/soron/projects/codegram/docker-compose.yml ps
 ```
-Expected result: the loop exits once the backend answers, and `docker compose ps` lists `erddbml-postgres` (State `Up (healthy)`), `erddbml-backend` (State `Up`), and `erddbml-frontend` (State `Up`).
+Expected result: the loop exits once the backend answers, and `docker compose ps` lists `codegram-postgres` (State `Up (healthy)`), `codegram-backend` (State `Up`), and `codegram-frontend` (State `Up`).
 
 - [ ] **Step 4: Verify the health endpoint returns `{"status":"ok"}` with DB reachable.**
 
@@ -1989,7 +1989,7 @@ This confirms the backend started, FastAPI is serving `/api/health`, and the end
 - [ ] **Step 5: Verify the Home page is served and renders its visible text.**
 
 ```bash
-curl -s http://localhost:5173/ | grep -qi "ERD-DBML" && echo "HOME OK" || echo "HOME FAIL"
+curl -s http://localhost:5173/ | grep -qi "Codegram" && echo "HOME OK" || echo "HOME FAIL"
 ```
 Expected output:
 
@@ -2015,30 +2015,30 @@ This proves the full browser->Vite-proxy->backend path: the frontend container's
 - [ ] **Step 7: Run the backend test suite (pytest) inside the backend container.**
 
 ```bash
-docker compose -f /home/soron/projects/erd-dbml/docker-compose.yml exec -T backend pytest
+docker compose -f /home/soron/projects/codegram/docker-compose.yml exec -T backend pytest
 ```
 Expected output: pytest collects and passes the full suite, ending with a green summary line such as `10 passed in 0.XXs` (no failures, no errors).
 
 - [ ] **Step 8: Run the frontend unit test suite (Vitest) inside the frontend container.**
 
 ```bash
-docker compose -f /home/soron/projects/erd-dbml/docker-compose.yml exec -T frontend npm run test:run
+docker compose -f /home/soron/projects/codegram/docker-compose.yml exec -T frontend npm run test:run
 ```
 Expected output: Vitest runs the Home smoke test and prints a passing summary such as `Test Files  1 passed (1)` and `Tests  1 passed (1)` (no failures).
 
-- [ ] **Step 9: Run the Playwright smoke E2E against the running frontend.** Playwright drives a real browser against the live Vite dev server and asserts the Home page's visible text renders. Run from `/home/soron/projects/erd-dbml/frontend` (the Playwright config targets `http://localhost:5173`; since the stack is already up, `reuseExistingServer` lets it run against the live server).
+- [ ] **Step 9: Run the Playwright smoke E2E against the running frontend.** Playwright drives a real browser against the live Vite dev server and asserts the Home page's visible text renders. Run from `/home/soron/projects/codegram/frontend` (the Playwright config targets `http://localhost:5173`; since the stack is already up, `reuseExistingServer` lets it run against the live server).
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npx playwright test
+cd /home/soron/projects/codegram/frontend && npx playwright test
 ```
 Expected output: Playwright launches a browser, loads `http://localhost:5173/`, and the smoke spec passes, ending with a summary like `1 passed (Xs)` (no failures). If Playwright browsers are not yet installed on the host, run `npx playwright install --with-deps` once first, then re-run `npx playwright test`.
 
 - [ ] **Step 10: Tear down the stack (clean exit after verification).**
 
 ```bash
-docker compose -f /home/soron/projects/erd-dbml/docker-compose.yml down
+docker compose -f /home/soron/projects/codegram/docker-compose.yml down
 ```
-Expected result: all three containers stop and are removed; the `postgres_data` named volume is preserved (we did not pass `-v`). Final lines include `Container erddbml-frontend  Removed`, `Container erddbml-backend  Removed`, `Container erddbml-postgres  Removed`, and `Network erddbml_erddbml-network  Removed`.
+Expected result: all three containers stop and are removed; the `postgres_data` named volume is preserved (we did not pass `-v`). Final lines include `Container codegram-frontend  Removed`, `Container codegram-backend  Removed`, `Container codegram-postgres  Removed`, and `Network codegram_codegram-network  Removed`.
 
 ---
 

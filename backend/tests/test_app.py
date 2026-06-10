@@ -6,7 +6,7 @@ from app.main import app
 
 def test_app_is_fastapi_instance():
     assert isinstance(app, FastAPI)
-    assert app.title == "ERD-DBML API"
+    assert app.title == "Codegram API"
 
 
 def test_api_router_mounted_under_api_prefix():

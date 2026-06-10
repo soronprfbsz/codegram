@@ -63,7 +63,7 @@ describe('HomePage', () => {
   it('renders the app heading', () => {
     renderHome()
     expect(
-      screen.getByRole('heading', { name: 'ERD-DBML' }),
+      screen.getByRole('heading', { name: 'Codegram' }),
     ).toBeInTheDocument()
   })
 

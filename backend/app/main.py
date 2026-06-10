@@ -9,7 +9,7 @@ from app.core.config import settings
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     application = FastAPI(
-        title="ERD-DBML API",
+        title="Codegram API",
         version="0.1.0",
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",

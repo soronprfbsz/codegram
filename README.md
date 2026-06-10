@@ -1,4 +1,4 @@
-# ERD-DBML
+# Codegram
 
 A web service that renders, edits, and exports ERDs from DBML text.
 

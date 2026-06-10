@@ -29,7 +29,7 @@
 
 **Files:** `frontend/src/index.css`(수정: `--erd-*` 토큰 + Pretendard import + dark 기본), `frontend/package.json`(+`@fontsource-variable/pretendard`), `frontend/src/shared/lib/theme/useTheme.ts`(신규), `frontend/src/shared/ui/ThemeToggle.tsx`(신규) + 각 `.test.tsx`.
 
-- [ ] `@fontsource-variable/pretendard` 설치(컨테이너 재빌드 필요: `docker compose -p erd-dbml up -d --build --renew-anon-volumes frontend`), `index.css`에서 `--font-sans`를 Pretendard 우선으로.
+- [ ] `@fontsource-variable/pretendard` 설치(컨테이너 재빌드 필요: `docker compose -p codegram up -d --build --renew-anon-volumes frontend`), `index.css`에서 `--font-sans`를 Pretendard 우선으로.
 - [ ] `index.css`에 핸드오프 `--erd-*` 토큰 2벌 추가(`:root`/`.dark`), accent/그룹색 포함.
 - [ ] `useTheme()` 훅: `'dark'|'light'` 상태, `<html>`에 `.dark` 클래스 토글, localStorage `erd-theme` 영속, 기본 dark. 앱 부팅 시 적용(`app/` 진입점 또는 index.html 인라인 스크립트로 FOUC 방지). **TDD:** 저장/복원/토글 테스트.
 - [ ] `ThemeToggle`: lucide Sun/Moon 아이콘 버튼, `aria-label="테마 전환"`, dark일 때 Sun(→light), light일 때 Moon(→dark). **TDD:** 클릭 시 테마 전환 + 아이콘 스왑.
@@ -83,5 +83,5 @@
 
 ## 주의
 - 기존 테스트(특히 `pages/editor`, `erd-canvas`, `dbml-editor` 관련 *.test.tsx와 e2e/editor-*.spec.ts)는 레이아웃/셀렉터 변경으로 깨질 수 있다 — 각 Phase에서 해당 테스트를 함께 갱신(삭제가 아니라 새 구조에 맞게 수정)할 것.
-- 단계마다 `docker compose -p erd-dbml exec -T frontend npm run test:run` green + 타입체크 통과 확인.
+- 단계마다 `docker compose -p codegram exec -T frontend npm run test:run` green + 타입체크 통과 확인.
 - 픽셀 값/색/간격은 추측하지 말고 README 표와 `reference/erd.css`에서 확인해 사용.

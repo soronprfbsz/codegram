@@ -1,4 +1,4 @@
-# ERD-DBML — Plan 3b: React Flow ERD Rendering (Implementation Plan)
+# Codegram — Plan 3b: React Flow ERD Rendering (Implementation Plan)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -51,7 +51,7 @@
 This is the FIRST tidy-up from the 3a final review (D10): split `@dbml/core`, CodeMirror, and (later in 3b) React Flow onto the editor route only so they are NOT shipped to the login/home bundle. There is no clean unit-level red phase for a code-split (the route still renders `EditorPage`); the meaningful verification is the **production build emitting a separate editor chunk**. We assert that with a build + grep, plus the existing suite staying green.
 
 **Files:**
-- Modify: `/home/soron/projects/erd-dbml/frontend/src/app/providers/router.tsx`
+- Modify: `/home/soron/projects/codegram/frontend/src/app/providers/router.tsx`
 - Verify: build output + existing tests
 
 - [ ] **Step 1: Capture the BEFORE baseline (editor code is in the main chunk).**
@@ -59,20 +59,20 @@ This is the FIRST tidy-up from the 3a final review (D10): split `@dbml/core`, Co
 Run (a clean production build, then check which chunk holds the editor page):
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run build 2>&1 | tail -20
+cd /home/soron/projects/codegram/frontend && npm run build 2>&1 | tail -20
 ```
 
 Expected: the build succeeds (`✓ built in …`). Now check that the editor module is currently bundled into a shared/index chunk (no dedicated editor chunk yet):
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && grep -rl "useProjectAutosave\|DbmlEditor" dist/assets/*.js | head
+cd /home/soron/projects/codegram/frontend && grep -rl "useProjectAutosave\|DbmlEditor" dist/assets/*.js | head
 ```
 
 Expected: one or more of the **main** entry/index chunks match (e.g. `dist/assets/index-*.js`). This documents the pre-split state: editor code rides the eager bundle. (If a stale `dist/` exists, this still reflects the current router.)
 
 - [ ] **Step 2: Convert the static EditorPage import to a lazy import and add a Suspense boundary.**
 
-Replace the ENTIRE contents of `/home/soron/projects/erd-dbml/frontend/src/app/providers/router.tsx` with:
+Replace the ENTIRE contents of `/home/soron/projects/codegram/frontend/src/app/providers/router.tsx` with:
 
 ```tsx
 import { lazy, Suspense } from 'react'
@@ -147,19 +147,19 @@ export function AppRouter() {
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && rm -rf dist && npm run build 2>&1 | tail -20
+cd /home/soron/projects/codegram/frontend && rm -rf dist && npm run build 2>&1 | tail -20
 ```
 
 Expected: build succeeds (`✓ built in …`). Now confirm the editor code lives in its OWN chunk (a dynamic import produces a separate `*.js`), distinct from the entry chunk:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && grep -rl "useProjectAutosave\|DbmlEditor" dist/assets/*.js
+cd /home/soron/projects/codegram/frontend && grep -rl "useProjectAutosave\|DbmlEditor" dist/assets/*.js
 ```
 
 Expected: the matching file is a **secondary chunk** (a hashed `*.js`, NOT the main entry `index-*.js` that Vite lists first). Cross-check that the entry chunk no longer pulls the editor in eagerly:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && grep -L "DbmlEditor" dist/assets/index-*.js
+cd /home/soron/projects/codegram/frontend && grep -L "DbmlEditor" dist/assets/index-*.js
 ```
 
 Expected: the primary entry chunk is listed by `grep -L` (it does NOT contain `DbmlEditor`), proving the editor is split off. (Vite prints the chunk list in the build output; the editor chunk appears as its own line.)
@@ -169,7 +169,7 @@ Expected: the primary entry chunk is listed by `grep -L` (it does NOT contain `D
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run test:run 2>&1 | tail -15
 ```
 
 Expected: all existing test files pass (`Test Files  N passed (N)` / `Tests  M passed (M)`), no failures.
@@ -177,7 +177,7 @@ Expected: all existing test files pass (`Test Files  N passed (N)` / `Tests  M p
 - [ ] **Step 5: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && git add src/app/providers/router.tsx && git commit -m "perf(router): lazy-load editor route to code-split @dbml/core + React Flow off login/home"
+cd /home/soron/projects/codegram/frontend && git add src/app/providers/router.tsx && git commit -m "perf(router): lazy-load editor route to code-split @dbml/core + React Flow off login/home"
 ```
 
 ---
@@ -187,20 +187,20 @@ cd /home/soron/projects/erd-dbml/frontend && git add src/app/providers/router.ts
 Dependency-install only. This is not behavior-testable in a red→green TDD loop, so the red phase is explicitly artificial here — the verification is: the packages install at the pinned versions, the type entry points resolve under `tsc`, and the existing suite stays green. (The React Flow CSS import lives in `ErdCanvas.tsx` — Task 13 — so it code-splits onto the editor chunk per D10; the jsdom mocks the component tests need are added in Task 12. We do NOT touch `main.tsx` or `setup.ts` here.)
 
 **Files:**
-- Modify: `/home/soron/projects/erd-dbml/frontend/package.json` (via `npm install`)
+- Modify: `/home/soron/projects/codegram/frontend/package.json` (via `npm install`)
 
 - [ ] **Step 1: Install the two runtime dependencies at the verified versions.**
 
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm install @xyflow/react@^12.11.0 @dagrejs/dagre@^2.0.0
+cd /home/soron/projects/codegram/frontend && npm install @xyflow/react@^12.11.0 @dagrejs/dagre@^2.0.0
 ```
 
 Expected: npm adds both to `dependencies` and reports `added N packages`. Confirm:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && node -e "const p=require('./package.json'); console.log(p.dependencies['@xyflow/react'], p.dependencies['@dagrejs/dagre'])"
+cd /home/soron/projects/codegram/frontend && node -e "const p=require('./package.json'); console.log(p.dependencies['@xyflow/react'], p.dependencies['@dagrejs/dagre'])"
 ```
 
 Expected output (a line like):
@@ -214,7 +214,7 @@ Expected output (a line like):
 Run a type-check (proves `@xyflow/react` + `@dagrejs/dagre` type entry points resolve):
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run type-check 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run type-check 2>&1 | tail -15
 ```
 
 Expected: no output errors / exit 0 (a clean `tsc --noEmit`).
@@ -222,7 +222,7 @@ Expected: no output errors / exit 0 (a clean `tsc --noEmit`).
 Run the existing suite (proves the install didn't break anything):
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run test:run 2>&1 | tail -15
 ```
 
 Expected: `Test Files  N passed (N)` / `Tests  M passed (M)`, no failures.
@@ -230,7 +230,7 @@ Expected: `Test Files  N passed (N)` / `Tests  M passed (M)`, no failures.
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && git add package.json package-lock.json && git commit -m "build(erd): add @xyflow/react + @dagrejs/dagre"
+cd /home/soron/projects/codegram/frontend && git add package.json package-lock.json && git commit -m "build(erd): add @xyflow/react + @dagrejs/dagre"
 ```
 
 ---
@@ -240,11 +240,11 @@ cd /home/soron/projects/erd-dbml/frontend && git add package.json package-lock.j
 Type-only module — there is no runtime behavior to red-test. The verification is `tsc --noEmit` compiling the file (and the later adapter/components consuming it). These types describe the `data` payloads carried by each React Flow node variant and alias the React Flow `Node`/`Edge` generic types so the pure adapter (Task 4) returns React-Flow-ready shapes WITHOUT importing the React Flow runtime — only its TYPES. (Per the FSD note: importing `Node`/`Edge` TYPES from `@xyflow/react` in `entities/erd` is acceptable; no runtime/JSX is imported here.) These field names — `ErdColumn.{pk,fk,nn,unique}`, `TableNodeData.tableName`, `EnumNodeData.enumName`, `StickyNodeData.{title,content}`, `GroupNodeData.groupName` — are the single source of truth; the adapter (Task 4) and every node component (Tasks 7–10) consume EXACTLY these.
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/entities/erd/model/types.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/entities/erd/model/types.ts`
 
 - [ ] **Step 1: Create the ERD view-type module.**
 
-Create `/home/soron/projects/erd-dbml/frontend/src/entities/erd/model/types.ts` with EXACTLY:
+Create `/home/soron/projects/codegram/frontend/src/entities/erd/model/types.ts` with EXACTLY:
 
 ```ts
 /**
@@ -356,7 +356,7 @@ export interface ErdFlow {
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run type-check 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run type-check 2>&1 | tail -15
 ```
 
 Expected: no errors / exit 0.
@@ -364,7 +364,7 @@ Expected: no errors / exit 0.
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && git add src/entities/erd/model/types.ts && git commit -m "feat(erd): add ERD view types (node data variants + relation markers)"
+cd /home/soron/projects/codegram/frontend && git add src/entities/erd/model/types.ts && git commit -m "feat(erd): add ERD view types (node data variants + relation markers)"
 ```
 
 ---
@@ -374,12 +374,12 @@ cd /home/soron/projects/erd-dbml/frontend && git add src/entities/erd/model/type
 TDD: write the failing test first, see it fail (module missing), implement the minimal pure function, see it pass. The adapter is the crux of Plan 3b — `DbmlSchema -> { nodes, edges }` with: one `table` node per `DbmlTable` (data = columns with handle ids == `DbmlColumn.id`), one `enum` node per `DbmlEnum`, one `sticky` node per `DbmlNote`, one `group` node per `DbmlTableGroup` (members get `parentId`, group node emitted BEFORE its members so React Flow establishes the hierarchy), one `Edge` per ref COLUMN-PAIR (composite FK → one edge per pair — stated choice), with `sourceHandle`/`targetHandle` == the per-column `DbmlColumn.id` reconstructed from `ref.fromColumns`/`ref.toColumns`, and per-endpoint crow-foot markers derived from `ref.relation` (NOT assuming from=many). Self-refs are supported (handles differ even when tables match). Optional dashed `column→enum` link edges are INCLUDED (cheap: a column whose `type` matches an enum name in the same schema gets one dashed edge) — stated choice.
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/entities/erd/lib/schemaToFlow.ts`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/entities/erd/lib/schemaToFlow.test.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/entities/erd/lib/schemaToFlow.ts`
+- Test: `/home/soron/projects/codegram/frontend/src/entities/erd/lib/schemaToFlow.test.ts`
 
 - [ ] **Step 1: Write the failing test FIRST.**
 
-Create `/home/soron/projects/erd-dbml/frontend/src/entities/erd/lib/schemaToFlow.test.ts` with EXACTLY:
+Create `/home/soron/projects/codegram/frontend/src/entities/erd/lib/schemaToFlow.test.ts` with EXACTLY:
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -754,7 +754,7 @@ describe('schemaToFlow — empty + counts', () => {
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/erd/lib/schemaToFlow.test.ts 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/erd/lib/schemaToFlow.test.ts 2>&1 | tail -15
 ```
 
 Expected: failure — Vitest cannot resolve the import:
@@ -767,7 +767,7 @@ Error: Failed to resolve import "./schemaToFlow" from "src/entities/erd/lib/sche
 
 - [ ] **Step 3: Implement the PURE adapter (minimal, complete).**
 
-Create `/home/soron/projects/erd-dbml/frontend/src/entities/erd/lib/schemaToFlow.ts` with EXACTLY:
+Create `/home/soron/projects/codegram/frontend/src/entities/erd/lib/schemaToFlow.ts` with EXACTLY:
 
 ```ts
 /**
@@ -1002,7 +1002,7 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/erd/lib/schemaToFlow.test.ts 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/erd/lib/schemaToFlow.test.ts 2>&1 | tail -15
 ```
 
 Expected: all tests pass, e.g.:
@@ -1018,7 +1018,7 @@ Expected: all tests pass, e.g.:
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run type-check 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run type-check 2>&1 | tail -15
 ```
 
 Expected: no errors / exit 0.
@@ -1026,7 +1026,7 @@ Expected: no errors / exit 0.
 - [ ] **Step 6: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && git add src/entities/erd/lib/schemaToFlow.ts src/entities/erd/lib/schemaToFlow.test.ts && git commit -m "feat(erd): pure schemaToFlow adapter (per-column handles, crow-foot edges, groups, enum links)"
+cd /home/soron/projects/codegram/frontend && git add src/entities/erd/lib/schemaToFlow.ts src/entities/erd/lib/schemaToFlow.test.ts && git commit -m "feat(erd): pure schemaToFlow adapter (per-column handles, crow-foot edges, groups, enum links)"
 ```
 
 ---
@@ -1036,12 +1036,12 @@ cd /home/soron/projects/erd-dbml/frontend && git add src/entities/erd/lib/schema
 TDD: failing test first → minimal impl → pass. `autoLayout` is a pure function: given the adapter's `{ nodes, edges }`, it runs a layered dagre layout and returns NEW nodes with computed `position` (and, for group nodes, a computed `style.width`/`style.height` bounding box behind their members). It keeps group members clustered by laying out members RELATIVE to their group via dagre `compound` subgraphs (`setParent`), then converts dagre's center-anchored coordinates to React Flow's top-left `position`. It is deterministic (same input → same output). Enum-link edges are excluded from the dagre graph so dashed type-links don't distort the table layout. No persistence — callers re-run this every parse.
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/entities/erd/lib/autoLayout.ts`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/entities/erd/lib/autoLayout.test.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/entities/erd/lib/autoLayout.ts`
+- Test: `/home/soron/projects/codegram/frontend/src/entities/erd/lib/autoLayout.test.ts`
 
 - [ ] **Step 1: Write the failing test FIRST.**
 
-Create `/home/soron/projects/erd-dbml/frontend/src/entities/erd/lib/autoLayout.test.ts` with EXACTLY:
+Create `/home/soron/projects/codegram/frontend/src/entities/erd/lib/autoLayout.test.ts` with EXACTLY:
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -1150,7 +1150,7 @@ describe('autoLayout', () => {
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/erd/lib/autoLayout.test.ts 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/erd/lib/autoLayout.test.ts 2>&1 | tail -15
 ```
 
 Expected: failure resolving the import:
@@ -1163,7 +1163,7 @@ Error: Failed to resolve import "./autoLayout" from "src/entities/erd/lib/autoLa
 
 - [ ] **Step 3: Implement the PURE dagre layout (minimal, complete).**
 
-Create `/home/soron/projects/erd-dbml/frontend/src/entities/erd/lib/autoLayout.ts` with EXACTLY:
+Create `/home/soron/projects/codegram/frontend/src/entities/erd/lib/autoLayout.ts` with EXACTLY:
 
 ```ts
 /**
@@ -1299,7 +1299,7 @@ export function autoLayout(
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/erd/lib/autoLayout.test.ts 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/erd/lib/autoLayout.test.ts 2>&1 | tail -15
 ```
 
 Expected: all tests pass, e.g.:
@@ -1315,7 +1315,7 @@ Expected: all tests pass, e.g.:
 Run:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run type-check 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run type-check 2>&1 | tail -15
 ```
 
 Expected: no errors / exit 0.
@@ -1323,7 +1323,7 @@ Expected: no errors / exit 0.
 - [ ] **Step 6: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && git add src/entities/erd/lib/autoLayout.ts src/entities/erd/lib/autoLayout.test.ts && git commit -m "feat(erd): pure dagre autoLayout (layered LR, group clustering, deterministic)"
+cd /home/soron/projects/codegram/frontend && git add src/entities/erd/lib/autoLayout.ts src/entities/erd/lib/autoLayout.test.ts && git commit -m "feat(erd): pure dagre autoLayout (layered LR, group clustering, deterministic)"
 ```
 
 ---
@@ -1333,11 +1333,11 @@ cd /home/soron/projects/erd-dbml/frontend && git add src/entities/erd/lib/autoLa
 Barrel-only module — no runtime behavior, so no red phase. The verification is that the barrel re-exports resolve under `tsc` and the existing entities pattern (a single `index.ts` per slice, like `entities/dbml/index.ts`) is matched. This is the public surface `features/erd-canvas` and `pages/editor` import from.
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/entities/erd/index.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/entities/erd/index.ts`
 
 - [ ] **Step 1: Create the barrel.**
 
-Create `/home/soron/projects/erd-dbml/frontend/src/entities/erd/index.ts` with EXACTLY:
+Create `/home/soron/projects/codegram/frontend/src/entities/erd/index.ts` with EXACTLY:
 
 ```ts
 export { schemaToFlow } from './lib/schemaToFlow'
@@ -1363,7 +1363,7 @@ export type {
 Type-check:
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run type-check 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run type-check 2>&1 | tail -15
 ```
 
 Expected: no errors / exit 0.
@@ -1371,7 +1371,7 @@ Expected: no errors / exit 0.
 Run the entities/erd tests together (proves the barrel + both pure units coexist):
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/entities/erd 2>&1 | tail -15
+cd /home/soron/projects/codegram/frontend && npm run test:run -- src/entities/erd 2>&1 | tail -15
 ```
 
 Expected:
@@ -1384,7 +1384,7 @@ Expected:
 - [ ] **Step 3: Commit.**
 
 ```bash
-cd /home/soron/projects/erd-dbml/frontend && git add src/entities/erd/index.ts && git commit -m "feat(erd): barrel-export schemaToFlow, autoLayout, and ERD view types"
+cd /home/soron/projects/codegram/frontend && git add src/entities/erd/index.ts && git commit -m "feat(erd): barrel-export schemaToFlow, autoLayout, and ERD view types"
 ```
 
 ---
@@ -1392,8 +1392,8 @@ cd /home/soron/projects/erd-dbml/frontend && git add src/entities/erd/index.ts &
 ### Task 7: `TableNode` — custom table node with per-column handles
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/TableNode.tsx`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/TableNode.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/TableNode.tsx`
+- Test: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/TableNode.test.tsx`
 
 The `schemaToFlow` adapter (Task 4) emits table nodes of `type: 'table'` whose `data` is a `TableNodeData` (`{ tableName, tableId, headerColor?, columns: ErdColumn[] }`), where each `ErdColumn` carries `{ id, name, type, pk, fk, nn, unique }` and `id` is the column key `${schema}.${table}.${column}`. This task renders that node. Each column row gets a `target` handle on the left and a `source` handle on the right, both keyed `id={col.id}` so `RelationEdge` can attach at the exact column. `isConnectable={false}` because 3b is read-only (no user edge drawing); handles still render so React Flow can resolve edge endpoints.
 
@@ -1401,7 +1401,7 @@ The `schemaToFlow` adapter (Task 4) emits table nodes of `type: 'table'` whose `
 
   This test renders the node inside a `ReactFlowProvider` (handles require the store context). jsdom cannot lay out the flow, but it CAN see the header text, the column name/type text, the PK/FK/NN/UQ marker text, and the `.react-flow__handle` DOM elements React Flow renders for each `<Handle>`. We assert two handles per column (left + right) and the labels.
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/TableNode.test.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/TableNode.test.tsx` with EXACTLY:
 
   ```tsx
   import { describe, it, expect } from 'vitest'
@@ -1537,7 +1537,7 @@ The `schemaToFlow` adapter (Task 4) emits table nodes of `type: 'table'` whose `
 - [ ] **Step 2: Run the test and SEE IT FAIL (no `TableNode` module yet).**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/TableNode.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/TableNode.test.tsx 2>&1 | tail -15
   ```
 
   Expected: failure resolving the import, e.g. `Error: Failed to resolve import "./TableNode" from "src/features/erd-canvas/ui/TableNode.test.tsx".` (the file does not exist yet).
@@ -1546,7 +1546,7 @@ The `schemaToFlow` adapter (Task 4) emits table nodes of `type: 'table'` whose `
 
   The `TableNodeData` type is defined in `entities/erd` (Task 3) and re-exported from its barrel; we import the type from `@/entities/erd`. The component is `memo`-wrapped (per-keystroke re-renders are frequent). Markers use `data-testid` so jsdom tests can target them. `Position` and `Handle` come from `@xyflow/react`.
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/TableNode.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/TableNode.tsx` with EXACTLY:
 
   ```tsx
   import { memo } from 'react'
@@ -1647,7 +1647,7 @@ The `schemaToFlow` adapter (Task 4) emits table nodes of `type: 'table'` whose `
 - [ ] **Step 4: Run the test and SEE IT PASS.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/TableNode.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/TableNode.test.tsx 2>&1 | tail -15
   ```
 
   Expected: `Test Files  1 passed (1)` / `Tests  3 passed (3)`.
@@ -1657,7 +1657,7 @@ The `schemaToFlow` adapter (Task 4) emits table nodes of `type: 'table'` whose `
 - [ ] **Step 5: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/erd-canvas/ui/TableNode.tsx src/features/erd-canvas/ui/TableNode.test.tsx && git commit -m "feat(erd-canvas): add TableNode with per-column handles and markers"
+  cd /home/soron/projects/codegram/frontend && git add src/features/erd-canvas/ui/TableNode.tsx src/features/erd-canvas/ui/TableNode.test.tsx && git commit -m "feat(erd-canvas): add TableNode with per-column handles and markers"
   ```
 
 ---
@@ -1665,14 +1665,14 @@ The `schemaToFlow` adapter (Task 4) emits table nodes of `type: 'table'` whose `
 ### Task 8: `EnumNode` — custom enum node
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/EnumNode.tsx`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/EnumNode.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/EnumNode.tsx`
+- Test: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/EnumNode.test.tsx`
 
 The adapter (Task 4) emits enum nodes of `type: 'enum'` whose `data` is `EnumNodeData` (`{ enumName, values: string[] }`). The optional dashed enum-link edges (Task 4) target the enum node as a whole; this node provides a single `target` Handle on its left so such an edge has an anchor. (When no enum-link edge exists, the handle is inert.)
 
 - [ ] **Step 1: Write the failing test for `EnumNode`.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/EnumNode.test.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/EnumNode.test.tsx` with EXACTLY:
 
   ```tsx
   import { describe, it, expect } from 'vitest'
@@ -1732,14 +1732,14 @@ The adapter (Task 4) emits enum nodes of `type: 'enum'` whose `data` is `EnumNod
 - [ ] **Step 2: Run the test and SEE IT FAIL (no module yet).**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/EnumNode.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/EnumNode.test.tsx 2>&1 | tail -15
   ```
 
   Expected: import-resolution failure (`Failed to resolve import "./EnumNode"`).
 
 - [ ] **Step 3: Implement `EnumNode`.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/EnumNode.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/EnumNode.tsx` with EXACTLY:
 
   ```tsx
   import { memo } from 'react'
@@ -1782,7 +1782,7 @@ The adapter (Task 4) emits enum nodes of `type: 'enum'` whose `data` is `EnumNod
 - [ ] **Step 4: Run the test and SEE IT PASS.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/EnumNode.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/EnumNode.test.tsx 2>&1 | tail -15
   ```
 
   Expected: `Tests  2 passed (2)`.
@@ -1790,7 +1790,7 @@ The adapter (Task 4) emits enum nodes of `type: 'enum'` whose `data` is `EnumNod
 - [ ] **Step 5: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/erd-canvas/ui/EnumNode.tsx src/features/erd-canvas/ui/EnumNode.test.tsx && git commit -m "feat(erd-canvas): add EnumNode listing enum values"
+  cd /home/soron/projects/codegram/frontend && git add src/features/erd-canvas/ui/EnumNode.tsx src/features/erd-canvas/ui/EnumNode.test.tsx && git commit -m "feat(erd-canvas): add EnumNode listing enum values"
   ```
 
 ---
@@ -1798,14 +1798,14 @@ The adapter (Task 4) emits enum nodes of `type: 'enum'` whose `data` is `EnumNod
 ### Task 9: `StickyNote` — custom sticky-note node
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/StickyNote.tsx`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/StickyNote.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/StickyNote.tsx`
+- Test: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/StickyNote.test.tsx`
 
 The adapter (Task 4) emits sticky nodes of `type: 'sticky'` whose `data` is `StickyNodeData` (`{ title, content, headerColor? }`, mapped from `DbmlNote`). This is a read-only text card with no handles (notes have no relationships).
 
 - [ ] **Step 1: Write the failing test for `StickyNote`.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/StickyNote.test.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/StickyNote.test.tsx` with EXACTLY:
 
   ```tsx
   import { describe, it, expect } from 'vitest'
@@ -1868,14 +1868,14 @@ The adapter (Task 4) emits sticky nodes of `type: 'sticky'` whose `data` is `Sti
 - [ ] **Step 2: Run the test and SEE IT FAIL (no module yet).**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/StickyNote.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/StickyNote.test.tsx 2>&1 | tail -15
   ```
 
   Expected: import-resolution failure (`Failed to resolve import "./StickyNote"`).
 
 - [ ] **Step 3: Implement `StickyNote`.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/StickyNote.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/StickyNote.tsx` with EXACTLY:
 
   ```tsx
   import { memo } from 'react'
@@ -1914,7 +1914,7 @@ The adapter (Task 4) emits sticky nodes of `type: 'sticky'` whose `data` is `Sti
 - [ ] **Step 4: Run the test and SEE IT PASS.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/StickyNote.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/StickyNote.test.tsx 2>&1 | tail -15
   ```
 
   Expected: `Tests  2 passed (2)`.
@@ -1922,7 +1922,7 @@ The adapter (Task 4) emits sticky nodes of `type: 'sticky'` whose `data` is `Sti
 - [ ] **Step 5: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/erd-canvas/ui/StickyNote.tsx src/features/erd-canvas/ui/StickyNote.test.tsx && git commit -m "feat(erd-canvas): add StickyNote read-only text card node"
+  cd /home/soron/projects/codegram/frontend && git add src/features/erd-canvas/ui/StickyNote.tsx src/features/erd-canvas/ui/StickyNote.test.tsx && git commit -m "feat(erd-canvas): add StickyNote read-only text card node"
   ```
 
 ---
@@ -1930,14 +1930,14 @@ The adapter (Task 4) emits sticky nodes of `type: 'sticky'` whose `data` is `Sti
 ### Task 10: `GroupNode` — colored background region behind table-group members
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/GroupNode.tsx`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/GroupNode.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/GroupNode.tsx`
+- Test: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/GroupNode.test.tsx`
 
 The adapter (Task 4) emits group nodes of `type: 'group'` whose `data` is `GroupNodeData` (`{ groupName, color? }`). Per D6, the group node is a colored background REGION: it is sized by `autoLayout` (Task 5, which sets `node.style.width`/`height` to the members' bounding box) and rendered behind its member tables. It must be non-interactive so clicks/drags pass through to the tables on top — set `pointer-events: none` on the rendered region. The group node is emitted FIRST in the nodes array (React Flow requires parents before children) and its members carry `parentId` = this node's id (set by the adapter); `autoLayout` keeps members clustered.
 
 - [ ] **Step 1: Write the failing test for `GroupNode`.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/GroupNode.test.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/GroupNode.test.tsx` with EXACTLY:
 
   ```tsx
   import { describe, it, expect } from 'vitest'
@@ -2006,7 +2006,7 @@ The adapter (Task 4) emits group nodes of `type: 'group'` whose `data` is `Group
 - [ ] **Step 2: Run the test and SEE IT FAIL (no module yet).**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/GroupNode.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/GroupNode.test.tsx 2>&1 | tail -15
   ```
 
   Expected: import-resolution failure (`Failed to resolve import "./GroupNode"`).
@@ -2015,7 +2015,7 @@ The adapter (Task 4) emits group nodes of `type: 'group'` whose `data` is `Group
 
   The region fills the node's box (`100%` of the width/height `autoLayout` set on `node.style`). `pointerEvents: 'none'` lets clicks reach member tables above. The tint is the group color at low opacity; we hex-to-rgba it with a default neutral gray.
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/GroupNode.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/GroupNode.tsx` with EXACTLY:
 
   ```tsx
   import { memo } from 'react'
@@ -2085,7 +2085,7 @@ The adapter (Task 4) emits group nodes of `type: 'group'` whose `data` is `Group
 - [ ] **Step 4: Run the test and SEE IT PASS.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/GroupNode.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/GroupNode.test.tsx 2>&1 | tail -15
   ```
 
   Expected: `Tests  3 passed (3)`.
@@ -2093,7 +2093,7 @@ The adapter (Task 4) emits group nodes of `type: 'group'` whose `data` is `Group
 - [ ] **Step 5: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/erd-canvas/ui/GroupNode.tsx src/features/erd-canvas/ui/GroupNode.test.tsx && git commit -m "feat(erd-canvas): add GroupNode colored background region"
+  cd /home/soron/projects/codegram/frontend && git add src/features/erd-canvas/ui/GroupNode.tsx src/features/erd-canvas/ui/GroupNode.test.tsx && git commit -m "feat(erd-canvas): add GroupNode colored background region"
   ```
 
 ---
@@ -2101,8 +2101,8 @@ The adapter (Task 4) emits group nodes of `type: 'group'` whose `data` is `Group
 ### Task 11: `RelationEdge` — crow-foot custom edge
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/RelationEdge.tsx`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/RelationEdge.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/RelationEdge.tsx`
+- Test: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/RelationEdge.test.tsx`
 
 The adapter (Task 4) emits edges of `type: 'relation'` whose `data` is `RelationEdgeData` (`{ relation, sourceMarker, targetMarker, isEnumLink? }`) and whose `sourceHandle`/`targetHandle` are the column ids. This task renders a smoothstep path with crow-foot markers at each endpoint, mapped from the two halves of `relation` (`${from}-${to}`). Per D4, the `from` half drives the SOURCE-end marker and the `to` half drives the TARGET-end marker — we do NOT assume `from` is the many side. `'1'` → a single perpendicular bar marker; `'n'` → a crow-foot (three-prong) marker. (The edge recomputes the markers from `data.relation` via the exported helpers; this matches the `sourceMarker`/`targetMarker` the adapter already precomputed.)
 
@@ -2112,7 +2112,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 
   The mapping test is pure (no React Flow). The render test mounts the edge inside `<ReactFlowProvider>` and an `<svg>` (edges render into SVG) and asserts the `<path class="react-flow__edge-path">` exists and that the two `<marker>` defs are present.
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/RelationEdge.test.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/RelationEdge.test.tsx` with EXACTLY:
 
   ```tsx
   import { describe, it, expect } from 'vitest'
@@ -2191,7 +2191,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 - [ ] **Step 2: Run the test and SEE IT FAIL (no module yet).**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/RelationEdge.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/RelationEdge.test.tsx 2>&1 | tail -15
   ```
 
   Expected: import-resolution failure (`Failed to resolve import "./RelationEdge"`).
@@ -2200,7 +2200,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 
   `RelationEdgeData` is defined in `entities/erd` (Task 3) and re-exported from its barrel. We draw a smoothstep path via `getSmoothStepPath`, then render two per-edge `<marker>` defs (start = crow-foot or bar for the `from` half; end likewise for the `to` half) and reference them through `BaseEdge`'s `markerStart`/`markerEnd`. Markers are per-edge (id suffixed with the edge id) so each edge's orientation is independent. `orient="auto-start-reverse"` on the start marker flips it to point inward.
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/RelationEdge.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/RelationEdge.tsx` with EXACTLY:
 
   ```tsx
   import { memo } from 'react'
@@ -2324,7 +2324,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 - [ ] **Step 4: Run the test and SEE IT PASS.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/RelationEdge.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/RelationEdge.test.tsx 2>&1 | tail -15
   ```
 
   Expected: `Tests  2 passed (2)`.
@@ -2332,7 +2332,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 - [ ] **Step 5: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/erd-canvas/ui/RelationEdge.tsx src/features/erd-canvas/ui/RelationEdge.test.tsx && git commit -m "feat(erd-canvas): add crow-foot RelationEdge with per-endpoint markers"
+  cd /home/soron/projects/codegram/frontend && git add src/features/erd-canvas/ui/RelationEdge.tsx src/features/erd-canvas/ui/RelationEdge.test.tsx && git commit -m "feat(erd-canvas): add crow-foot RelationEdge with per-endpoint markers"
   ```
 
 ---
@@ -2340,14 +2340,14 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 ### Task 12: jsdom mocks for React Flow (test setup)
 
 **Files:**
-- Modify: `/home/soron/projects/erd-dbml/frontend/src/test/setup.ts`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/test/reactFlowMocks.test.ts` (create — a tiny guard that the mocks exist)
+- Modify: `/home/soron/projects/codegram/frontend/src/test/setup.ts`
+- Test: `/home/soron/projects/codegram/frontend/src/test/reactFlowMocks.test.ts` (create — a tiny guard that the mocks exist)
 
 `ErdCanvas` (Task 13) mounts the full `<ReactFlow>`, which measures the DOM via `ResizeObserver`, `getBoundingClientRect`, and `matchMedia` — none of which jsdom implements. This task adds minimal global mocks so the canvas mounts without throwing and renders its `.react-flow__node` elements. This MUST land before Task 13. It is additive: the existing `jest` shim and `afterEach(cleanup)` are preserved byte-for-byte.
 
 - [ ] **Step 1: Write a failing guard test for the mocks.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/test/reactFlowMocks.test.ts` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/test/reactFlowMocks.test.ts` with EXACTLY:
 
   ```ts
   import { describe, it, expect } from 'vitest'
@@ -2377,14 +2377,14 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 - [ ] **Step 2: Run the guard test and SEE IT FAIL.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/test/reactFlowMocks.test.ts 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/test/reactFlowMocks.test.ts 2>&1 | tail -15
   ```
 
   Expected: failures such as `expected "undefined" to be "function"` for `ResizeObserver`/`matchMedia`, and `expected +0 to be greater than +0` for the rect width (jsdom returns a zero-size rect by default).
 
 - [ ] **Step 3: Add the mocks to `setup.ts` (additive — preserve the existing shim and cleanup).**
 
-  Append the following to `/home/soron/projects/erd-dbml/frontend/src/test/setup.ts`, AFTER the existing `afterEach(() => { cleanup() })` block (leave every existing line byte-for-byte unchanged):
+  Append the following to `/home/soron/projects/codegram/frontend/src/test/setup.ts`, AFTER the existing `afterEach(() => { cleanup() })` block (leave every existing line byte-for-byte unchanged):
 
   ```ts
   // --- React Flow (Plan 3b) jsdom mocks ---------------------------------------
@@ -2434,7 +2434,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 - [ ] **Step 4: Run the guard test and SEE IT PASS, then run the full suite to confirm no regression.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/test/reactFlowMocks.test.ts 2>&1 | tail -15 && npm run test:run 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/test/reactFlowMocks.test.ts 2>&1 | tail -15 && npm run test:run 2>&1 | tail -15
   ```
 
   Expected: the guard file shows `Tests  3 passed (3)`, and the full run ends green (all prior suites still pass — the `getBoundingClientRect` override is benign for the existing CodeMirror/parse/summary tests, which assert text content, not geometry). If any pre-existing test that asserted a specific zero/element rect breaks, scope the override behind the React Flow node class instead; none are expected.
@@ -2442,7 +2442,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 - [ ] **Step 5: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/test/setup.ts src/test/reactFlowMocks.test.ts && git commit -m "test(erd-canvas): add jsdom ResizeObserver/matchMedia/DOMRect mocks for React Flow"
+  cd /home/soron/projects/codegram/frontend && git add src/test/setup.ts src/test/reactFlowMocks.test.ts && git commit -m "test(erd-canvas): add jsdom ResizeObserver/matchMedia/DOMRect mocks for React Flow"
   ```
 
 ---
@@ -2450,8 +2450,8 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 ### Task 13: `ErdCanvas` — ReactFlow wrapper fed by a DbmlSchema
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/ErdCanvas.tsx`
-- Test: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/ErdCanvas.test.tsx`
+- Create: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/ErdCanvas.tsx`
+- Test: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/ErdCanvas.test.tsx`
 
 `ErdCanvas` takes a `schema?: DbmlSchema` prop, runs the pure `schemaToFlow` adapter then `autoLayout` (both from `@/entities/erd`) inside a `useMemo` keyed on the schema reference, registers the `nodeTypes`/`edgeTypes` for the four nodes + the relation edge, and renders `<ReactFlow>` inside a `<ReactFlowProvider>`. It imports the React Flow stylesheet here (`@xyflow/react/dist/style.css`) so the CSS ships only on the code-split editor route (D10). Nodes are draggable for viewing convenience but positions are NOT persisted (re-laid-out every render); we set `nodesConnectable={false}` and `deleteKeyCode={null}` to keep it read-only-ish. When `schema` is `undefined` (or has no tables), it shows an empty-state placeholder.
 
@@ -2459,7 +2459,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 
   The mocks from Task 12 are now in `setup.ts`, so the full `<ReactFlow>` mounts. jsdom CAN see the `.react-flow__node` elements React Flow renders from the `nodes` array and the node label text. We assert a two-table + one-ref schema yields the two table nodes and that the table names appear, plus the empty state with no schema.
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/ErdCanvas.test.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/ErdCanvas.test.tsx` with EXACTLY:
 
   ```tsx
   import { describe, it, expect } from 'vitest'
@@ -2545,7 +2545,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 - [ ] **Step 2: Run the test and SEE IT FAIL (no module yet).**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx 2>&1 | tail -15
   ```
 
   Expected: import-resolution failure (`Failed to resolve import "./ErdCanvas"`).
@@ -2554,7 +2554,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 
   `nodeTypes`/`edgeTypes` are defined at module scope (stable identity — passing fresh objects each render makes React Flow warn and re-init). The adapter + layout run in `useMemo` on the `schema` reference (the parse hook returns a fresh schema object only when the parse changes, so this re-lays-out exactly per parse — D8). `schemaToFlow(schema)` returns `{ nodes, edges }`; `autoLayout(nodes, edges)` returns the positioned nodes. The empty state renders without mounting React Flow.
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/ui/ErdCanvas.tsx` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/ui/ErdCanvas.tsx` with EXACTLY:
 
   ```tsx
   import { useMemo } from 'react'
@@ -2653,7 +2653,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 - [ ] **Step 4: Run the test and SEE IT PASS.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/features/erd-canvas/ui/ErdCanvas.test.tsx 2>&1 | tail -15
   ```
 
   Expected: `Tests  2 passed (2)`. A `[React Flow]` measurement warning may print; harmless given the Task 12 mocks. If `findAllByText` times out, confirm Task 12's mocks are present in `setup.ts` (React Flow hides unmeasured nodes; the `getBoundingClientRect` mock gives them a non-zero box so they render).
@@ -2661,7 +2661,7 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 - [ ] **Step 5: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/erd-canvas/ui/ErdCanvas.tsx src/features/erd-canvas/ui/ErdCanvas.test.tsx && git commit -m "feat(erd-canvas): add ErdCanvas wiring schemaToFlow+autoLayout into ReactFlow"
+  cd /home/soron/projects/codegram/frontend && git add src/features/erd-canvas/ui/ErdCanvas.tsx src/features/erd-canvas/ui/ErdCanvas.test.tsx && git commit -m "feat(erd-canvas): add ErdCanvas wiring schemaToFlow+autoLayout into ReactFlow"
   ```
 
 ---
@@ -2669,13 +2669,13 @@ The pure relation→marker mapping (`startMarkerKind`/`endMarkerKind`) is export
 ### Task 14: `features/erd-canvas` barrel
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/index.ts`
+- Create: `/home/soron/projects/codegram/frontend/src/features/erd-canvas/index.ts`
 
 Public surface of the feature: only `ErdCanvas` + its props type need to cross the feature boundary (the page consumes it). The nodes/edges are internal to the canvas. This is a type-only/re-export step — a red phase is artificial, so there is no failing-test step; correctness is verified by the page import compiling in Task 15 and by `tsc`.
 
 - [ ] **Step 1: Write the barrel.**
 
-  Create `/home/soron/projects/erd-dbml/frontend/src/features/erd-canvas/index.ts` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/src/features/erd-canvas/index.ts` with EXACTLY:
 
   ```ts
   export { ErdCanvas } from './ui/ErdCanvas'
@@ -2685,7 +2685,7 @@ Public surface of the feature: only `ErdCanvas` + its props type need to cross t
 - [ ] **Step 2: Verify it type-checks (no red phase — pure re-export).**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run type-check 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run type-check 2>&1 | tail -15
   ```
 
   Expected: no errors / exit 0. The barrel resolves `ErdCanvas`/`ErdCanvasProps`.
@@ -2693,7 +2693,7 @@ Public surface of the feature: only `ErdCanvas` + its props type need to cross t
 - [ ] **Step 3: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/features/erd-canvas/index.ts && git commit -m "feat(erd-canvas): add feature barrel exporting ErdCanvas"
+  cd /home/soron/projects/codegram/frontend && git add src/features/erd-canvas/index.ts && git commit -m "feat(erd-canvas): add feature barrel exporting ErdCanvas"
   ```
 
 ---
@@ -2701,8 +2701,8 @@ Public surface of the feature: only `ErdCanvas` + its props type need to cross t
 ### Task 15: Wire `ErdCanvas` into the editor page (split view, autosave preserved)
 
 **Files:**
-- Modify: `/home/soron/projects/erd-dbml/frontend/src/pages/editor/index.tsx`
-- Modify (test): `/home/soron/projects/erd-dbml/frontend/src/pages/editor/index.test.tsx`
+- Modify: `/home/soron/projects/codegram/frontend/src/pages/editor/index.tsx`
+- Modify (test): `/home/soron/projects/codegram/frontend/src/pages/editor/index.test.tsx`
 
 Per D9: editor on the LEFT, `ErdCanvas` on the RIGHT, both fed by the SAME `useDbmlParse` result; the canvas gets `parse.schema ?? parse.lastValidSchema` so it shows the last valid diagram on a transient parse error (graceful — no blanking). `ParseErrorPanel` stays. DECISION: `SchemaSummary` is KEPT but moved to a compact strip in the sidebar (small status), since the canvas is now the primary view; this preserves the existing page test assertion that the summary renders. **The autosave seam — `useProjectAutosave({ projectId: id, dbmlText, baseline })`, the `dbmlText`/`baseline` state, and the seed effect keyed on `project?.id` — is preserved BYTE-FOR-BYTE; only the import block, the page-doc comment, and the `<main>` JSX layout change.**
 
@@ -2710,7 +2710,7 @@ Per D9: editor on the LEFT, `ErdCanvas` on the RIGHT, both fed by the SAME `useD
 
   The existing page test (`index.test.tsx`) already mocks `useProject`/`useProjectAutosave` and asserts the heading, seed, autosave contract, parse panels. Add one test that the ERD canvas region renders. Because the real `useDbmlParse` runs debounced, we assert the canvas CONTAINER (`erd-canvas` or `erd-canvas-empty`) is in the DOM — the page always mounts `ErdCanvas`, which renders one of the two testids synchronously.
 
-  Add this test to `/home/soron/projects/erd-dbml/frontend/src/pages/editor/index.test.tsx`, inside the `describe('EditorPage', ...)` block, after the existing `'renders the parse status and schema summary panels'` test:
+  Add this test to `/home/soron/projects/codegram/frontend/src/pages/editor/index.test.tsx`, inside the `describe('EditorPage', ...)` block, after the existing `'renders the parse status and schema summary panels'` test:
 
   ```tsx
   it('mounts the ERD canvas region in the editor split view', () => {
@@ -2743,14 +2743,14 @@ Per D9: editor on the LEFT, `ErdCanvas` on the RIGHT, both fed by the SAME `useD
 - [ ] **Step 2: Run the page test and SEE IT FAIL.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/pages/editor/index.test.tsx 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/pages/editor/index.test.tsx 2>&1 | tail -15
   ```
 
   Expected: the new test fails with `expected null to be in the document` (the page does not render the canvas yet); the other four tests still pass.
 
 - [ ] **Step 3: Modify the editor page to add the canvas in a split view.**
 
-  First, add the `ErdCanvas` import. In `/home/soron/projects/erd-dbml/frontend/src/pages/editor/index.tsx`, replace:
+  First, add the `ErdCanvas` import. In `/home/soron/projects/codegram/frontend/src/pages/editor/index.tsx`, replace:
 
   ```tsx
   import {
@@ -2846,7 +2846,7 @@ Per D9: editor on the LEFT, `ErdCanvas` on the RIGHT, both fed by the SAME `useD
 - [ ] **Step 4: Run the page test and SEE IT PASS, then the full suite.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npm run test:run -- src/pages/editor/index.test.tsx 2>&1 | tail -15 && npm run test:run 2>&1 | tail -15
+  cd /home/soron/projects/codegram/frontend && npm run test:run -- src/pages/editor/index.test.tsx 2>&1 | tail -15 && npm run test:run 2>&1 | tail -15
   ```
 
   Expected: the editor page suite shows `Tests  5 passed (5)` (the four originals — including `'renders the parse status and schema summary panels'`, which still passes because `SchemaSummary` is retained — plus the new canvas test). The full run is green.
@@ -2854,7 +2854,7 @@ Per D9: editor on the LEFT, `ErdCanvas` on the RIGHT, both fed by the SAME `useD
 - [ ] **Step 5: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add src/pages/editor/index.tsx src/pages/editor/index.test.tsx && git commit -m "feat(editor): add ERD canvas split view fed by the parse result (autosave preserved)"
+  cd /home/soron/projects/codegram/frontend && git add src/pages/editor/index.tsx src/pages/editor/index.test.tsx && git commit -m "feat(editor): add ERD canvas split view fed by the parse result (autosave preserved)"
   ```
 
 ---
@@ -2862,7 +2862,7 @@ Per D9: editor on the LEFT, `ErdCanvas` on the RIGHT, both fed by the SAME `useD
 ### Task 16: Playwright editor E2E — DBML renders table nodes + a relationship edge
 
 **Files:**
-- Create: `/home/soron/projects/erd-dbml/frontend/e2e/editor-erd.spec.ts`
+- Create: `/home/soron/projects/codegram/frontend/e2e/editor-erd.spec.ts`
 
 Controller-run E2E (the agent authors the spec; the controller executes Playwright against a running stack). It registers + logs in, creates a project (reusing the exact patterns from `projects.spec.ts`), types a two-table + ref DBML into CodeMirror, and asserts the React Flow canvas renders at least two `.react-flow__node` elements and at least one relationship edge path (`.react-flow__edge`). NOT pixel-perfect — DOM presence only.
 
@@ -2870,7 +2870,7 @@ Controller-run E2E (the agent authors the spec; the controller executes Playwrig
 
   This mirrors `projects.spec.ts`'s `registerAndLogin` + create-project flow, then types DBML and asserts the canvas DOM. We wait on the canvas root (`.react-flow`) then on node/edge selectors (React Flow renders these once mounted/measured in a real browser).
 
-  Create `/home/soron/projects/erd-dbml/frontend/e2e/editor-erd.spec.ts` with EXACTLY:
+  Create `/home/soron/projects/codegram/frontend/e2e/editor-erd.spec.ts` with EXACTLY:
 
   ```ts
   import { test, expect, type Page } from '@playwright/test'
@@ -2959,7 +2959,7 @@ Controller-run E2E (the agent authors the spec; the controller executes Playwrig
 - [ ] **Step 2: Run the E2E spec (controller-run against the running stack).**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && npx playwright test e2e/editor-erd.spec.ts
+  cd /home/soron/projects/codegram/frontend && npx playwright test e2e/editor-erd.spec.ts
   ```
 
   Expected: `1 passed`. The spec asserts ≥2 `.react-flow__node` elements, the `users`/`posts` labels, and ≥1 `.react-flow__edge` path — proving the DBML → canvas pipeline renders nodes + a crow-foot relationship edge end-to-end. (This task is controller-run; if the dev stack is not up, start it per the project's E2E runbook first.)
@@ -2967,7 +2967,7 @@ Controller-run E2E (the agent authors the spec; the controller executes Playwrig
 - [ ] **Step 3: Commit.**
 
   ```bash
-  cd /home/soron/projects/erd-dbml/frontend && git add e2e/editor-erd.spec.ts && git commit -m "test(e2e): editor renders ERD table nodes + relationship edge from DBML"
+  cd /home/soron/projects/codegram/frontend && git add e2e/editor-erd.spec.ts && git commit -m "test(e2e): editor renders ERD table nodes + relationship edge from DBML"
   ```
 
 ---

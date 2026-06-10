@@ -24,7 +24,7 @@ RUN mkdir -p app \
     && echo '"""stub package replaced by bind-mounted source at runtime."""' > app/__init__.py \
     && pip install --upgrade pip \
     && pip install ".[dev]" \
-    && pip uninstall -y erd-dbml-backend \
+    && pip uninstall -y codegram-backend \
     && rm -rf app
 
 EXPOSE 8000

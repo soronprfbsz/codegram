@@ -1,1 +1,1 @@
-"""ERD-DBML backend application package."""
+"""Codegram backend application package."""

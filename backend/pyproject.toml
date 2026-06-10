@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "erd-dbml-backend"
+name = "codegram-backend"
 version = "0.1.0"
-description = "ERD-DBML Backend Service"
+description = "Codegram Backend Service"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.136.3",
