@@ -67,14 +67,19 @@ export function routeOrthogonal(
   targetSide: Side,
   obstacles: Rect[],
   margin = MARGIN,
+  targetLaneOffset = 0,
 ): Point[] {
-  // Step-out ports: leave/enter the node by `margin` before turning.
+  // Step-out ports: leave/enter the node by `margin` before turning. The target
+  // port is pushed an extra `targetLaneOffset` away from the node so edges that
+  // reference DIFFERENT PKs enter on distinct vertical lanes instead of piling
+  // onto one shared lane (same-PK edges share an offset → stay bundled).
   const sPort: Point = {
     x: source.x + (sourceSide === 'right' ? margin : -margin),
     y: source.y,
   }
+  const tMargin = margin + targetLaneOffset
   const tPort: Point = {
-    x: target.x + (targetSide === 'right' ? margin : -margin),
+    x: target.x + (targetSide === 'right' ? tMargin : -tMargin),
     y: target.y,
   }
 

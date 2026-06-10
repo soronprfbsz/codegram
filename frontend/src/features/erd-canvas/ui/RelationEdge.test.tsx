@@ -69,6 +69,29 @@ describe('RelationEdge', () => {
     expect(container.querySelector('marker#crowfoot-end-e1')).toBeTruthy()
   })
 
+  it('orients the start (source, table RIGHT edge) marker WITHOUT auto-start-reverse', () => {
+    // Regression: with the same path + refX=15 + orient="auto-start-reverse",
+    // the source-side foot rendered mirrored/inside-out. The fix mirrors the
+    // glyph into the path (refX=1, orient="auto") so the foot hugs the table
+    // edge with the apex on the line — symmetric with the end marker.
+    const { container } = renderEdge({
+      ...baseProps,
+      data: { relation: 'n-1', sourceMarker: 'many', targetMarker: 'one' },
+    } as RelationEdgeProps)
+
+    const start = container.querySelector('marker#crowfoot-start-e1')!
+    expect(start.getAttribute('orient')).toBe('auto')
+    expect(start.getAttribute('refX')).toBe('1')
+    // mirrored many glyph: prongs at x=1 (anchored), apex at x=15.
+    expect(start.querySelector('path')!.getAttribute('d')).toBe(
+      'M1 2 L15 8 L1 14 M15 8 L1 8',
+    )
+
+    const end = container.querySelector('marker#crowfoot-end-e1')!
+    expect(end.getAttribute('orient')).toBe('auto')
+    expect(end.getAttribute('refX')).toBe('15')
+  })
+
   it('renders an enum-link edge dashed and WITHOUT crow-foot markers', () => {
     const { container } = renderEdge({
       ...baseProps,

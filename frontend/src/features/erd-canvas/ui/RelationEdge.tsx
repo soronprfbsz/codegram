@@ -18,6 +18,9 @@ export type RelationEdgeProps = EdgeProps & { data?: RelationEdgeData }
 
 type MarkerKind = 'one' | 'many'
 
+/** Horizontal spacing between the per-PK approach lanes at a target table. */
+const LANE_GAP = 14
+
 /** Crow-foot kind for the SOURCE end = the `from` half of `${from}-${to}`. */
 export function startMarkerKind(relation: DbmlRelation): MarkerKind {
   return relation.startsWith('n') ? 'many' : 'one'
@@ -30,10 +33,21 @@ export function endMarkerKind(relation: DbmlRelation): MarkerKind {
 
 /**
  * SVG path for a crow-foot marker. 'one' = a single perpendicular bar; 'many'
- * = a three-prong crow-foot. Drawn in a 16x16 box; refX=15 anchors the open
- * end at the line tip so the symbol sits just off the table edge.
+ * = a three-prong crow-foot. Drawn in a 16x16 box.
+ *
+ * The END marker (target, on the table's LEFT edge) anchors the foot at x=15
+ * (refX=15) with the apex at x=1, under orient="auto" — foot hugs the edge,
+ * apex on the line. The START marker (source, on the table's RIGHT edge) is the
+ * horizontal MIRROR (x -> 16 - x), anchored at x=1 (refX=1), ALSO under
+ * orient="auto". We do NOT use orient="auto-start-reverse": it renders the foot
+ * mirrored/inside-out here, so the symmetric look is built into the path instead.
  */
-function markerPath(kind: MarkerKind): string {
+function markerPath(kind: MarkerKind, side: 'start' | 'end'): string {
+  if (side === 'start') {
+    return kind === 'many'
+      ? 'M1 2 L15 8 L1 14 M15 8 L1 8'
+      : 'M5 2 L5 14'
+  }
   return kind === 'many'
     ? 'M15 2 L1 8 L15 14 M1 8 L15 8'
     : 'M11 2 L11 14'
@@ -61,12 +75,35 @@ function RelationEdgeImpl({
   targetY,
   sourcePosition,
   targetPosition,
+  sourceHandleId,
   data,
 }: RelationEdgeProps) {
   // nodeLookup (InternalNode map) carries `internals.positionAbsolute` — correct
   // for grouped children too — and a stable reference across pan/zoom (it only
   // changes when nodes change), so we don't re-route on viewport moves.
   const nodeLookup = useStore((s) => s.nodeLookup)
+
+  const isEnumLink = data?.isEnumLink ?? false
+
+  // Approach-lane index for this edge among the relation edges entering the SAME
+  // target table, grouped by referenced PK (the source handle == the `${schema}.
+  // ${table}.${col}` of the "one" side). Edges sharing a PK get the same index
+  // (stay bundled on one lane); edges to DIFFERENT PKs get distinct indices and
+  // so enter on separate vertical lanes. The selector returns the bare index so
+  // a selection/viewport change (which mutates the edges array) does NOT re-route
+  // unless this edge's lane actually moves.
+  const laneIndex = useStore((s) => {
+    if (isEnumLink) return 0
+    const keys = new Set<string>()
+    for (const e of s.edges) {
+      if (e.target !== target) continue
+      if ((e.data as { isEnumLink?: boolean } | undefined)?.isEnumLink) continue
+      keys.add(e.sourceHandle ?? e.source)
+    }
+    const myKey = sourceHandleId ?? source
+    const idx = [...keys].sort().indexOf(myKey)
+    return idx < 0 ? 0 : idx
+  })
   // Skip the (expensive) re-route while any node is being dragged — the layout
   // is in flux; smoothstep is good enough mid-drag and routing settles on stop.
   const dragging = useMemo(() => {
@@ -83,8 +120,6 @@ function RelationEdgeImpl({
     targetPosition,
     borderRadius: 8,
   })
-
-  const isEnumLink = data?.isEnumLink ?? false
 
   // Orthogonal route around the OTHER nodes. Null while dragging or for enum
   // links (those stay smoothstep). Memoized so A* runs only when inputs change.
@@ -108,6 +143,8 @@ function RelationEdgeImpl({
       sourcePosition === Position.Left ? 'left' : 'right',
       targetPosition === Position.Left ? 'left' : 'right',
       obstacles,
+      undefined,
+      laneIndex * LANE_GAP,
     )
     return polylineToPath(points)
   }, [
@@ -122,6 +159,7 @@ function RelationEdgeImpl({
     targetY,
     sourcePosition,
     targetPosition,
+    laneIndex,
   ])
 
   const isActive = data?.active ?? false
@@ -162,13 +200,13 @@ function RelationEdgeImpl({
           id={`crowfoot-start-${mid}`}
           markerWidth="16"
           markerHeight="16"
-          refX="15"
+          refX="1"
           refY="8"
-          orient="auto-start-reverse"
+          orient="auto"
           markerUnits="userSpaceOnUse"
         >
           <path
-            d={markerPath(startKind)}
+            d={markerPath(startKind, 'start')}
             fill="none"
             style={{ stroke: strokeColor, strokeWidth }}
           />
@@ -183,7 +221,7 @@ function RelationEdgeImpl({
           markerUnits="userSpaceOnUse"
         >
           <path
-            d={markerPath(endKind)}
+            d={markerPath(endKind, 'end')}
             fill="none"
             style={{ stroke: strokeColor, strokeWidth }}
           />

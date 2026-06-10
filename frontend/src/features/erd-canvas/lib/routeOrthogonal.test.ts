@@ -71,6 +71,24 @@ describe('routeOrthogonal', () => {
     expect(ys.size).toBe(1)
   })
 
+  it('pushes the target approach lane out by targetLaneOffset (per-PK fan-out)', () => {
+    const source = { x: 0, y: 0 }
+    const target = { x: 400, y: 100 }
+    // Lane 0 (offset 0) turns at target.x - margin(16) = 384.
+    const lane0 = routeOrthogonal(source, target, 'right', 'left', [], undefined, 0)
+    // Lane 2 (offset 28) turns 28px further from the table: 384 - 28 = 356.
+    const lane2 = routeOrthogonal(source, target, 'right', 'left', [], undefined, 28)
+
+    const turnX = (pts: Point[]) =>
+      // the vertical approach lane = x of the point just before the target.
+      pts[pts.length - 2].x
+    expect(turnX(lane0)).toBe(384)
+    expect(turnX(lane2)).toBe(356)
+    // Both still terminate exactly at the target handle.
+    expect(lane0[lane0.length - 1]).toEqual(target)
+    expect(lane2[lane2.length - 1]).toEqual(target)
+  })
+
   it('polylineToPath builds an M/L svg path', () => {
     const d = polylineToPath([
       { x: 0, y: 0 },
