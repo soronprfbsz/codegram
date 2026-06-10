@@ -1,11 +1,19 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 import {
   BaseEdge,
   getSmoothStepPath,
+  useNodes,
+  useStore,
+  Position,
   type EdgeProps,
 } from '@xyflow/react'
 import type { RelationEdgeData } from '@/entities/erd'
 import type { DbmlRelation } from '@/entities/dbml'
+import {
+  routeOrthogonal,
+  polylineToPath,
+  type Rect,
+} from '../lib/routeOrthogonal'
 
 export type RelationEdgeProps = EdgeProps & { data?: RelationEdgeData }
 
@@ -32,16 +40,39 @@ function markerPath(kind: MarkerKind): string {
     : 'M11 2 L11 14'
 }
 
+/** Absolute top-left + measured size of a node (handles grouped children). */
+function nodeRect(n: {
+  position: { x: number; y: number }
+  measured?: { width?: number; height?: number }
+  width?: number
+  height?: number
+  internals?: { positionAbsolute?: { x: number; y: number } }
+}): Rect {
+  const pos = n.internals?.positionAbsolute ?? n.position
+  return {
+    x: pos.x,
+    y: pos.y,
+    width: n.measured?.width ?? n.width ?? 240,
+    height: n.measured?.height ?? n.height ?? 80,
+  }
+}
+
 /**
  * Custom React Flow edge for a DBML relationship — Backstage spec restyle
- * (Phase 4). Stroke uses --erd-edge (1.5px) or --erd-accent (2px) when active.
- * Crow-foot cardinality markers are colored to match.
- * Enum-link edges are dashed without crow-foot markers.
+ * (Phase 4) + orthogonal obstacle-avoiding routing (gutter routing). The path is
+ * routed AROUND other node rectangles via routeOrthogonal so edges travel in the
+ * gaps between entities instead of crossing the cards. During an active drag the
+ * route falls back to smoothstep (cheap) and re-routes when the layout settles.
+ * Stroke uses --erd-edge (1.5px) or --erd-accent (2px) when active. Crow-foot
+ * cardinality markers set stroke via `style` (var() is invalid in SVG
+ * presentation attributes). Enum-link edges are dashed, smoothstep, no markers.
  * features layer: depends on shared + entities/erd + entities/dbml +
  * @xyflow/react (FSD downward imports).
  */
 function RelationEdgeImpl({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -50,7 +81,15 @@ function RelationEdgeImpl({
   targetPosition,
   data,
 }: RelationEdgeProps) {
-  const [edgePath] = getSmoothStepPath({
+  const nodes = useNodes()
+  // Skip the (expensive) re-route while any node is being dragged — the layout
+  // is in flux; smoothstep is good enough mid-drag and routing settles on stop.
+  const dragging = useStore((s) => {
+    for (const n of s.nodeLookup.values()) if (n.dragging) return true
+    return false
+  })
+
+  const [smoothPath] = getSmoothStepPath({
     sourceX,
     sourceY,
     targetX,
@@ -60,15 +99,55 @@ function RelationEdgeImpl({
     borderRadius: 8,
   })
 
-  const isActive = data?.active ?? false
+  const isEnumLink = data?.isEnumLink ?? false
 
-  // Column -> enum links are a type association, NOT a cardinality
-  // relationship: render them dashed and WITHOUT crow-foot markers.
-  if (data?.isEnumLink) {
+  // Orthogonal route around the OTHER nodes. Null while dragging or for enum
+  // links (those stay smoothstep). Memoized so A* runs only when inputs change.
+  const orthoPath = useMemo(() => {
+    if (dragging || isEnumLink) return null
+    const obstacles: Rect[] = nodes
+      .filter(
+        (n) =>
+          n.id !== source &&
+          n.id !== target &&
+          (n.type === 'table' || n.type === 'enum' || n.type === 'sticky'),
+      )
+      .map((n) => nodeRect(n))
+    const points = routeOrthogonal(
+      { x: sourceX, y: sourceY },
+      { x: targetX, y: targetY },
+      sourcePosition === Position.Left ? 'left' : 'right',
+      targetPosition === Position.Left ? 'left' : 'right',
+      obstacles,
+    )
+    return polylineToPath(points)
+  }, [
+    dragging,
+    isEnumLink,
+    nodes,
+    source,
+    target,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+  ])
+
+  const isActive = data?.active ?? false
+  // SVG presentation ATTRIBUTES (stroke="...") do NOT support var() — only CSS
+  // (the `style` prop) does. Marker paths therefore set stroke via `style`.
+  const strokeColor = isActive ? 'var(--erd-accent)' : 'var(--erd-edge)'
+  const strokeWidth = isActive ? 2 : 1.5
+
+  // Column -> enum links are a type association, NOT a cardinality relationship:
+  // dashed, smoothstep, no crow-foot markers.
+  if (isEnumLink) {
     return (
       <BaseEdge
         id={id}
-        path={edgePath}
+        path={smoothPath}
         style={{
           stroke: 'var(--erd-edge)',
           strokeWidth: 1.5,
@@ -81,13 +160,7 @@ function RelationEdgeImpl({
   const relation = data?.relation ?? '1-n'
   const startKind = startMarkerKind(relation)
   const endKind = endMarkerKind(relation)
-
-  // SVG presentation ATTRIBUTES (stroke="...") do NOT support var() — only CSS
-  // (the `style` prop) does. The marker paths therefore set stroke via `style`,
-  // not the stroke attribute, otherwise the crow-foot markers are invisible
-  // (this regressed in the Phase 4 restyle when concrete hex became a var()).
-  const strokeColor = isActive ? 'var(--erd-accent)' : 'var(--erd-edge)'
-  const strokeWidth = isActive ? 2 : 1.5
+  const edgePath = orthoPath ?? smoothPath
 
   return (
     <>
