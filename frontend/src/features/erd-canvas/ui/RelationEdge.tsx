@@ -150,12 +150,16 @@ function RelationEdgeImpl({
   const startKind = startMarkerKind(relation)
   const endKind = endMarkerKind(relation)
   const edgePath = orthoPath ?? smoothPath
+  // The edge id contains '(', ')', '>', '#' (e.g. `public.a.(bid)>public.b.(id)#0`).
+  // A ')' inside `url(#…)` closes the reference early, so the markers never apply
+  // — sanitize the id to [A-Za-z0-9_-] for the marker id + its url() reference.
+  const mid = id.replace(/[^a-zA-Z0-9_-]/g, '_')
 
   return (
     <>
       <defs>
         <marker
-          id={`crowfoot-start-${id}`}
+          id={`crowfoot-start-${mid}`}
           markerWidth="16"
           markerHeight="16"
           refX="15"
@@ -170,7 +174,7 @@ function RelationEdgeImpl({
           />
         </marker>
         <marker
-          id={`crowfoot-end-${id}`}
+          id={`crowfoot-end-${mid}`}
           markerWidth="16"
           markerHeight="16"
           refX="15"
@@ -188,8 +192,8 @@ function RelationEdgeImpl({
       <BaseEdge
         id={id}
         path={edgePath}
-        markerStart={`url(#crowfoot-start-${id})`}
-        markerEnd={`url(#crowfoot-end-${id})`}
+        markerStart={`url(#crowfoot-start-${mid})`}
+        markerEnd={`url(#crowfoot-end-${mid})`}
         style={{
           stroke: strokeColor,
           strokeWidth,
