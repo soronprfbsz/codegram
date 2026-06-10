@@ -14,7 +14,12 @@
  * NO React Flow runtime.
  */
 import type { ErdFlowNode } from '@/entities/erd'
-import { nodeSize, GROUP_PADDING, GROUP_LABEL_BAND } from '@/entities/erd'
+import {
+  nodeSize,
+  GROUP_PAD_X,
+  GROUP_PAD_TOP,
+  GROUP_PAD_BOTTOM,
+} from '@/entities/erd'
 
 /**
  * Re-fit each group node to cover all its members and re-base members to the new
@@ -47,16 +52,15 @@ export function fitGroupBoxes(nodes: ErdFlowNode[]): ErdFlowNode[] {
       maxX = Math.max(maxX, absX + width)
       maxY = Math.max(maxY, absY + height)
     }
-    // TOP inset = GROUP_PADDING + GROUP_LABEL_BAND so the label band sits above
-    // the topmost member; other sides use GROUP_PADDING. Box is always strictly
-    // larger than its members (matches autoLayout's group sizing).
+    // Directional insets (matches autoLayout): roomy X gutters, a TOP label
+    // band, and a BOTTOM that matches TOP. Always strictly larger than members.
     newOrigin.set(group.id, {
-      x: minX - GROUP_PADDING,
-      y: minY - GROUP_PADDING - GROUP_LABEL_BAND,
+      x: minX - GROUP_PAD_X,
+      y: minY - GROUP_PAD_TOP,
     })
     newSize.set(group.id, {
-      width: maxX - minX + GROUP_PADDING * 2,
-      height: maxY - minY + GROUP_PADDING * 2 + GROUP_LABEL_BAND,
+      width: maxX - minX + GROUP_PAD_X * 2,
+      height: maxY - minY + GROUP_PAD_TOP + GROUP_PAD_BOTTOM,
     })
   }
 

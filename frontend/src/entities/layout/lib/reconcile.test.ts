@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { reconcileLayout, nodesToLayout } from './reconcile'
 import type { ErdFlowNode, ErdFlowEdge } from '@/entities/erd'
-import { GROUP_PADDING, GROUP_LABEL_BAND } from '@/entities/erd'
+import { GROUP_PAD_X, GROUP_PAD_TOP } from '@/entities/erd'
 import type { LayoutPositions } from '@/entities/layout/model/types'
 
 /** Empty-column table node (matches autoLayout's nodeSize estimate of 240x40). */
@@ -193,10 +193,9 @@ describe('reconcileLayout (grouped-member frame guard)', () => {
 
 describe('reconcileLayout (stored group position)', () => {
   it('restores a stored group position (round-trips a dragged group)', () => {
-    // A member at the canonical inset (GROUP_PADDING on x, GROUP_PADDING +
-    // GROUP_LABEL_BAND on y — below the label band) makes fitGroupBoxes
-    // idempotent: the recomputed origin == the stored origin, so the group
-    // stays at (500,300).
+    // A member at the canonical inset (GROUP_PAD_X on x, GROUP_PAD_TOP on y —
+    // below the label band) makes fitGroupBoxes idempotent: the recomputed
+    // origin == the stored origin, so the group stays at (500,300).
     const nodes = [
       groupNode('group:core'),
       tableNode('public.users', 'group:core'),
@@ -205,8 +204,8 @@ describe('reconcileLayout (stored group position)', () => {
     const stored: LayoutPositions = {
       'group:core': { x: 500, y: 300 },
       'public.users': {
-        x: GROUP_PADDING,
-        y: GROUP_PADDING + GROUP_LABEL_BAND,
+        x: GROUP_PAD_X,
+        y: GROUP_PAD_TOP,
         parentId: 'group:core',
       },
     }

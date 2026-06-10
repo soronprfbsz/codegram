@@ -27,6 +27,17 @@ export const GROUP_PADDING = 24
  */
 export const GROUP_LABEL_BAND = 34
 
+/**
+ * Directional group-box insets (the box is intentionally asymmetric).
+ * - X (left/right): roomy side gutters — 3× the base padding.
+ * - TOP: base padding + the label band (label sits above the members).
+ * - BOTTOM: matches TOP so there is as much room below the members as above
+ *   them (symmetric vertical breathing room).
+ */
+export const GROUP_PAD_X = GROUP_PADDING * 3
+export const GROUP_PAD_TOP = GROUP_PADDING + GROUP_LABEL_BAND
+export const GROUP_PAD_BOTTOM = GROUP_PADDING + GROUP_LABEL_BAND
+
 /** Estimate a node's rendered size so layout works without DOM measurement. */
 export function nodeSize(node: ErdFlowNode): { width: number; height: number } {
   if (node.type === 'table') {

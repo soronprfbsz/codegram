@@ -25,8 +25,9 @@ function groupNode(id: string, x: number, y: number): ErdFlowNode {
 
 describe('fitGroupBoxes', () => {
   it('expands the group box to cover a member dragged beyond the old box and re-bases members', () => {
-    const GROUP_PADDING = 24
-    const GROUP_LABEL_BAND = 34
+    const GROUP_PAD_X = 72
+    const GROUP_PAD_TOP = 58
+    const GROUP_PAD_BOTTOM = 58
     const MEMBER_W = 240
     const MEMBER_H = 40
     // Group originally at absolute (100,100), 10x10. One member sits at the
@@ -44,10 +45,10 @@ describe('fitGroupBoxes', () => {
 
     const groupW = Number(group.style?.width)
     const groupH = Number(group.style?.height)
-    // Box now spans both members (x range 0..500+240) + 2*padding on x; height
-    // adds the top label band so the box clears the label.
-    expect(groupW).toBe(500 + MEMBER_W + GROUP_PADDING * 2)
-    expect(groupH).toBe(MEMBER_H + GROUP_PADDING * 2 + GROUP_LABEL_BAND)
+    // Box spans both members (x range 0..500+240) + roomy X gutters; height adds
+    // the top label band and a matching bottom band.
+    expect(groupW).toBe(500 + MEMBER_W + GROUP_PAD_X * 2)
+    expect(groupH).toBe(MEMBER_H + GROUP_PAD_TOP + GROUP_PAD_BOTTOM)
 
     // Members re-based relative to the NEW origin: both inside [0, groupSize].
     for (const m of [a, b]) {
@@ -56,11 +57,11 @@ describe('fitGroupBoxes', () => {
       expect(m.position.x + MEMBER_W).toBeLessThanOrEqual(groupW)
       expect(m.position.y + MEMBER_H).toBeLessThanOrEqual(groupH)
     }
-    // The leftmost/topmost member sits at the padding inset on x, and BELOW the
-    // label band on y (padding + label band).
+    // The leftmost/topmost member sits at the X gutter inset, and BELOW the
+    // top label band on y.
     expect(a.position).toEqual({
-      x: GROUP_PADDING,
-      y: GROUP_PADDING + GROUP_LABEL_BAND,
+      x: GROUP_PAD_X,
+      y: GROUP_PAD_TOP,
     })
   })
 

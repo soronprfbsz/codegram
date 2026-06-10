@@ -259,11 +259,19 @@
 }
 
 /* Group backdrop: the GroupNode component draws the entire box (dashed border +
-   tint fill). Strip React Flow's default group-node chrome (its faint gray
-   background + any border/padding) so our fill reaches the border with no gap. */
-.react-flow__node-group {
+   tint fill). React Flow's base.css gives group nodes a default border + 10px
+   padding + bg (and selected/focus/hover chrome), and — because RF's stylesheet
+   is imported AFTER index.css — a single-class override loses the cascade. Use a
+   higher-specificity selector (two classes) + the interaction states to strip
+   ALL of RF's "outer" chrome, leaving only our own dashed backdrop, flush. */
+.react-flow__node.react-flow__node-group,
+.react-flow__node-group.selectable.selected,
+.react-flow__node-group.selectable:focus,
+.react-flow__node-group.selectable:focus-visible,
+.react-flow__node-group.selectable:hover {
   background-color: transparent;
   border: none;
   padding: 0;
-  border-radius: 16px;
+  box-shadow: none;
+  outline: none;
 }
