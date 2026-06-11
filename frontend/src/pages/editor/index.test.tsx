@@ -496,7 +496,7 @@ describe('EditorPage — Phase 5 selection wiring', () => {
     })
   })
 
-  it('passes selected and onSelectNode to ErdCanvas', () => {
+  it('passes selection and onSelect to ErdCanvas', () => {
     const erdSpy = vi
       .spyOn(canvas, 'ErdCanvas')
       .mockReturnValue(<div data-testid="erd-canvas-stub" />)
@@ -504,12 +504,12 @@ describe('EditorPage — Phase 5 selection wiring', () => {
     renderEditor()
 
     const props = erdSpy.mock.calls.at(-1)?.[0] as {
-      selected?: string | null
-      onSelectNode?: unknown
+      selection?: unknown
+      onSelect?: unknown
     }
     // Initial state: nothing selected
-    expect(props.selected).toBeNull()
-    expect(typeof props.onSelectNode).toBe('function')
+    expect(props.selection).toBeNull()
+    expect(typeof props.onSelect).toBe('function')
   })
 
   it('passes selectedTable to DbmlEditor', () => {
@@ -542,11 +542,16 @@ describe('EditorPage — Phase 5 selection wiring', () => {
     const row = screen.getByTestId('tablelist-row-users')
     await user.click(row)
 
-    // The last ErdCanvas render should receive selected='users'
+    // The last ErdCanvas render should receive a node selection for 'users'.
     const lastProps = erdSpy.mock.calls.at(-1)?.[0] as {
-      selected?: string | null
+      selection?: { kind: string; nodeType?: string; tableName?: string }
     }
-    expect(lastProps.selected).toBe('users')
+    expect(lastProps.selection).toEqual({
+      kind: 'node',
+      nodeId: 'public.users',
+      nodeType: 'table',
+      tableName: 'users',
+    })
   })
 })
 

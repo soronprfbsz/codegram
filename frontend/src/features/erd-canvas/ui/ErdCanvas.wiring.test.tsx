@@ -63,83 +63,110 @@ describe('ErdCanvas drag-stop persistence', () => {
   })
 })
 
-describe('ErdCanvas Phase 5 — selection', () => {
-  it('onNodeClick on a table node fires onSelectNode with the table name', () => {
-    const onSelectNode = vi.fn()
-    render(<ErdCanvas schema={schema} onSelectNode={onSelectNode} />)
+describe('ErdCanvas selection — CanvasSelection union', () => {
+  it('onNodeClick on a table node fires onSelect with a node selection', () => {
+    const onSelect = vi.fn()
+    render(<ErdCanvas schema={schema} onSelect={onSelect} />)
 
-    // The mocked ReactFlow exposes all wired props.
     const props = (globalThis as Record<string, unknown>).__rfProps as {
       nodes: Array<{ id: string; type?: string; data: TableNodeData }>
-      onNodeClick: (event: unknown, node: { type?: string; data: TableNodeData }) => void
-      onPaneClick: () => void
+      onNodeClick: (event: unknown, node: { id: string; type?: string; data: TableNodeData }) => void
     }
-
-    // Find the users table node and simulate a click.
     const usersNode = props.nodes.find((n) => n.id === 'public.users')
-    expect(usersNode).toBeDefined()
     props.onNodeClick({}, usersNode!)
 
-    expect(onSelectNode).toHaveBeenCalledTimes(1)
-    expect(onSelectNode).toHaveBeenCalledWith('users')
+    expect(onSelect).toHaveBeenCalledWith({
+      kind: 'node',
+      nodeId: 'public.users',
+      nodeType: 'table',
+      tableName: 'users',
+    })
   })
 
-  it('onPaneClick fires onSelectNode(null) to clear selection', () => {
-    const onSelectNode = vi.fn()
-    render(<ErdCanvas schema={schema} onSelectNode={onSelectNode} />)
+  it('onEdgeClick fires onSelect with an edge selection (enum links ignored)', () => {
+    const onSelect = vi.fn()
+    render(<ErdCanvas schema={schema} onSelect={onSelect} />)
 
+    const props = (globalThis as Record<string, unknown>).__rfProps as {
+      edges: Array<{ id: string; data?: { isEnumLink?: boolean } }>
+      onEdgeClick: (event: unknown, edge: { id: string; data?: { isEnumLink?: boolean } }) => void
+    }
+    const relEdge = props.edges.find((e) => !e.data?.isEnumLink)!
+    props.onEdgeClick({}, relEdge)
+    expect(onSelect).toHaveBeenCalledWith({ kind: 'edge', edgeId: relEdge.id })
+
+    onSelect.mockClear()
+    props.onEdgeClick({}, { id: 'enumlink:x', data: { isEnumLink: true } })
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('onPaneClick fires onSelect(null)', () => {
+    const onSelect = vi.fn()
+    render(<ErdCanvas schema={schema} onSelect={onSelect} />)
     const props = (globalThis as Record<string, unknown>).__rfProps as {
       onPaneClick: () => void
     }
     props.onPaneClick()
-
-    expect(onSelectNode).toHaveBeenCalledTimes(1)
-    expect(onSelectNode).toHaveBeenCalledWith(null)
+    expect(onSelect).toHaveBeenCalledWith(null)
   })
 
-  it('selected prop injects isSelected=true into the matching node data', () => {
-    render(<ErdCanvas schema={schema} selected="users" />)
-
-    const props = (globalThis as Record<string, unknown>).__rfProps as {
-      nodes: Array<{ id: string; type?: string; data: TableNodeData }>
-    }
-
-    const usersNode = props.nodes.find((n) => n.id === 'public.users')
-    const postsNode = props.nodes.find((n) => n.id === 'public.posts')
-    expect(usersNode?.data.isSelected).toBe(true)
-    expect(postsNode?.data.isSelected).toBe(false)
-  })
-
-  it('selected prop injects active=true into related edges', () => {
-    // schema has one ref: posts.user_id -> users.id, generating edge id
-    // 'public.posts.(user_id)>public.users.(id)#0'
-    render(<ErdCanvas schema={schema} selected="users" />)
-
-    const props = (globalThis as Record<string, unknown>).__rfProps as {
-      edges: Array<{ id: string; data?: { active?: boolean } }>
-    }
-
-    const activeEdge = props.edges.find((e) =>
-      e.id.includes('public.posts.(user_id)>public.users.(id)'),
+  it('a table selection injects isSelected into the node data', () => {
+    render(
+      <ErdCanvas
+        schema={schema}
+        selection={{ kind: 'node', nodeId: 'public.users', nodeType: 'table', tableName: 'users' }}
+      />,
     )
-    expect(activeEdge).toBeDefined()
-    expect(activeEdge?.data?.active).toBe(true)
-  })
-
-  it('selected prop injects highlightedColumnIds for connected columns on both ends', () => {
-    render(<ErdCanvas schema={schema} selected="users" />)
-
     const props = (globalThis as Record<string, unknown>).__rfProps as {
       nodes: Array<{ id: string; data: TableNodeData }>
     }
+    expect(props.nodes.find((n) => n.id === 'public.users')?.data.isSelected).toBe(true)
+    expect(props.nodes.find((n) => n.id === 'public.posts')?.data.isSelected).toBe(false)
+  })
 
-    // users.id is referenced in the ref -> should be highlighted
-    const usersNode = props.nodes.find((n) => n.id === 'public.users')
-    expect(usersNode?.data.highlightedColumnIds).toContain('public.users.id')
+  it('an edge selection injects isEdgeSelected into the edge data', () => {
+    const edgeId = 'public.posts.(user_id)>public.users.(id)#0'
+    render(<ErdCanvas schema={schema} selection={{ kind: 'edge', edgeId }} />)
+    const props = (globalThis as Record<string, unknown>).__rfProps as {
+      edges: Array<{ id: string; data?: { isEdgeSelected?: boolean } }>
+    }
+    expect(props.edges.find((e) => e.id === edgeId)?.data?.isEdgeSelected).toBe(true)
+  })
 
-    // posts.user_id is the FK end -> also highlighted
-    const postsNode = props.nodes.find((n) => n.id === 'public.posts')
-    expect(postsNode?.data.highlightedColumnIds).toContain('public.posts.user_id')
+  // 기존 블록의 회귀 커버리지를 유니언 prop으로 변환해 보존한다 — 빠뜨리면
+  // active-edge/column-highlight 배선이 무검증 상태가 된다.
+  it('a table selection injects active=true into related edges', () => {
+    render(
+      <ErdCanvas
+        schema={schema}
+        selection={{ kind: 'node', nodeId: 'public.users', nodeType: 'table', tableName: 'users' }}
+      />,
+    )
+    const props = (globalThis as Record<string, unknown>).__rfProps as {
+      edges: Array<{ id: string; data?: { active?: boolean } }>
+    }
+    const rel = props.edges.find(
+      (e) => e.id === 'public.posts.(user_id)>public.users.(id)#0',
+    )
+    expect(rel?.data?.active).toBe(true)
+  })
+
+  it('a table selection injects highlightedColumnIds into both endpoints', () => {
+    render(
+      <ErdCanvas
+        schema={schema}
+        selection={{ kind: 'node', nodeId: 'public.users', nodeType: 'table', tableName: 'users' }}
+      />,
+    )
+    const props = (globalThis as Record<string, unknown>).__rfProps as {
+      nodes: Array<{ id: string; data: TableNodeData }>
+    }
+    expect(
+      props.nodes.find((n) => n.id === 'public.users')?.data.highlightedColumnIds,
+    ).toContain('public.users.id')
+    expect(
+      props.nodes.find((n) => n.id === 'public.posts')?.data.highlightedColumnIds,
+    ).toContain('public.posts.user_id')
   })
 })
 

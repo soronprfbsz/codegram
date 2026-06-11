@@ -110,3 +110,19 @@ export interface ErdFlow {
   nodes: ErdFlowNode[]
   edges: ErdFlowEdge[]
 }
+
+/**
+ * Canvas selection (단일 선택 모델, Q3 가정): a directly-placeable node
+ * (table/enum/sticky — group boxes are derived, not selectable for coords),
+ * a relation edge, or nothing. Enum-link edges are never selectable (Q4).
+ */
+export type CanvasSelection =
+  | {
+      kind: 'node'
+      nodeId: string
+      nodeType: 'table' | 'enum' | 'sticky'
+      /** Set for tables — drives the legacy name-based highlight + editor scroll. */
+      tableName?: string
+    }
+  | { kind: 'edge'; edgeId: string }
+  | null

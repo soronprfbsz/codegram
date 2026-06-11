@@ -15,7 +15,14 @@ import {
 import '@xyflow/react/dist/style.css'
 import { Maximize, Minimize, Grid2x2, Plus, Minus, Maximize2 } from 'lucide-react'
 import type { DbmlSchema } from '@/entities/dbml'
-import { schemaToFlow, type ErdFlowNode, type TableNodeData, type ErdColumn } from '@/entities/erd'
+import {
+  schemaToFlow,
+  type ErdFlowNode,
+  type TableNodeData,
+  type ErdColumn,
+  type CanvasSelection,
+  type RelationEdgeData,
+} from '@/entities/erd'
 import {
   reconcileLayout,
   nodesToLayout,
@@ -48,16 +55,12 @@ export interface ErdCanvasProps {
    */
   onCaptureReady?: (handle: ErdCaptureHandle) => void
   /**
-   * Phase 5: selected table NAME (not node id).
-   * Drives node ring, active edges, and column highlights without re-running
-   * dagre — positions are preserved (base nodes remain authoritative).
+   * Current canvas selection (node or edge). Drives node ring, active edges,
+   * column highlights, edge handles — positions are never touched.
    */
-  selected?: string | null
-  /**
-   * Phase 5: fires when the user clicks a table node or the canvas background.
-   * Passes the table name on node click, null on pane click.
-   */
-  onSelectNode?: (tableName: string | null) => void
+  selection?: CanvasSelection
+  /** Fires on node/edge click (union) and on pane click (null). */
+  onSelect?: (selection: CanvasSelection) => void
 }
 
 export interface ErdCaptureHandle {
@@ -249,7 +252,7 @@ function ZoomBar() {
   )
 }
 
-function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onCaptureReady, containerRef, selected, onSelectNode }: ErdCanvasInnerProps) {
+function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onCaptureReady, containerRef, selection, onSelect }: ErdCanvasInnerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [helperLines, setHelperLines] = useState<{ vertical?: number; horizontal?: number }>({})
   useEffect(() => {
@@ -330,14 +333,21 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
   }
 
   // ── Phase 5: Selection-derived visual overlays ────────────────────────────
+  // Derive the legacy table-name + the selected edge id from the union.
+  const selectedTableName =
+    selection?.kind === 'node' && selection.nodeType === 'table'
+      ? selection.tableName ?? null
+      : null
+  const selectedEdgeId = selection?.kind === 'edge' ? selection.edgeId : null
+
   // Computed from schema (NOT from nodes state) so positions are never touched.
   const highlightColIds = useMemo(
-    () => computeHighlightColIds(schema, selected),
-    [schema, selected],
+    () => computeHighlightColIds(schema, selectedTableName),
+    [schema, selectedTableName],
   )
   const activeEdgeIds = useMemo(
-    () => computeActiveEdgeIds(schema, selected),
-    [schema, selected],
+    () => computeActiveEdgeIds(schema, selectedTableName),
+    [schema, selectedTableName],
   )
 
   // Derive display nodes: inject isSelected + highlightedColumnIds into data.
@@ -352,14 +362,14 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
           ...n,
           data: {
             ...data,
-            isSelected: data.tableName === selected,
+            isSelected: data.tableName === selectedTableName,
             highlightedColumnIds: data.columns
               .filter((c: ErdColumn) => highlightColIds.has(c.id))
               .map((c: ErdColumn) => c.id),
           },
         }
       }),
-    [nodes, selected, highlightColIds],
+    [nodes, selectedTableName, highlightColIds],
   )
 
   // Derive display edges: inject `active` flag + stored manual waypoints.
@@ -371,9 +381,10 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
           ...e.data,
           active: activeEdgeIds.has(e.id),
           waypoints: edgePaths?.[e.id]?.waypoints,
+          isEdgeSelected: e.id === selectedEdgeId,
         },
       })),
-    [edges, activeEdgeIds, edgePaths],
+    [edges, activeEdgeIds, edgePaths, selectedEdgeId],
   )
 
   // Secondary button style (spec: --erd-surface bg, 1px --erd-border-2, radius 8)
@@ -421,10 +432,21 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
       }}
       onNodeClick={(_, node) => {
         if (node.type === 'table') {
-          onSelectNode?.((node.data as TableNodeData).tableName ?? null)
+          onSelect?.({
+            kind: 'node',
+            nodeId: node.id,
+            nodeType: 'table',
+            tableName: (node.data as TableNodeData).tableName,
+          })
+        } else if (node.type === 'enum' || node.type === 'sticky') {
+          onSelect?.({ kind: 'node', nodeId: node.id, nodeType: node.type })
         }
       }}
-      onPaneClick={() => onSelectNode?.(null)}
+      onEdgeClick={(_, edge) => {
+        if ((edge.data as RelationEdgeData | undefined)?.isEnumLink) return
+        onSelect?.({ kind: 'edge', edgeId: edge.id })
+      }}
+      onPaneClick={() => onSelect?.(null)}
       nodesConnectable={false}
       deleteKeyCode={null}
       fitView
@@ -508,7 +530,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-export function ErdCanvas({ schema, savedPositions, edgePaths, onLayoutChange, onCaptureReady, selected, onSelectNode }: ErdCanvasProps) {
+export function ErdCanvas({ schema, savedPositions, edgePaths, onLayoutChange, onCaptureReady, selection, onSelect }: ErdCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
@@ -551,8 +573,8 @@ export function ErdCanvas({ schema, savedPositions, edgePaths, onLayoutChange, o
           onLayoutChange={onLayoutChange}
           onCaptureReady={onCaptureReady}
           containerRef={rootRef}
-          selected={selected}
-          onSelectNode={onSelectNode}
+          selection={selection}
+          onSelect={onSelect}
         />
       </ReactFlowProvider>
     </div>

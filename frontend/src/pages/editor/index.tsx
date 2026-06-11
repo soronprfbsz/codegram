@@ -13,6 +13,7 @@ import {
 } from '@/features/dbml-editor'
 import { ErdInfoPanel } from '@/widgets/erd-info-panel'
 import { ErdCanvas, type ErdCaptureHandle } from '@/features/erd-canvas'
+import type { CanvasSelection } from '@/entities/erd'
 import { useLayoutPersistence } from '@/features/layout-persistence'
 import {
   ExportMenu,
@@ -97,7 +98,7 @@ export function EditorPage() {
   // The last server-seeded value; autosave skips while dbmlText still equals it.
   const [baseline, setBaseline] = useState('')
   // Live positions seeded from project.layout, re-seeded on a project switch.
-  const { positions, setPositions, layout, layoutBaseline } =
+  const { positions, setPositions, layout, layoutBaseline, edgePaths } =
     useLayoutPersistence({ projectId: project?.id, projectLayout: project?.layout })
   const { status } = useProjectAutosave({
     projectId: id,
@@ -171,9 +172,21 @@ export function EditorPage() {
   // Extract the `database_type` from the DBML Project block for the info panel.
   const dialect = useMemo(() => extractDialect(dbmlText), [dbmlText])
 
-  // Selected table name — drives the Table names list highlight (Phase 3).
-  // Node-click selection and editor scroll are wired in Phase 5.
-  const [selected, setSelected] = useState<string | null>(null)
+  // 단일 선택 모델: 노드(테이블/Enum/스티키) 또는 엣지 하나만 선택된다.
+  const [selection, setSelection] = useState<CanvasSelection>(null)
+  // 레거시 이름 기반 파생값 — DbmlEditor 스크롤 + 패널 리스트 하이라이트용.
+  const selected =
+    selection?.kind === 'node' && selection.nodeType === 'table'
+      ? selection.tableName ?? null
+      : null
+
+  // 패널의 Table names 리스트는 이름으로 선택한다 → 노드 선택으로 변환.
+  function selectTableByName(name: string) {
+    const t = schema?.tables.find((tb) => tb.name === name)
+    setSelection(
+      t ? { kind: 'node', nodeId: t.id, nodeType: 'table', tableName: t.name } : null,
+    )
+  }
   // Info 버튼이 토글하는 우측 패널 표시 상태 (세션 메모리만, 기본 보임).
   const [panelOpen, setPanelOpen] = useState(true)
 
@@ -350,12 +363,13 @@ export function EditorPage() {
           <ErdCanvas
             schema={schema}
             savedPositions={positions}
+            edgePaths={edgePaths}
             onLayoutChange={(next) => setPositions(next.positions)}
             onCaptureReady={(handle) => {
               captureHandleRef.current = handle
             }}
-            selected={selected}
-            onSelectNode={setSelected}
+            selection={selection}
+            onSelect={setSelection}
           />
         </div>
 
@@ -379,7 +393,7 @@ export function EditorPage() {
             <ErdInfoPanel
               schema={schema}
               selected={selected}
-              onSelect={setSelected}
+              onSelect={selectTableByName}
               dialect={dialect}
               groupOps={groupOps}
               mutationsEnabled={mutationsEnabled}
