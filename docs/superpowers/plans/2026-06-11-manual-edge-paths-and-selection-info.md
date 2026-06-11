@@ -2201,4 +2201,9 @@ git commit -m "test(e2e): manual edge path drag/persist/reset + selection coordi
 1. **요구 커버리지**: 선 수동 재배치(Task 1,3,5) / 좌표 표시·편집(Task 6,7) / dbdiagram 파악(ADR-0012·실측 근거) / 생존 규칙(Task 5 Auto-arrange, prune; rename·sync는 키 설계로 자동 충족) / E2E(Task 8) ✓
 2. **타입 일관성**: `EdgePaths`/`StoredEdgePath`/`PathPoint`(entities/layout), `CanvasSelection`/`SelectionInfo`(entities/erd), `setEdgeWaypoint(edgeId, vertexIndex, axis, value)` 시그니처가 캔버스 핸들·패널·페이지에서 동일 ✓
 3. **고지 사항**: `pages/editor/index.test.tsx`가 `selected`/`onSelectNode`를 모킹하면 Task 4 Step 6에서 함께 갱신. `useNodesState`의 노드 타입(`ErdFlowNode`)과 `setNodes(next)` 호환은 기존 helper-lines 코드와 동일 패턴.
+## 구현 후 알려진 제한 (v1 기록 — 차단 아님)
+
+- **HTML 노드 레이어가 SVG 엣지 장식을 가린다**: React Flow v12는 `EdgeRenderer → edgelabel-renderer → NodeRenderer` 순으로 그리므로, 세그먼트 핸들이나 플로팅 Reset 버튼의 위치가 테이블 카드와 겹치면 카드가 클릭을 가로챈다. 핸들은 경로 전체에 분포해 열린 구간에서 항상 잡을 수 있고, Reset은 패널의 `edge-reset-panel`이 완전한 대체 수단이라 v1 허용. 개선 옵션: Reset 버튼을 NodeRenderer 위 포털로 승격.
+- **Playwright 설정 빚 (기존)**: `playwright.config.ts`의 baseURL이 `:5173`인데 도커 스택은 `:4001` — 12개 스펙 전체가 공유하는 리포 차원의 문제. 중앙에서 한 번에 고칠 것.
+
 4. **적대적 검증 반영 (4-리뷰어 워크플로, 19건 → 고유 14건 수정 완료)**: 기하 엔진은 14/14 기대값 기계 검증 통과(수정 불요). 반영된 수정 — `edgePathCtx` 선언 위치(TDZ), `onSelectionInfo` 외부 래퍼 명시 전달, 세그먼트 핸들 `pointerEvents: 'all'`(React Flow `visibleStroke` 상속 대응), E2E `getByText('Auto')` 스코프+exact, dbml autosave PATCH 레이스(initPatch 소진 + payload 검사 waiter), `useLayoutPersistence.test.tsx` 기존 파일 충돌(생성→수정 + exact-shape 단언 5+1곳 갱신), `ErdCaptureHandle` 확장에 따른 editor 테스트 목 3곳 갱신, wiring 테스트 교체 블록에 active/highlight 회귀 케이스 보존, 엣지 클릭을 `getPointAtLength` 중점 클릭 헬퍼로 교체, 가로 세그먼트 드래그 테스트 픽스처 교정, index.ts 멀티라인 anchor 주의, CONTEXT.md 스테이징 포함.
