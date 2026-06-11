@@ -12,6 +12,14 @@ export type {
   DbmlTable,
   DbmlTableGroup,
 } from './model/types'
+export {
+  createGroup,
+  renameGroup,
+  deleteGroup,
+  setGroupColor,
+  moveTableToGroup,
+} from './lib/groupOps'
+export type { GroupOpResult } from './lib/groupOps'
 export { importSqlToDbml } from './lib/sqlImport'
 export { exportDbmlToSql } from './lib/sqlExport'
 export { SQL_DIALECTS, SQL_DIALECT_VALUES } from './model/sqlTypes'
