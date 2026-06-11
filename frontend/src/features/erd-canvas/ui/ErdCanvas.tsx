@@ -11,6 +11,7 @@ import {
   type NodeTypes,
   type EdgeTypes,
   type ReactFlowInstance,
+  type XYPosition,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { Maximize, Minimize, Grid2x2, Plus, Minus, Maximize2 } from 'lucide-react'
@@ -21,12 +22,14 @@ import {
   type TableNodeData,
   type ErdColumn,
   type CanvasSelection,
+  type SelectionInfo,
   type RelationEdgeData,
 } from '@/entities/erd'
 import {
   reconcileLayout,
   nodesToLayout,
   pruneEdgePaths,
+  editVertexAxis,
   type LayoutPositions,
   type StoredLayout,
   type EdgePaths,
@@ -66,11 +69,19 @@ export interface ErdCanvasProps {
   selection?: CanvasSelection
   /** Fires on node/edge click (union) and on pane click (null). */
   onSelect?: (selection: CanvasSelection) => void
+  /** Fired (guarded by value-equality) with coordinate info for the selection. */
+  onSelectionInfo?: (info: SelectionInfo | null) => void
 }
 
 export interface ErdCaptureHandle {
   fitView: () => void
   getInstance: () => Pick<ReactFlowInstance, 'getNodes' | 'getNodesBounds'>
+  /** Info 패널 좌표 편집: 절대좌표를 받아 노드를 이동하고 레이아웃을 커밋한다. */
+  setNodePositionAbs: (nodeId: string, pos: XYPosition) => void
+  /** Info 패널 꺾임점 축 편집 — 현재 선택된 엣지에만 유효 (reportedPath 기반). */
+  setEdgeWaypoint: (edgeId: string, vertexIndex: number, axis: 'x' | 'y', value: number) => void
+  /** Reset line — 수동 경로 제거. */
+  resetEdgePath: (edgeId: string) => void
 }
 
 /**
@@ -257,7 +268,7 @@ function ZoomBar() {
   )
 }
 
-function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, containerRef, selection, onSelect }: ErdCanvasInnerProps) {
+function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, containerRef, selection, onSelect, onSelectionInfo }: ErdCanvasInnerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [helperLines, setHelperLines] = useState<{ vertical?: number; horizontal?: number }>({})
   useEffect(() => {
@@ -367,6 +378,40 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   const rf = useReactFlow()
   const { fitView } = rf
 
+  function setNodePositionAbsImpl(nodeId: string, pos: XYPosition) {
+    const current = nodesRef.current
+    const node = current.find((n) => n.id === nodeId)
+    if (!node || node.type === 'group') return // 그룹 박스는 파생 — 편집 불가 (Q3)
+    let rel = pos
+    if (node.parentId) {
+      const parent = current.find((n) => n.id === node.parentId)
+      if (parent) rel = { x: pos.x - parent.position.x, y: pos.y - parent.position.y }
+    }
+    const next = current.map((n) =>
+      n.id === nodeId
+        ? { ...n, position: { x: Math.round(rel.x), y: Math.round(rel.y) } }
+        : n,
+    )
+    setNodes(next)
+    onLayoutChange?.(nodesToLayout(next))
+  }
+  function setEdgeWaypointImpl(
+    edgeId: string,
+    vertexIndex: number,
+    axis: 'x' | 'y',
+    value: number,
+  ) {
+    const rp = reportedPathRef.current
+    if (!rp || rp.id !== edgeId) return
+    // 패널 편집 = 축을 소유한 인접 세그먼트의 드래그 (캔버스 드래그와 동일 의미).
+    // 자동 경로 엣지를 편집하면 이 커밋으로 수동 경로가 된다 (Q3 결정).
+    edgePathCtx.commitWaypoints(edgeId, editVertexAxis(rp.points, vertexIndex, axis, value))
+  }
+  const setNodePositionAbsRef = useRef(setNodePositionAbsImpl)
+  setNodePositionAbsRef.current = setNodePositionAbsImpl
+  const setEdgeWaypointRef = useRef(setEdgeWaypointImpl)
+  setEdgeWaypointRef.current = setEdgeWaypointImpl
+
   // Surface the capture handle to pages/editor exactly once the instance is
   // live. getInstance returns a closure over rf; pages/editor reads the viewport
   // ELEMENT via its own wrapper ref (not through this handle). NEW in Plan 5.
@@ -375,8 +420,14 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   useEffect(() => {
     if (captureReadyFiredRef.current) return
     captureReadyFiredRef.current = true
-    onCaptureReady?.({ fitView, getInstance: () => rf })
-  }, [fitView, rf, onCaptureReady])
+    onCaptureReady?.({
+      fitView,
+      getInstance: () => rf,
+      setNodePositionAbs: (nodeId, pos) => setNodePositionAbsRef.current(nodeId, pos),
+      setEdgeWaypoint: (edgeId, i, axis, v) => setEdgeWaypointRef.current(edgeId, i, axis, v),
+      resetEdgePath: (edgeId) => edgePathCtx.resetPath(edgeId),
+    })
+  }, [fitView, rf, onCaptureReady, edgePathCtx])
 
   function handleAutoArrange() {
     // Discard ALL saved positions: reconcile with an EMPTY set => pure dagre.
@@ -443,6 +494,53 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
       })),
     [edges, activeEdgeIds, edgePaths, selectedEdgeId],
   )
+
+  // Report coordinate info for the current selection — value-equality guarded
+  // so identical re-computations don't loop the page state.
+  const lastInfoKeyRef = useRef('')
+  useEffect(() => {
+    if (!onSelectionInfo) return
+    let info: SelectionInfo | null = null
+    if (selection?.kind === 'edge') {
+      const e = flow.edges.find((x) => x.id === selection.edgeId)
+      if (e) {
+        const part = (h: string | null | undefined, fallback: string) =>
+          (h ?? fallback).split('.').slice(1).join('.') || (h ?? fallback)
+        const rp = reportedPath && reportedPath.id === e.id ? reportedPath.points : null
+        const stored = edgePaths?.[e.id]?.waypoints
+        const interior = rp ? rp.slice(1, -1) : stored ?? []
+        info = {
+          kind: 'edge',
+          edgeId: e.id,
+          label: `${part(e.sourceHandle, e.source)} → ${part(e.targetHandle, e.target)}`,
+          manual: !!stored,
+          waypoints: interior.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+        }
+      }
+    } else if (selection?.kind === 'node') {
+      const n = nodes.find((x) => x.id === selection.nodeId)
+      if (n) {
+        const parent = n.parentId ? nodes.find((x) => x.id === n.parentId) : undefined
+        const abs = parent
+          ? { x: parent.position.x + n.position.x, y: parent.position.y + n.position.y }
+          : n.position
+        const d = n.data as Record<string, unknown>
+        info = {
+          kind: 'node',
+          nodeId: n.id,
+          nodeType: selection.nodeType,
+          label: String(d.tableName ?? d.enumName ?? d.title ?? n.id),
+          x: Math.round(abs.x),
+          y: Math.round(abs.y),
+        }
+      }
+    }
+    const key = JSON.stringify(info)
+    if (key !== lastInfoKeyRef.current) {
+      lastInfoKeyRef.current = key
+      onSelectionInfo(info)
+    }
+  }, [selection, nodes, flow.edges, edgePaths, reportedPath, onSelectionInfo])
 
   // Secondary button style (spec: --erd-surface bg, 1px --erd-border-2, radius 8)
   const secondaryBtnStyle: React.CSSProperties = {
@@ -589,7 +687,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-export function ErdCanvas({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect }: ErdCanvasProps) {
+export function ErdCanvas({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect, onSelectionInfo }: ErdCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
@@ -635,6 +733,7 @@ export function ErdCanvas({ schema, savedPositions, edgePaths, onEdgePathsChange
           containerRef={rootRef}
           selection={selection}
           onSelect={onSelect}
+          onSelectionInfo={onSelectionInfo}
         />
       </ReactFlowProvider>
     </div>

@@ -126,3 +126,25 @@ export type CanvasSelection =
     }
   | { kind: 'edge'; edgeId: string }
   | null
+
+/** Coordinate info the canvas reports for the current selection (Info 패널 표시용).
+ *  All coords are ABSOLUTE canvas coords, rounded to integers (Q3 결정). */
+export interface NodeSelectionInfo {
+  kind: 'node'
+  nodeId: string
+  nodeType: 'table' | 'enum' | 'sticky'
+  label: string
+  x: number
+  y: number
+}
+export interface EdgeSelectionInfo {
+  kind: 'edge'
+  edgeId: string
+  /** e.g. `posts.user_id → users.id` (schema prefix stripped). */
+  label: string
+  /** True when the edge has a stored manual path. */
+  manual: boolean
+  /** INTERIOR bend vertices of the rendered path (끝점 제외 — 편집 불가). */
+  waypoints: XYPosition[]
+}
+export type SelectionInfo = NodeSelectionInfo | EdgeSelectionInfo

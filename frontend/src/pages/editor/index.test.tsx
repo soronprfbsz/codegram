@@ -339,6 +339,9 @@ describe('EditorPage — Export menu wiring', () => {
         props.onCaptureReady?.({
           fitView: () => {},
           getInstance: () => null as never,
+          setNodePositionAbs: () => {},
+          setEdgeWaypoint: () => {},
+          resetEdgePath: () => {},
         })
         return <div data-testid="erd-canvas-stub" />
       },
@@ -614,6 +617,9 @@ describe('EditorPage — SQL import/export wiring', () => {
         props.onCaptureReady?.({
           fitView: () => {},
           getInstance: () => null as never,
+          setNodePositionAbs: () => {},
+          setEdgeWaypoint: () => {},
+          resetEdgePath: () => {},
         })
         return <div data-testid="erd-canvas-stub" />
       },
@@ -747,6 +753,9 @@ describe('EditorPage — DB Sync wiring', () => {
         props.onCaptureReady?.({
           fitView: () => {},
           getInstance: () => null as never,
+          setNodePositionAbs: () => {},
+          setEdgeWaypoint: () => {},
+          resetEdgePath: () => {},
         })
         return <div data-testid="erd-canvas-stub" />
       },

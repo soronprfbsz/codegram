@@ -294,3 +294,30 @@ describe('ErdCanvas manual edge paths — display wiring', () => {
     expect(edge?.data?.waypoints).toEqual([{ x: 50, y: 0 }, { x: 50, y: 100 }])
   })
 })
+
+describe('ErdCanvas selection info reporting', () => {
+  it('reports node info (absolute coords) for a selected table', async () => {
+    const onSelectionInfo = vi.fn()
+    render(
+      <ErdCanvas
+        schema={schema}
+        savedPositions={{ 'public.users': { x: 320, y: 80 } }}
+        selection={{ kind: 'node', nodeId: 'public.users', nodeType: 'table', tableName: 'users' }}
+        onSelectionInfo={onSelectionInfo}
+      />,
+    )
+    await vi.waitFor(() => {
+      expect(onSelectionInfo).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'node', nodeId: 'public.users', label: 'users', x: 320, y: 80 }),
+      )
+    })
+  })
+
+  it('reports null when nothing is selected', async () => {
+    const onSelectionInfo = vi.fn()
+    render(<ErdCanvas schema={schema} onSelectionInfo={onSelectionInfo} />)
+    await vi.waitFor(() => {
+      expect(onSelectionInfo).toHaveBeenCalledWith(null)
+    })
+  })
+})

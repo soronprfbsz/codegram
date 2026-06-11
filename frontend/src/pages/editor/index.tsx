@@ -13,7 +13,7 @@ import {
 } from '@/features/dbml-editor'
 import { ErdInfoPanel } from '@/widgets/erd-info-panel'
 import { ErdCanvas, type ErdCaptureHandle } from '@/features/erd-canvas'
-import type { CanvasSelection } from '@/entities/erd'
+import type { CanvasSelection, SelectionInfo } from '@/entities/erd'
 import { useLayoutPersistence } from '@/features/layout-persistence'
 import {
   ExportMenu,
@@ -98,7 +98,7 @@ export function EditorPage() {
   // The last server-seeded value; autosave skips while dbmlText still equals it.
   const [baseline, setBaseline] = useState('')
   // Live positions seeded from project.layout, re-seeded on a project switch.
-  const { positions, setPositions, layout, layoutBaseline, edgePaths } =
+  const { positions, setPositions, layout, layoutBaseline, edgePaths, setEdgePaths } =
     useLayoutPersistence({ projectId: project?.id, projectLayout: project?.layout })
   const { status } = useProjectAutosave({
     projectId: id,
@@ -174,6 +174,8 @@ export function EditorPage() {
 
   // 단일 선택 모델: 노드(테이블/Enum/스티키) 또는 엣지 하나만 선택된다.
   const [selection, setSelection] = useState<CanvasSelection>(null)
+  // consumed by SelectionSection (Task 7)
+  const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null)
   // 레거시 이름 기반 파생값 — DbmlEditor 스크롤 + 패널 리스트 하이라이트용.
   const selected =
     selection?.kind === 'node' && selection.nodeType === 'table'
@@ -369,11 +371,13 @@ export function EditorPage() {
             savedPositions={positions}
             edgePaths={edgePaths}
             onLayoutChange={(next) => setPositions(next.positions)}
+            onEdgePathsChange={setEdgePaths}
             onCaptureReady={(handle) => {
               captureHandleRef.current = handle
             }}
             selection={selection}
             onSelect={setSelection}
+            onSelectionInfo={setSelectionInfo}
           />
         </div>
 

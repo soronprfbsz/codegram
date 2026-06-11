@@ -25,3 +25,4 @@ export type {
   ErdFlow,
 } from './model/types'
 export type { CanvasSelection } from './model/types'
+export type { SelectionInfo, NodeSelectionInfo, EdgeSelectionInfo } from './model/types'
