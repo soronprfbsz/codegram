@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { Button } from '@/shared/ui/button'
 import { downloadBlob } from '@/shared/lib/download'
@@ -38,7 +38,7 @@ import {
   type GroupOpResult,
 } from '@/entities/dbml'
 import type { GroupOpHandlers } from '@/widgets/erd-info-panel'
-import { computeSyncedPositions } from '@/entities/layout'
+import { computeSyncedPositions, type StoredLayout } from '@/entities/layout'
 import {
   Dialog,
   DialogContent,
@@ -136,6 +136,13 @@ export function EditorPage() {
 
   // Plan 5 — Export wiring (pages layer composes both export features).
   const captureHandleRef = useRef<ErdCaptureHandle | null>(null)
+  const handleLayoutChange = useCallback(
+    (next: StoredLayout) => setPositions(next.positions),
+    [setPositions],
+  )
+  const handleCaptureReady = useCallback((handle: ErdCaptureHandle) => {
+    captureHandleRef.current = handle
+  }, [])
   const canvasWrapperRef = useRef<HTMLDivElement>(null)
   const [tableDocViewOpen, setTableDocViewOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -370,11 +377,9 @@ export function EditorPage() {
             schema={schema}
             savedPositions={positions}
             edgePaths={edgePaths}
-            onLayoutChange={(next) => setPositions(next.positions)}
+            onLayoutChange={handleLayoutChange}
             onEdgePathsChange={setEdgePaths}
-            onCaptureReady={(handle) => {
-              captureHandleRef.current = handle
-            }}
+            onCaptureReady={handleCaptureReady}
             selection={selection}
             onSelect={setSelection}
             onSelectionInfo={setSelectionInfo}

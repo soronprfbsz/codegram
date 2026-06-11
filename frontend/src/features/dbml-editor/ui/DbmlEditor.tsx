@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useRef } from 'react'
+import { forwardRef, memo, useCallback, useEffect, useRef } from 'react'
 import CodeMirror, {
   type ReactCodeMirrorRef,
 } from '@uiw/react-codemirror'
@@ -62,7 +62,7 @@ export interface DbmlEditorProps {
  * can reach the EditorView (e.g. view.dispatch).
  * features layer: depends on shared + CodeMirror (FSD downward imports).
  */
-export const DbmlEditor = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
+const DbmlEditorImpl = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
   function DbmlEditor({ value, onChange, height = '70vh', selectedTable }, ref) {
     const handleChange = useCallback(
       (val: string) => onChange(val),
@@ -127,3 +127,7 @@ export const DbmlEditor = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
     )
   },
 )
+
+// Memo boundary: page-level selectionInfo churn during edge drags must not
+// re-render the editor (all props are referentially stable mid-drag).
+export const DbmlEditor = memo(DbmlEditorImpl)

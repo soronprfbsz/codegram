@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -687,7 +687,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-export function ErdCanvas({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect, onSelectionInfo }: ErdCanvasProps) {
+function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect, onSelectionInfo }: ErdCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
@@ -738,4 +738,15 @@ export function ErdCanvas({ schema, savedPositions, edgePaths, onEdgePathsChange
       </ReactFlowProvider>
     </div>
   )
+}
+
+// Memo boundary: page-level selectionInfo churn during edge drags must not
+// re-render the canvas (all props are referentially stable mid-drag). Exported
+// as a thin function wrapper (not the bare memo object) so the page render
+// passes identical props straight through to the memo — which bails out the
+// heavy ReactFlow subtree — while keeping the named export a plain function
+// that consumers can spy on (vi.spyOn refuses a memo object).
+const MemoErdCanvas = memo(ErdCanvasComponent)
+export function ErdCanvas(props: ErdCanvasProps) {
+  return <MemoErdCanvas {...props} />
 }
