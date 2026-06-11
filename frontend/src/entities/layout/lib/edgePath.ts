@@ -23,7 +23,7 @@ function alignedY(a: PathPoint, b: PathPoint): boolean {
 
 /** Merge consecutive duplicate/collinear points (Q4: 직선화된 꺾임점 자동 병합). */
 export function simplifyPath(pts: PathPoint[]): PathPoint[] {
-  if (pts.length <= 2) return pts
+  if (pts.length <= 2) return pts.slice()
   const out: PathPoint[] = [pts[0]]
   for (let i = 1; i < pts.length - 1; i++) {
     const a = out[out.length - 1]

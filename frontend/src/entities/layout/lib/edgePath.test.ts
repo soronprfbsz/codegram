@@ -105,6 +105,25 @@ describe('editVertexAxis', () => {
       { x: 50, y: 100 },
     ])
   })
+  it('x-edit of a middle vertex drags its vertical adjacent segment (no stub)', () => {
+    // (0,0)→(0,50)→(60,50)→(60,120)→(140,120)→(140,200): 4 interior vertices
+    const longFull = [
+      { x: 0, y: 0 },
+      { x: 0, y: 50 },
+      { x: 60, y: 50 },
+      { x: 60, y: 120 },
+      { x: 140, y: 120 },
+      { x: 140, y: 200 },
+    ]
+    // vertex index 1 == full[2] == (60,50); its x is owned by the vertical
+    // segment (60,50)→(60,120) → that segment moves to x=80
+    expect(editVertexAxis(longFull, 1, 'x', 80)).toEqual([
+      { x: 0, y: 50 },
+      { x: 80, y: 50 },
+      { x: 80, y: 120 },
+      { x: 140, y: 120 },
+    ])
+  })
 })
 
 describe('pruneEdgePaths', () => {
