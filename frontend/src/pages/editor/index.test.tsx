@@ -222,10 +222,12 @@ describe('EditorPage', () => {
     expect(lastCall.layout).toEqual({
       version: 1,
       positions: { 'public.users': { x: 320, y: 80 } },
+      edges: {},
     })
     expect(lastCall.layoutBaseline).toEqual({
       version: 1,
       positions: { 'public.users': { x: 320, y: 80 } },
+      edges: {},
     })
   })
 

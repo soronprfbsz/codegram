@@ -15,10 +15,12 @@ describe('useLayoutPersistence', () => {
     expect(result.current.layout).toEqual({
       version: 1,
       positions: { 'public.users': { x: 10, y: 20 } },
+      edges: {},
     })
     expect(result.current.layoutBaseline).toEqual({
       version: 1,
       positions: { 'public.users': { x: 10, y: 20 } },
+      edges: {},
     })
   })
 
@@ -27,7 +29,7 @@ describe('useLayoutPersistence', () => {
       useLayoutPersistence({ projectId: 'p-1', projectLayout: {} }),
     )
     expect(result.current.positions).toEqual({})
-    expect(result.current.layout).toEqual({ version: 1, positions: {} })
+    expect(result.current.layout).toEqual({ version: 1, positions: {}, edges: {} })
   })
 
   it('keeps the layout object referentially stable across re-renders until positions change', () => {
@@ -56,7 +58,7 @@ describe('useLayoutPersistence', () => {
       'public.users': { x: 5, y: 5 },
     })
     // Baseline stays at the seeded (empty) value so a drag DIVERGES from it.
-    expect(result.current.layoutBaseline).toEqual({ version: 1, positions: {} })
+    expect(result.current.layoutBaseline).toEqual({ version: 1, positions: {}, edges: {} })
   })
 
   it('re-seeds positions when projectId changes', () => {
@@ -74,6 +76,7 @@ describe('useLayoutPersistence', () => {
     rerender()
     expect(result.current.positions).toEqual({ 'public.b': { x: 2, y: 2 } })
   })
+
 
   it('seeds positions on the loading -> loaded transition (id arrives after first render)', () => {
     // PRODUCTION timing: useProject returns isLoading/data=undefined first,
@@ -100,6 +103,40 @@ describe('useLayoutPersistence', () => {
     expect(result.current.layoutBaseline).toEqual({
       version: 1,
       positions: { 'public.users': { x: 7, y: 9 } },
+      edges: {},
     })
+  })
+})
+
+const edgeSeededLayout = {
+  version: 1,
+  positions: { 'public.users': { x: 10, y: 20 } },
+  edges: { 'public.posts.(user_id)>public.users.(id)#0': { waypoints: [{ x: 50, y: 0 }] } },
+}
+
+describe('useLayoutPersistence — edge paths', () => {
+  it('seeds edgePaths from project.layout.edges when the project loads', () => {
+    const { result, rerender } = renderHook(
+      (props: Parameters<typeof useLayoutPersistence>[0]) =>
+        useLayoutPersistence(props),
+      { initialProps: { projectId: undefined, projectLayout: undefined } },
+    )
+    expect(result.current.edgePaths).toEqual({})
+
+    rerender({ projectId: 'p1', projectLayout: edgeSeededLayout })
+    expect(result.current.edgePaths).toEqual(edgeSeededLayout.edges)
+    expect(result.current.layout.edges).toEqual(edgeSeededLayout.edges)
+    expect(result.current.layoutBaseline.edges).toEqual(edgeSeededLayout.edges)
+  })
+
+  it('setEdgePaths updates layout (and not the baseline)', () => {
+    const { result } = renderHook(() =>
+      useLayoutPersistence({ projectId: 'p1', projectLayout: { version: 1, positions: {} } }),
+    )
+    act(() => {
+      result.current.setEdgePaths({ 'e#0': { waypoints: [{ x: 1, y: 2 }] } })
+    })
+    expect(result.current.layout.edges).toEqual({ 'e#0': { waypoints: [{ x: 1, y: 2 }] } })
+    expect(result.current.layoutBaseline.edges).toEqual({})
   })
 })

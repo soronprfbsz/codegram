@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { LayoutPositions, StoredLayout } from '@/entities/layout'
+import type { EdgePaths, LayoutPositions, StoredLayout } from '@/entities/layout'
 
 interface UseLayoutPersistenceOptions {
   /**
@@ -23,6 +23,10 @@ interface UseLayoutPersistenceResult {
   layout: StoredLayout
   /** Server-seeded layout for autosave's dual baseline. */
   layoutBaseline: StoredLayout
+  /** Live, editable manual edge paths (seeded from project, updated on edge edits). */
+  edgePaths: EdgePaths
+  /** Replace edge paths (called from ErdCanvas commit/reset). */
+  setEdgePaths: (next: EdgePaths) => void
 }
 
 /** Read `positions` out of an arbitrary project.layout JSONB, treating a
@@ -33,6 +37,14 @@ function readSeededPositions(
   const positions = (projectLayout as Partial<StoredLayout> | undefined)
     ?.positions
   return positions ?? {}
+}
+
+/** Read `edges` out of an arbitrary project.layout JSONB (missing -> {}). */
+function readSeededEdges(
+  projectLayout: Record<string, unknown> | undefined,
+): EdgePaths {
+  const edges = (projectLayout as Partial<StoredLayout> | undefined)?.edges
+  return edges ?? {}
 }
 
 /**
@@ -51,6 +63,12 @@ export function useLayoutPersistence({
   const [baselinePositions, setBaselinePositions] = useState<LayoutPositions>(
     () => readSeededPositions(projectLayout),
   )
+  const [edgePaths, setEdgePaths] = useState<EdgePaths>(() =>
+    readSeededEdges(projectLayout),
+  )
+  const [baselineEdges, setBaselineEdges] = useState<EdgePaths>(() =>
+    readSeededEdges(projectLayout),
+  )
 
   // Seed on load + re-seed on a project switch. Keyed on the LOADED project's
   // id (projectId === project?.id), so the undefined -> id transition (project
@@ -63,17 +81,20 @@ export function useLayoutPersistence({
     const seeded = readSeededPositions(projectLayout)
     setPositions(seeded)
     setBaselinePositions(seeded)
+    const seededEdges = readSeededEdges(projectLayout)
+    setEdgePaths(seededEdges)
+    setBaselineEdges(seededEdges)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
   const layout = useMemo<StoredLayout>(
-    () => ({ version: 1, positions }),
-    [positions],
+    () => ({ version: 1, positions, edges: edgePaths }),
+    [positions, edgePaths],
   )
   const layoutBaseline = useMemo<StoredLayout>(
-    () => ({ version: 1, positions: baselinePositions }),
-    [baselinePositions],
+    () => ({ version: 1, positions: baselinePositions, edges: baselineEdges }),
+    [baselinePositions, baselineEdges],
   )
 
-  return { positions, setPositions, layout, layoutBaseline }
+  return { positions, setPositions, layout, layoutBaseline, edgePaths, setEdgePaths }
 }
