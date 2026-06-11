@@ -181,6 +181,10 @@ export function EditorPage() {
       : null
 
   // 패널의 Table names 리스트는 이름으로 선택한다 → 노드 선택으로 변환.
+  // FIXME(task7): name-only find collides when two schemas share a table name —
+  // the resolved nodeId may point at the wrong schema's node. Inert while only
+  // name-based highlights consume it, but panel coord editing keys off nodeId;
+  // fix by having the panel row pass the schema-qualified table id.
   function selectTableByName(name: string) {
     const t = schema?.tables.find((tb) => tb.name === name)
     setSelection(
