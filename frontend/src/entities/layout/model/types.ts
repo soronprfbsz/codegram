@@ -32,10 +32,25 @@ export interface StoredPosition {
 /** Map of node id -> persisted position. Node id == ADR-0004 name key. */
 export type LayoutPositions = Record<string, StoredPosition>
 
+/**
+ * One manual edge path (ADR-0012): interior bend vertices in ABSOLUTE canvas
+ * coords. Endpoints are NOT stored — they anchor to the column handles live,
+ * so a table move stretches the end segments instead of detaching them.
+ */
+export interface StoredEdgePath {
+  waypoints: XYPosition[]
+}
+
+/** Map of edge id -> manual path. Edge id == schemaToFlow's `${ref.id}#${i}`
+ *  (name-based, so ADR-0004 keep/lose rules apply unchanged). */
+export type EdgePaths = Record<string, StoredEdgePath>
+
 /** The versioned object stored in project.layout JSONB. */
 export interface StoredLayout {
   version: 1
   positions: LayoutPositions
+  /** Manual edge paths (ADR-0012). Absent/empty = every edge auto-routed. */
+  edges?: EdgePaths
 }
 
 /** Re-exported for callers that want the React Flow position shape. */
