@@ -8,8 +8,6 @@ export interface DisplayGroup {
   label: string
   /** CSS color string — group.color if set, else cycled from the palette. */
   color: string
-  /** Monospace glyph shown next to the label and each table row. */
-  glyph: string
   /** Tables that belong to this group, in DBML declaration order. */
   tables: DbmlTable[]
 }
@@ -23,14 +21,11 @@ const COLOR_PALETTE = [
   '#B42318',
 ] as const
 
-/** Glyph cycle — same length as COLOR_PALETTE. */
-const GLYPH_CYCLE = ['{ }', '◍', '▦', '</>', '🗄'] as const
-
 /**
  * Derive an ordered list of display groups from a `DbmlSchema`.
  *
  * - For each `schema.tableGroups` entry: label = group name, color = group.color
- *   if present, else COLOR_PALETTE[index % 5], glyph = GLYPH_CYCLE[index % 5].
+ *   if present, else COLOR_PALETTE[index % 5].
  *   tables = the group's member DbmlTable objects (resolved by DbmlTable.id which
  *   matches DbmlTableGroup.tables entries, i.e. `${schema}.${table}`).
  * - Tables not in ANY named group → trailing `__ungrouped` bucket (omitted if
@@ -44,7 +39,6 @@ export function deriveDisplayGroups(schema: DbmlSchema): DisplayGroup[] {
 
   const namedGroups: DisplayGroup[] = schema.tableGroups.map((group, index) => {
     const color = group.color ?? COLOR_PALETTE[index % COLOR_PALETTE.length]
-    const glyph = GLYPH_CYCLE[index % GLYPH_CYCLE.length]
 
     // Resolve group member table ids to DbmlTable objects.
     const tables: DbmlTable[] = group.tables
@@ -55,7 +49,7 @@ export function deriveDisplayGroups(schema: DbmlSchema): DisplayGroup[] {
       })
       .filter((t): t is DbmlTable => t !== undefined)
 
-    return { key: group.name, label: group.name, color, glyph, tables }
+    return { key: group.name, label: group.name, color, tables }
   })
 
   // Collect tables not assigned to any named group.
@@ -66,7 +60,6 @@ export function deriveDisplayGroups(schema: DbmlSchema): DisplayGroup[] {
       key: '__ungrouped',
       label: 'Ungrouped',
       color: 'var(--erd-text-3)',
-      glyph: '▦',
       tables: ungrouped,
     })
   }

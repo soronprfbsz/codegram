@@ -9,7 +9,7 @@ const usersTable = {
   columns: [{ id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false }],
 }
 const group: DisplayGroup = {
-  key: 'auth', label: 'auth', color: '#1570EF', glyph: '{ }', tables: [usersTable],
+  key: 'auth', label: 'auth', color: '#1570EF', tables: [usersTable],
 }
 const handlers = {
   onCreateGroup: vi.fn(), onRenameGroup: vi.fn(), onDeleteGroup: vi.fn(),

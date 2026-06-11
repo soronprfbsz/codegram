@@ -7,7 +7,7 @@ export type GroupNodeProps = NodeProps & { data: GroupNodeData }
 /**
  * Custom React Flow node for a DBML table group — Backstage spec restyle
  * (Phase 4). Dashed 1px border in color-mix(group 50%, transparent), fill
- * color-mix(group 7%, transparent), radius 16. Group tag top-left: glyph +
+ * color-mix(group 7%, transparent), radius 16. Group tag top-left: color dot +
  * uppercase label, 11px/600, group color. Non-interactive backdrop.
  * features layer: depends on shared + entities/erd + @xyflow/react.
  */
@@ -48,17 +48,16 @@ function GroupNodeImpl({ id, data }: GroupNodeProps) {
           fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
         }}
       >
-        {data.glyph && (
-          <span
-            style={{
-              fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
-              fontSize: 11,
-              opacity: 0.85,
-            }}
-          >
-            {data.glyph}
-          </span>
-        )}
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: color,
+            opacity: 0.85,
+            flexShrink: 0,
+          }}
+        />
         {data.groupName}
       </span>
     </div>

@@ -89,17 +89,31 @@ export function GroupSection({
           {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
         </button>
 
-        {/* Glyph */}
-        <span
-          style={{
-            color: group.color,
-            fontFamily: 'var(--font-mono, ui-monospace)',
-            fontSize: 10,
-            opacity: 0.85,
-          }}
-        >
-          {group.glyph}
-        </span>
+        {/* Group color dot (Ungrouped keeps a neutral icon instead) */}
+        {isUngrouped ? (
+          <span
+            style={{
+              color: group.color,
+              fontFamily: 'var(--font-mono, ui-monospace)',
+              fontSize: 10,
+              opacity: 0.85,
+            }}
+            aria-hidden
+          >
+            ▦
+          </span>
+        ) : (
+          <span
+            data-testid={`group-dot-${group.key}`}
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: group.color,
+              flexShrink: 0,
+            }}
+          />
+        )}
 
         {/* Label or rename input */}
         {renaming ? (
@@ -233,7 +247,8 @@ export function GroupSection({
               display: 'flex',
               alignItems: 'center',
               gap: 10,
-              padding: '8px 14px',
+              // Left-indented to nest under the group header (chevron + dot offset).
+              padding: '8px 14px 8px 33px',
               cursor: 'pointer',
               borderRadius: 8,
               transition: 'background 80ms ease',
@@ -252,20 +267,6 @@ export function GroupSection({
                 : ''
             }}
           >
-            {/* Glyph in group color */}
-            <span
-              style={{
-                color: group.color,
-                fontFamily: 'var(--font-mono, ui-monospace)',
-                fontSize: 11,
-                width: 18,
-                textAlign: 'center' as const,
-                flexShrink: 0,
-              }}
-            >
-              {group.glyph}
-            </span>
-
             {/* Table name mono 12.5px */}
             <span
               style={{

@@ -11,8 +11,9 @@ function baseType(t: string): string {
 
 /**
  * Custom React Flow node for a DBML table — Backstage spec restyle (Phase 4).
- * Fixed width 240px. Header: 40px, group-color 3px left border, glyph + name
- * mono + field count. Rows: 28px, PK/FK badge, name, base type, NN/UQ flags.
+ * Fixed width 240px. Header: 40px, name mono + field count. Rows: 28px,
+ * PK/FK badge, name, base type, NN badge / UQ flag. Group identity lives on
+ * the group box + panel only — the table card carries no group color/glyph.
  * Hover: border → --erd-border-2, shadow. Selected: border --erd-sel + ring.
  * Highlighted rows (highlightedColumnIds): accent-soft bg.
  * Each column row carries target Handle (left) + source Handle (right) keyed
@@ -24,16 +25,11 @@ function TableNodeImpl({ data }: TableNodeProps) {
   const {
     tableName,
     columns,
-    groupColor,
-    groupGlyph,
     isSelected,
     highlightedColumnIds,
   } = data
 
   const highlightSet = new Set(highlightedColumnIds ?? [])
-
-  // Fallback group color when not set (matches --erd-border-2 dark token)
-  const leftBarColor = groupColor ?? 'var(--erd-border-2)'
 
   return (
     <div
@@ -64,21 +60,8 @@ function TableNodeImpl({ data }: TableNodeProps) {
           padding: '0 12px',
           background: 'var(--erd-node-head)',
           borderBottom: '1px solid var(--erd-border)',
-          borderLeft: `3px solid ${leftBarColor}`,
         }}
       >
-        {groupGlyph && (
-          <span
-            style={{
-              fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
-              fontSize: 11,
-              color: groupColor ?? 'var(--erd-text-3)',
-              flexShrink: 0,
-            }}
-          >
-            {groupGlyph}
-          </span>
-        )}
         <span
           style={{
             fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
@@ -234,20 +217,46 @@ function TableNodeImpl({ data }: TableNodeProps) {
                 {baseType(col.type)}
               </span>
 
-              {/* Flags: • = NN, U = UNIQUE */}
-              <span
-                style={{
-                  fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
-                  fontSize: 9,
-                  color: 'var(--erd-text-3)',
-                  width: 16,
-                  textAlign: 'right',
-                  flexShrink: 0,
-                }}
-              >
-                {col.nn ? '•' : ''}
-                {col.unique ? 'U' : ''}
-              </span>
+              {/* Flags: NN badge = NOT NULL, U = UNIQUE */}
+              {(col.nn || col.unique) && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 3,
+                    flexShrink: 0,
+                  }}
+                >
+                  {col.nn && (
+                    <span
+                      style={{
+                        fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                        fontSize: 8.5,
+                        fontWeight: 700,
+                        padding: '1px 3px',
+                        borderRadius: 3,
+                        letterSpacing: '0.02em',
+                        color: 'var(--erd-text-3)',
+                        background:
+                          'color-mix(in srgb, var(--erd-text-3) 14%, transparent)',
+                      }}
+                    >
+                      NN
+                    </span>
+                  )}
+                  {col.unique && (
+                    <span
+                      style={{
+                        fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                        fontSize: 9,
+                        color: 'var(--erd-text-3)',
+                      }}
+                    >
+                      U
+                    </span>
+                  )}
+                </span>
+              )}
 
               {/* Source handle on the right */}
               <Handle

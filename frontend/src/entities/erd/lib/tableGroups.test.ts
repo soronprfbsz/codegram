@@ -124,23 +124,6 @@ describe('deriveDisplayGroups', () => {
     expect(groups[0].color).toBe('#ABCDEF')
   })
 
-  it('glyph cycles from GLYPH_CYCLE', () => {
-    const schema: DbmlSchema = {
-      ...EMPTY_SCHEMA,
-      tables: [
-        makeTable('public.t1', 't1'),
-        makeTable('public.t2', 't2'),
-      ],
-      tableGroups: [
-        { name: 'g0', tables: ['public.t1'], color: undefined, note: undefined },
-        { name: 'g1', tables: ['public.t2'], color: undefined, note: undefined },
-      ],
-    }
-    const groups = deriveDisplayGroups(schema)
-    expect(groups[0].glyph).toBe('{ }')
-    expect(groups[1].glyph).toBe('◍')
-  })
-
   it('tables with missing ids are silently dropped from group', () => {
     const schema: DbmlSchema = {
       ...EMPTY_SCHEMA,
@@ -154,7 +137,7 @@ describe('deriveDisplayGroups', () => {
     expect(groups[0].tables[0].name).toBe('users')
   })
 
-  it('ungrouped color is var(--erd-text-3) and glyph is ▦', () => {
+  it('ungrouped color is var(--erd-text-3)', () => {
     const schema: DbmlSchema = {
       ...EMPTY_SCHEMA,
       tables: [makeTable('public.orphan', 'orphan')],
@@ -162,6 +145,5 @@ describe('deriveDisplayGroups', () => {
     const groups = deriveDisplayGroups(schema)
     expect(groups[0].key).toBe('__ungrouped')
     expect(groups[0].color).toBe('var(--erd-text-3)')
-    expect(groups[0].glyph).toBe('▦')
   })
 })

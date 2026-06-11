@@ -36,10 +36,6 @@ export interface TableNodeData {
   tableId: string
   /** [headercolor: ...] hex when set. */
   headerColor?: string
-  /** Group color hex — used for the 3px left border in the header. */
-  groupColor?: string
-  /** Group glyph (monospace symbol) shown in the header. */
-  groupGlyph?: string
   columns: ErdColumn[]
   /** Set by Phase 5 selection state: renders the selected ring + shadow. */
   isSelected?: boolean
@@ -68,8 +64,6 @@ export interface GroupNodeData {
   groupName: string
   /** [color: ...] hex when set. */
   color?: string
-  /** Monospace glyph symbol for this group. */
-  glyph?: string
   [key: string]: unknown
 }
 
