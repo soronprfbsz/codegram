@@ -26,10 +26,13 @@ import {
 import {
   reconcileLayout,
   nodesToLayout,
+  pruneEdgePaths,
   type LayoutPositions,
   type StoredLayout,
   type EdgePaths,
+  type PathPoint,
 } from '@/entities/layout'
+import { EdgePathContext, type EdgePathContextValue } from '../lib/edgePathContext'
 import { getHelperLines } from '../lib/helperLines'
 import { TableNode } from './TableNode'
 import { EnumNode } from './EnumNode'
@@ -45,6 +48,8 @@ export interface ErdCanvasProps {
   savedPositions?: LayoutPositions
   /** Manual edge paths to render (project.layout.edges). */
   edgePaths?: EdgePaths
+  /** Fired when manual edge paths change (drag commit, reset, auto-arrange clear). */
+  onEdgePathsChange?: (next: EdgePaths) => void
   /** Fired on drag-stop (and Auto-arrange) with the FULL layout to persist. */
   onLayoutChange?: (layout: StoredLayout) => void
   /**
@@ -252,7 +257,7 @@ function ZoomBar() {
   )
 }
 
-function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onCaptureReady, containerRef, selection, onSelect }: ErdCanvasInnerProps) {
+function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, containerRef, selection, onSelect }: ErdCanvasInnerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [helperLines, setHelperLines] = useState<{ vertical?: number; horizontal?: number }>({})
   useEffect(() => {
@@ -309,6 +314,56 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
   const nodesRef = useRef(nodes)
   nodesRef.current = nodes
 
+  // Latest values for the stable edge-path context callbacks (no stale closures).
+  const edgePathsRef = useRef<EdgePaths>(edgePaths ?? {})
+  edgePathsRef.current = edgePaths ?? {}
+  const flowEdgeIdsRef = useRef<Set<string>>(new Set())
+  flowEdgeIdsRef.current = new Set(flow.edges.map((e) => e.id))
+  const onEdgePathsChangeRef = useRef(onEdgePathsChange)
+  onEdgePathsChangeRef.current = onEdgePathsChange
+
+  // Rendered full polyline of the SELECTED edge, reported by RelationEdge.
+  // Drives SelectionInfo waypoints and panel edits on auto-routed edges.
+  const [reportedPath, setReportedPath] = useState<{
+    id: string
+    points: PathPoint[]
+  } | null>(null)
+  const reportedPathRef = useRef(reportedPath)
+  reportedPathRef.current = reportedPath
+
+  // Commit prunes orphans (edges that no longer exist) per ADR-0012.
+  const edgePathCtx = useMemo<EdgePathContextValue>(
+    () => ({
+      commitWaypoints: (edgeId, waypoints) => {
+        const rounded = waypoints.map((p) => ({
+          x: Math.round(p.x),
+          y: Math.round(p.y),
+        }))
+        onEdgePathsChangeRef.current?.(
+          pruneEdgePaths(
+            { ...edgePathsRef.current, [edgeId]: { waypoints: rounded } },
+            flowEdgeIdsRef.current,
+          ),
+        )
+      },
+      resetPath: (edgeId) => {
+        const next = { ...edgePathsRef.current }
+        delete next[edgeId]
+        onEdgePathsChangeRef.current?.(
+          pruneEdgePaths(next, flowEdgeIdsRef.current),
+        )
+      },
+      reportPath: (edgeId, points) => {
+        setReportedPath((prev) =>
+          prev?.id === edgeId && JSON.stringify(prev.points) === JSON.stringify(points)
+            ? prev
+            : { id: edgeId, points },
+        )
+      },
+    }),
+    [],
+  )
+
   const rf = useReactFlow()
   const { fitView } = rf
 
@@ -328,6 +383,8 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
     const dagreNodes = reconcileLayout(flow.nodes, flow.edges, {})
     setNodes(dagreNodes)
     onLayoutChange?.(nodesToLayout(dagreNodes))
+    // Auto-arrange recomputes every position — stale manual paths are cleared (ADR-0012).
+    onEdgePathsChange?.({})
     // Re-fit after measurement lands (v12 fitView is initial-only otherwise).
     requestAnimationFrame(() => fitView({ padding: 0.1, duration: 200 }))
   }
@@ -407,6 +464,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
   }
 
   return (
+    <EdgePathContext.Provider value={edgePathCtx}>
     <ReactFlow
       nodes={displayNodes}
       edges={displayEdges}
@@ -516,6 +574,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
         <ZoomBar />
       </Panel>
     </ReactFlow>
+    </EdgePathContext.Provider>
   )
 }
 
@@ -530,7 +589,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onC
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-export function ErdCanvas({ schema, savedPositions, edgePaths, onLayoutChange, onCaptureReady, selection, onSelect }: ErdCanvasProps) {
+export function ErdCanvas({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect }: ErdCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
@@ -570,6 +629,7 @@ export function ErdCanvas({ schema, savedPositions, edgePaths, onLayoutChange, o
           schema={schema}
           savedPositions={savedPositions}
           edgePaths={edgePaths}
+          onEdgePathsChange={onEdgePathsChange}
           onLayoutChange={onLayoutChange}
           onCaptureReady={onCaptureReady}
           containerRef={rootRef}

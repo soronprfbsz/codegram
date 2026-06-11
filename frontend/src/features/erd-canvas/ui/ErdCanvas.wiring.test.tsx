@@ -262,6 +262,22 @@ describe('ErdCanvas drag-snap + helper lines', () => {
   })
 })
 
+describe('ErdCanvas manual edge paths — commit & clear', () => {
+  it('Auto-arrange clears all manual paths via onEdgePathsChange({})', async () => {
+    const onEdgePathsChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <ErdCanvas
+        schema={schema}
+        edgePaths={{ 'public.posts.(user_id)>public.users.(id)#0': { waypoints: [{ x: 1, y: 2 }] } }}
+        onEdgePathsChange={onEdgePathsChange}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /auto-arrange/i }))
+    expect(onEdgePathsChange).toHaveBeenCalledWith({})
+  })
+})
+
 describe('ErdCanvas manual edge paths — display wiring', () => {
   it('injects stored waypoints into the matching edge data', () => {
     const edgeId = 'public.posts.(user_id)>public.users.(id)#0'

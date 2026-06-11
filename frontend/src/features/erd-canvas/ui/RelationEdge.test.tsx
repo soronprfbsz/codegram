@@ -152,3 +152,42 @@ describe('RelationEdge manual path (ADR-0012)', () => {
     expect(d).not.toBe(manualD)
   })
 })
+
+describe('RelationEdge selection handles (Task 5)', () => {
+  it('renders segment-drag handles when selected with a manual path', () => {
+    const { container } = renderEdge({
+      ...baseProps,
+      data: {
+        relation: '1-n',
+        sourceMarker: 'one',
+        targetMarker: 'many',
+        isEdgeSelected: true,
+        waypoints: [
+          { x: 50, y: 0 },
+          { x: 50, y: 100 },
+        ],
+      },
+    } as RelationEdgeProps)
+
+    expect(container.querySelector('[data-testid="edge-handles"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid^="edge-seg-"]')).toBeTruthy()
+  })
+
+  it('renders NO handles when not selected', () => {
+    const { container } = renderEdge({
+      ...baseProps,
+      data: {
+        relation: '1-n',
+        sourceMarker: 'one',
+        targetMarker: 'many',
+        waypoints: [
+          { x: 50, y: 0 },
+          { x: 50, y: 100 },
+        ],
+      },
+    } as RelationEdgeProps)
+
+    expect(container.querySelector('[data-testid="edge-handles"]')).toBeNull()
+    expect(container.querySelector('[data-testid^="edge-seg-"]')).toBeNull()
+  })
+})

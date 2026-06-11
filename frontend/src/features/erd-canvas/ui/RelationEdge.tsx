@@ -1,11 +1,14 @@
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import {
   BaseEdge,
+  EdgeLabelRenderer,
   getSmoothStepPath,
+  useReactFlow,
   useStore,
   Position,
   type EdgeProps,
 } from '@xyflow/react'
+import { RotateCw } from 'lucide-react'
 import type { RelationEdgeData } from '@/entities/erd'
 import type { DbmlRelation } from '@/entities/dbml'
 import {
@@ -13,7 +16,12 @@ import {
   polylineToPath,
   type Rect,
 } from '../lib/routeOrthogonal'
-import { buildManualPath } from '@/entities/layout'
+import {
+  buildManualPath,
+  dragSegment,
+  type PathPoint,
+} from '@/entities/layout'
+import { useEdgePathContext } from '../lib/edgePathContext'
 
 export type RelationEdgeProps = EdgeProps & { data?: RelationEdgeData }
 
@@ -65,6 +73,9 @@ function markerPath(kind: MarkerKind, side: 'start' | 'end'): string {
  * presentation attributes). Enum-link edges are dashed, smoothstep, no markers.
  * Edges carrying manual `data.waypoints` (ADR-0012) render from those stored
  * points (bridged to the live endpoints) and skip A* routing entirely.
+ * When selected, the edge shows draggable segment-midpoint handles (drag
+ * reroutes a segment perpendicular to its orientation) plus a floating Reset
+ * line button that reverts a manual path back to auto-routing.
  * features layer: depends on shared + entities/erd + entities/dbml +
  * @xyflow/react (FSD downward imports).
  */
@@ -181,6 +192,63 @@ function RelationEdgeImpl({
     )
   }, [manualWaypoints, isEnumLink, sourceX, sourceY, targetX, targetY])
 
+  const isEdgeSelected = (data?.isEdgeSelected ?? false) && !isEnumLink
+  const ctx = useEdgePathContext()
+  const { screenToFlowPosition } = useReactFlow()
+
+  // Live drag draft: interior waypoints while a segment handle is being
+  // dragged. Geometry is computed from the path CAPTURED at pointerdown (not
+  // the draft) so the dragged segment's index never shifts under the pointer.
+  const [draftWaypoints, setDraftWaypoints] = useState<PathPoint[] | null>(null)
+  const dragStateRef = useRef<{ full: PathPoint[]; segmentIndex: number } | null>(null)
+
+  const draftPoints = useMemo(() => {
+    if (!draftWaypoints) return null
+    return buildManualPath(
+      { x: sourceX, y: sourceY },
+      { x: targetX, y: targetY },
+      draftWaypoints,
+    )
+  }, [draftWaypoints, sourceX, sourceY, targetX, targetY])
+
+  // The polyline actually rendered this frame (draft > manual > auto).
+  const renderedPoints = draftPoints ?? manualPoints ?? orthoPoints
+
+  // Report the rendered path while selected — feeds SelectionInfo + panel
+  // edits (auto edges have no stored waypoints; the canvas needs this copy).
+  useEffect(() => {
+    if (isEdgeSelected && renderedPoints) {
+      ctx.reportPath(id, renderedPoints)
+    }
+  }, [isEdgeSelected, renderedPoints, ctx, id])
+
+  function onHandlePointerDown(e: React.PointerEvent, segmentIndex: number) {
+    if (!renderedPoints) return
+    e.stopPropagation()
+    e.preventDefault()
+    ;(e.target as Element).setPointerCapture(e.pointerId)
+    dragStateRef.current = { full: renderedPoints.map((p) => ({ ...p })), segmentIndex }
+  }
+  function onHandlePointerMove(e: React.PointerEvent) {
+    const st = dragStateRef.current
+    if (!st) return
+    const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    const a = st.full[st.segmentIndex]
+    const b = st.full[st.segmentIndex + 1]
+    const horizontal = Math.abs(a.y - b.y) < 0.5
+    setDraftWaypoints(
+      dragSegment(st.full, st.segmentIndex, horizontal ? flowPos.y : flowPos.x),
+    )
+  }
+  function onHandlePointerUp() {
+    const st = dragStateRef.current
+    dragStateRef.current = null
+    if (st && draftWaypoints) {
+      ctx.commitWaypoints(id, draftWaypoints)
+    }
+    setDraftWaypoints(null)
+  }
+
   const isActive = data?.active ?? false
   // SVG presentation ATTRIBUTES (stroke="...") do NOT support var() — only CSS
   // (the `style` prop) does. Marker paths therefore set stroke via `style`.
@@ -206,8 +274,7 @@ function RelationEdgeImpl({
   const relation = data?.relation ?? '1-n'
   const startKind = startMarkerKind(relation)
   const endKind = endMarkerKind(relation)
-  const routedPoints = manualPoints ?? orthoPoints
-  const edgePath = routedPoints ? polylineToPath(routedPoints) : smoothPath
+  const edgePath = renderedPoints ? polylineToPath(renderedPoints) : smoothPath
   // The edge id contains '(', ')', '>', '#' (e.g. `public.a.(bid)>public.b.(id)#0`).
   // A ')' inside `url(#…)` closes the reference early, so the markers never apply
   // — sanitize the id to [A-Za-z0-9_-] for the marker id + its url() reference.
@@ -258,6 +325,93 @@ function RelationEdgeImpl({
           transition: 'stroke 80ms ease, stroke-width 80ms ease',
         }}
       />
+      {isEdgeSelected && renderedPoints && (
+        <g data-testid="edge-handles">
+          {/* Anchored endpoints — visual only (끝점은 컬럼에 앵커, 편집 불가) */}
+          <circle
+            cx={renderedPoints[0].x}
+            cy={renderedPoints[0].y}
+            r={3.5}
+            style={{ fill: 'var(--erd-accent)', pointerEvents: 'none' }}
+          />
+          <circle
+            cx={renderedPoints[renderedPoints.length - 1].x}
+            cy={renderedPoints[renderedPoints.length - 1].y}
+            r={3.5}
+            style={{ fill: 'var(--erd-accent)', pointerEvents: 'none' }}
+          />
+          {/* Interior corner dots — visual markers (드래그는 세그먼트 핸들로) */}
+          {renderedPoints.slice(1, -1).map((p, i) => (
+            <circle
+              key={`c${i}`}
+              cx={p.x}
+              cy={p.y}
+              r={3}
+              style={{ fill: 'var(--erd-surface)', stroke: 'var(--erd-accent)', strokeWidth: 1.5, pointerEvents: 'none' }}
+            />
+          ))}
+          {/* Segment midpoint DRAG handles (dbdiagram 실측 모델) */}
+          {renderedPoints.slice(0, -1).map((p, i) => {
+            const q = renderedPoints[i + 1]
+            const len = Math.abs(q.x - p.x) + Math.abs(q.y - p.y)
+            if (len < 12) return null // 너무 짧은 세그먼트는 핸들 생략
+            const horizontal = Math.abs(p.y - q.y) < 0.5
+            return (
+              <circle
+                key={`s${i}`}
+                data-testid={`edge-seg-${i}`}
+                cx={(p.x + q.x) / 2}
+                cy={(p.y + q.y) / 2}
+                r={5}
+                style={{
+                  fill: 'var(--erd-surface)',
+                  stroke: 'var(--erd-accent)',
+                  strokeWidth: 1.5,
+                  cursor: horizontal ? 'ns-resize' : 'ew-resize',
+                  // React Flow v12: .react-flow__edge { pointer-events: visibleStroke }
+                  // 를 상속하면 1.5px 링만 클릭된다 — 채움 영역 전체를 히트 대상으로.
+                  pointerEvents: 'all',
+                }}
+                onPointerDown={(e) => onHandlePointerDown(e, i)}
+                onPointerMove={onHandlePointerMove}
+                onPointerUp={onHandlePointerUp}
+              />
+            )
+          })}
+        </g>
+      )}
+      {isEdgeSelected && manualWaypoints && renderedPoints && (
+        <EdgeLabelRenderer>
+          {(() => {
+            const mid = renderedPoints[Math.floor(renderedPoints.length / 2)]
+            return (
+              <button
+                data-testid="edge-reset"
+                title="Reset line"
+                onClick={() => ctx.resetPath(id)}
+                style={{
+                  position: 'absolute',
+                  transform: `translate(-50%, -50%) translate(${mid.x + 18}px, ${mid.y - 18}px)`,
+                  pointerEvents: 'all',
+                  width: 26,
+                  height: 26,
+                  borderRadius: 8,
+                  border: '1px solid var(--erd-border-2)',
+                  background: 'var(--erd-surface)',
+                  color: 'var(--erd-accent)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: 'var(--erd-shadow-sm)',
+                }}
+              >
+                <RotateCw size={14} strokeWidth={2} />
+              </button>
+            )
+          })()}
+        </EdgeLabelRenderer>
+      )}
     </>
   )
 }
