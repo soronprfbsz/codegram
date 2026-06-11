@@ -87,6 +87,9 @@ function RelationEdgeImpl({
   const nodeLookup = useStore((s) => s.nodeLookup)
 
   const isEnumLink = data?.isEnumLink ?? false
+  // NOTE: an EMPTY waypoints array is still a MANUAL path (the user dragged the
+  // line straight — interior corners all merged away). Only absence (undefined)
+  // means auto-routing; treating [] as auto would silently discard user intent.
   const manualWaypoints = data?.waypoints ?? null
 
   // Approach-lane index for this edge among the relation edges entering the SAME

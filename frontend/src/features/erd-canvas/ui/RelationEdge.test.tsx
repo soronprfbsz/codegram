@@ -115,3 +115,40 @@ describe('RelationEdge', () => {
     ).toBeNull()
   })
 })
+
+describe('RelationEdge manual path (ADR-0012)', () => {
+  // polylineToPath(buildManualPath({0,0},{100,100},[{50,0},{50,100}])):
+  // both bridge segments are already aligned, so the path is S → w1 → w2 → T.
+  const manualD = 'M 0 0 L 50 0 L 50 100 L 100 100'
+
+  it('renders the stored-waypoint polyline when data.waypoints is present', () => {
+    const { container } = renderEdge({
+      ...baseProps,
+      data: {
+        relation: '1-n',
+        sourceMarker: 'one',
+        targetMarker: 'many',
+        waypoints: [
+          { x: 50, y: 0 },
+          { x: 50, y: 100 },
+        ],
+      },
+    } as RelationEdgeProps)
+
+    const path = container.querySelector('path.react-flow__edge-path')!
+    expect(path.getAttribute('d')).toBe(manualD)
+  })
+
+  it('renders an auto-routed path (NOT the manual polyline) when waypoints are absent', () => {
+    const { container } = renderEdge({
+      ...baseProps,
+      data: { relation: '1-n', sourceMarker: 'one', targetMarker: 'many' },
+    } as RelationEdgeProps)
+
+    const d = container
+      .querySelector('path.react-flow__edge-path')!
+      .getAttribute('d')
+    expect(d).toBeTruthy()
+    expect(d).not.toBe(manualD)
+  })
+})
