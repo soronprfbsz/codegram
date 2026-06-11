@@ -27,7 +27,16 @@ import { SqlImportDialog } from '@/features/sql-import'
 import { TableDocView } from '@/widgets/table-doc-view'
 import { ErdTopBar } from '@/widgets/erd-topbar'
 import { DbConnectDialog } from '@/features/db-import'
-import { parseDbml } from '@/entities/dbml'
+import {
+  parseDbml,
+  createGroup,
+  renameGroup,
+  deleteGroup,
+  setGroupColor,
+  moveTableToGroup,
+  type GroupOpResult,
+} from '@/entities/dbml'
+import type { GroupOpHandlers } from '@/widgets/erd-info-panel'
 import { computeSyncedPositions } from '@/entities/layout'
 import {
   Dialog,
@@ -100,6 +109,29 @@ export function EditorPage() {
   // Live, debounced parse of the editor text into the normalized model.
   const parse = useDbmlParse(dbmlText)
   const schema = parse.schema ?? parse.lastValidSchema
+
+  const mutationsEnabled = parse.status === 'success' && !!parse.schema
+  const [groupOpError, setGroupOpError] = useState<string | null>(null)
+
+  function runGroupOp(result: GroupOpResult) {
+    if (result.ok) {
+      setDbmlText(result.text)
+      setGroupOpError(null)
+    } else {
+      setGroupOpError(result.error)
+    }
+  }
+
+  const groupOps: GroupOpHandlers = {
+    onCreateGroup: (name) => runGroupOp(createGroup(dbmlText, name)),
+    onRenameGroup: (oldName, newName) => runGroupOp(renameGroup(dbmlText, oldName, newName)),
+    onDeleteGroup: (name) => runGroupOp(deleteGroup(dbmlText, name)),
+    onSetGroupColor: (name, color) => runGroupOp(setGroupColor(dbmlText, name, color)),
+    onMoveTable: (tableId, toGroup) => {
+      if (!parse.schema) return
+      runGroupOp(moveTableToGroup(dbmlText, parse.schema, tableId, toGroup))
+    },
+  }
 
   // Plan 5 — Export wiring (pages layer composes both export features).
   const captureHandleRef = useRef<ErdCaptureHandle | null>(null)
@@ -338,11 +370,19 @@ export function EditorPage() {
           }}
         >
           <div style={{ width: 316, height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            {groupOpError && (
+              <div role="alert" data-testid="group-op-error" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', fontSize: 12, color: 'var(--erd-error)', borderBottom: '1px solid var(--erd-border)' }}>
+                <span style={{ flex: 1 }}>{groupOpError}</span>
+                <button aria-label="dismiss" onClick={() => setGroupOpError(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>✕</button>
+              </div>
+            )}
             <ErdInfoPanel
               schema={schema}
               selected={selected}
               onSelect={setSelected}
               dialect={dialect}
+              groupOps={groupOps}
+              mutationsEnabled={mutationsEnabled}
             />
           </div>
         </div>
