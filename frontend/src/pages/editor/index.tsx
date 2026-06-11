@@ -142,6 +142,8 @@ export function EditorPage() {
   // Selected table name — drives the Table names list highlight (Phase 3).
   // Node-click selection and editor scroll are wired in Phase 5.
   const [selected, setSelected] = useState<string | null>(null)
+  // Info 버튼이 토글하는 우측 패널 표시 상태 (세션 메모리만, 기본 보임).
+  const [panelOpen, setPanelOpen] = useState(true)
 
   // Seed the editor (and the autosave baseline) once the project loads.
   useEffect(() => {
@@ -190,6 +192,7 @@ export function EditorPage() {
         onImportSql={() => setImportOpen(true)}
         onBack={() => navigate('/')}
         onSync={() => setSyncOpen(true)}
+        onInfo={() => setPanelOpen((o) => !o)}
         exportMenu={
           <ExportMenu
             diagram={diagramCtx}
@@ -217,7 +220,8 @@ export function EditorPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '340px 1fr 316px',
+          gridTemplateColumns: `340px 1fr ${panelOpen ? '316px' : '0px'}`,
+          transition: 'grid-template-columns 200ms ease',
           flex: 1,
           minHeight: 0,
         }}
@@ -325,20 +329,22 @@ export function EditorPage() {
 
         {/* Right (316px): ErdInfoPanel — schema summary + table names list */}
         <div
+          data-testid="info-panel-column"
           style={{
             background: 'var(--erd-surface)',
-            borderLeft: '1px solid var(--erd-border)',
-            display: 'flex',
-            flexDirection: 'column',
+            borderLeft: panelOpen ? '1px solid var(--erd-border)' : 'none',
+            overflow: 'hidden',
             minHeight: 0,
           }}
         >
-          <ErdInfoPanel
-            schema={schema}
-            selected={selected}
-            onSelect={setSelected}
-            dialect={dialect}
-          />
+          <div style={{ width: 316, height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <ErdInfoPanel
+              schema={schema}
+              selected={selected}
+              onSelect={setSelected}
+              dialect={dialect}
+            />
+          </div>
         </div>
       </div>
 
