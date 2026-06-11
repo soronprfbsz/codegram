@@ -230,6 +230,7 @@ function makeCtx() {
     commitWaypoints: vi.fn(),
     resetPath: vi.fn(),
     reportPath: vi.fn(),
+    setEdgeSide: vi.fn(),
   }
 }
 
@@ -287,6 +288,41 @@ describe('RelationEdge segment drag interaction (Task 5)', () => {
     renderSelectedEdge(ctx)
     fireEvent.click(screen.getByTestId('edge-reset'))
     expect(ctx.resetPath).toHaveBeenCalledWith('e1')
+  })
+
+  it('segment drag handles use the hand (pointer) cursor', () => {
+    // 요구사항: 선을 움직일 수 있는 포인트에서만 hand 커서 — 핸들 자체는 pointer.
+    const ctx = makeCtx()
+    renderSelectedEdge(ctx)
+    const seg = screen.getByTestId('edge-seg-1') as unknown as SVGCircleElement
+    expect(seg.style.cursor).toBe('pointer')
+  })
+
+  it('flow overlay + halo render only while the edge is selected', () => {
+    const ctx = makeCtx()
+    const { container, unmount } = renderSelectedEdge(ctx)
+    const flow = container.querySelector('[data-testid="edge-flow"]')!
+    expect(flow).toBeTruthy()
+    expect(flow.classList.contains('erd-edge-flow')).toBe(true)
+    unmount()
+
+    const { container: plain } = renderEdge({
+      ...baseProps,
+      data: { relation: '1-n', sourceMarker: 'one', targetMarker: 'many' },
+    } as RelationEdgeProps)
+    expect(plain.querySelector('[data-testid="edge-flow"]')).toBeNull()
+  })
+
+  it('endpoint swap buttons flip each end to the OPPOSITE side', () => {
+    // baseProps: source exits RIGHT, target enters LEFT (default anchors).
+    const ctx = makeCtx()
+    renderSelectedEdge(ctx)
+
+    fireEvent.click(screen.getByTestId('edge-swap-source'))
+    expect(ctx.setEdgeSide).toHaveBeenCalledWith('e1', 'source', 'left')
+
+    fireEvent.click(screen.getByTestId('edge-swap-target'))
+    expect(ctx.setEdgeSide).toHaveBeenCalledWith('e1', 'target', 'right')
   })
 
   it('pointercancel aborts the drag without committing and reverts the path', () => {

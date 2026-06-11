@@ -8,7 +8,7 @@ import {
   Position,
   type EdgeProps,
 } from '@xyflow/react'
-import { RotateCw } from 'lucide-react'
+import { ArrowLeftRight, RotateCw } from 'lucide-react'
 import type { RelationEdgeData } from '@/entities/erd'
 import type { DbmlRelation } from '@/entities/dbml'
 import {
@@ -73,9 +73,12 @@ function markerPath(kind: MarkerKind, side: 'start' | 'end'): string {
  * presentation attributes). Enum-link edges are dashed, smoothstep, no markers.
  * Edges carrying manual `data.waypoints` (ADR-0012) render from those stored
  * points (bridged to the live endpoints) and skip A* routing entirely.
- * When selected, the edge shows draggable segment-midpoint handles (drag
- * reroutes a segment perpendicular to its orientation) plus a floating Reset
- * line button that reverts a manual path back to auto-routing.
+ * When selected, the edge is emphasized (accent halo + flowing-dash overlay,
+ * dbdiagram-style) and shows draggable segment-midpoint handles (drag reroutes
+ * a segment perpendicular to its orientation; hand cursor ONLY on these
+ * handles), endpoint swap buttons (re-anchor an end to the table's other
+ * side via ctx.setEdgeSide) plus a floating Reset line button that reverts a
+ * manual path back to auto-routing.
  * features layer: depends on shared + entities/erd + entities/dbml +
  * @xyflow/react (FSD downward imports).
  */
@@ -272,8 +275,9 @@ function RelationEdgeImpl({
   const isActive = data?.active ?? false
   // SVG presentation ATTRIBUTES (stroke="...") do NOT support var() — only CSS
   // (the `style` prop) does. Marker paths therefore set stroke via `style`.
-  const strokeColor = isActive ? 'var(--erd-accent)' : 'var(--erd-edge)'
-  const strokeWidth = isActive ? 2 : 1.5
+  const emphasized = isActive || isEdgeSelected
+  const strokeColor = emphasized ? 'var(--erd-accent)' : 'var(--erd-edge)'
+  const strokeWidth = emphasized ? 2 : 1.5
 
   // Column -> enum links are a type association, NOT a cardinality relationship:
   // dashed, smoothstep, no crow-foot markers.
@@ -334,6 +338,20 @@ function RelationEdgeImpl({
           />
         </marker>
       </defs>
+      {/* Selection halo — soft accent glow UNDER the line (가시성 강조) */}
+      {isEdgeSelected && (
+        <path
+          d={edgePath}
+          fill="none"
+          style={{
+            stroke: 'var(--erd-accent)',
+            strokeWidth: 7,
+            strokeLinecap: 'round',
+            opacity: 0.18,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       <BaseEdge
         id={id}
         path={edgePath}
@@ -345,6 +363,24 @@ function RelationEdgeImpl({
           transition: 'stroke 80ms ease, stroke-width 80ms ease',
         }}
       />
+      {/* Flowing dots — animated dash overlay ON TOP of the selected line
+          (stroke-dashoffset keyframes in index.css), dbdiagram-style 방향성 표시 */}
+      {isEdgeSelected && (
+        <path
+          data-testid="edge-flow"
+          d={edgePath}
+          fill="none"
+          className="erd-edge-flow"
+          style={{
+            stroke: 'var(--erd-surface)',
+            strokeWidth: 2,
+            strokeLinecap: 'round',
+            strokeDasharray: '2 10',
+            opacity: 0.95,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
       {isEdgeSelected && renderedPoints && (
         <g data-testid="edge-handles">
           {/* Anchored endpoints — visual only (끝점은 컬럼에 앵커, 편집 불가) */}
@@ -380,6 +416,7 @@ function RelationEdgeImpl({
               <circle
                 key={`s${i}`}
                 data-testid={`edge-seg-${i}`}
+                data-orient={horizontal ? 'h' : 'v'}
                 cx={(p.x + q.x) / 2}
                 cy={(p.y + q.y) / 2}
                 r={5}
@@ -387,7 +424,8 @@ function RelationEdgeImpl({
                   fill: 'var(--erd-surface)',
                   stroke: 'var(--erd-accent)',
                   strokeWidth: 1.5,
-                  cursor: horizontal ? 'ns-resize' : 'ew-resize',
+                  // 요구사항: 선을 움직일 수 있는 포인트에서만 hand 커서.
+                  cursor: 'pointer',
                   // React Flow v12: .react-flow__edge { pointer-events: visibleStroke }
                   // 를 상속하면 1.5px 링만 클릭된다 — 채움 영역 전체를 히트 대상으로.
                   pointerEvents: 'all',
@@ -402,34 +440,71 @@ function RelationEdgeImpl({
           })}
         </g>
       )}
-      {isEdgeSelected && manualWaypoints && renderedPoints && (
+      {isEdgeSelected && renderedPoints && (
         <EdgeLabelRenderer>
           {(() => {
             const midPoint = renderedPoints[Math.floor(renderedPoints.length / 2)]
+            const floatBtnStyle = (x: number, y: number): React.CSSProperties => ({
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
+              pointerEvents: 'all',
+              width: 26,
+              height: 26,
+              borderRadius: 8,
+              border: '1px solid var(--erd-border-2)',
+              background: 'var(--erd-surface)',
+              color: 'var(--erd-accent)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: 'var(--erd-shadow-sm)',
+            })
+            // Swap buttons float just OUTSIDE each endpoint, along the exit
+            // direction, lifted off the line so they don't cover the marker.
+            const srcDx = sourcePosition === Position.Left ? -22 : 22
+            const tgtDx = targetPosition === Position.Left ? -22 : 22
             return (
-              <button
-                data-testid="edge-reset"
-                title="Reset line"
-                onClick={() => ctx.resetPath(id)}
-                style={{
-                  position: 'absolute',
-                  transform: `translate(-50%, -50%) translate(${midPoint.x + 18}px, ${midPoint.y - 18}px)`,
-                  pointerEvents: 'all',
-                  width: 26,
-                  height: 26,
-                  borderRadius: 8,
-                  border: '1px solid var(--erd-border-2)',
-                  background: 'var(--erd-surface)',
-                  color: 'var(--erd-accent)',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: 'var(--erd-shadow-sm)',
-                }}
-              >
-                <RotateCw size={14} strokeWidth={2} />
-              </button>
+              <>
+                <button
+                  data-testid="edge-swap-source"
+                  title="좌/우 전환 (source)"
+                  onClick={() =>
+                    ctx.setEdgeSide(
+                      id,
+                      'source',
+                      sourcePosition === Position.Left ? 'right' : 'left',
+                    )
+                  }
+                  style={floatBtnStyle(sourceX + srcDx, sourceY - 20)}
+                >
+                  <ArrowLeftRight size={13} strokeWidth={2} />
+                </button>
+                <button
+                  data-testid="edge-swap-target"
+                  title="좌/우 전환 (target)"
+                  onClick={() =>
+                    ctx.setEdgeSide(
+                      id,
+                      'target',
+                      targetPosition === Position.Left ? 'right' : 'left',
+                    )
+                  }
+                  style={floatBtnStyle(targetX + tgtDx, targetY - 20)}
+                >
+                  <ArrowLeftRight size={13} strokeWidth={2} />
+                </button>
+                {manualWaypoints && (
+                  <button
+                    data-testid="edge-reset"
+                    title="Reset line"
+                    onClick={() => ctx.resetPath(id)}
+                    style={floatBtnStyle(midPoint.x + 18, midPoint.y - 18)}
+                  >
+                    <RotateCw size={14} strokeWidth={2} />
+                  </button>
+                )}
+              </>
             )
           })()}
         </EdgeLabelRenderer>

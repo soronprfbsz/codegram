@@ -113,11 +113,46 @@ function TableNodeImpl({ data }: TableNodeProps) {
                 background: isHighlighted ? 'var(--erd-accent-soft)' : 'transparent',
               }}
             >
-              {/* Target handle on the left */}
+              {/* Target handle on the left (default side) */}
               <Handle
                 type="target"
                 position={Position.Left}
                 id={col.id}
+                isConnectable={false}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 6,
+                  height: 6,
+                  opacity: 0,
+                  pointerEvents: 'none',
+                }}
+              />
+              {/* Alternate-side handles: edge anchor swap (`@left`/`@right`
+                  suffix) — ErdCanvas rewrites the edge handle id when a stored
+                  sourceSide/targetSide override flips an endpoint. */}
+              <Handle
+                type="target"
+                position={Position.Right}
+                id={`${col.id}@right`}
+                isConnectable={false}
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  width: 6,
+                  height: 6,
+                  opacity: 0,
+                  pointerEvents: 'none',
+                }}
+              />
+              <Handle
+                type="source"
+                position={Position.Left}
+                id={`${col.id}@left`}
                 isConnectable={false}
                 style={{
                   position: 'absolute',

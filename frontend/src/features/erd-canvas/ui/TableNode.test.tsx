@@ -96,7 +96,7 @@ describe('TableNode', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders a left + right handle per column keyed by the column id', () => {
+  it('renders default + alternate-side handles per column keyed by the column id', () => {
     const { container } = renderNode({
       ...baseProps,
       data: {
@@ -116,13 +116,19 @@ describe('TableNode', () => {
       },
     } as TableNodeProps)
 
-    // React Flow renders each <Handle> as a div.react-flow__handle.
+    // React Flow renders each <Handle> as a div.react-flow__handle. Default
+    // pair (target left / source right, id == col.id) + the alternate-side
+    // pair used by the edge anchor swap (`@right` target / `@left` source).
     const handles = container.querySelectorAll('.react-flow__handle')
-    expect(handles).toHaveLength(2)
-    // Both handles carry the column id as their data-handleid.
+    expect(handles).toHaveLength(4)
     const ids = Array.from(handles).map((h) =>
       h.getAttribute('data-handleid'),
     )
-    expect(ids).toEqual(['public.users.id', 'public.users.id'])
+    expect(ids).toEqual([
+      'public.users.id',
+      'public.users.id@right',
+      'public.users.id@left',
+      'public.users.id',
+    ])
   })
 })

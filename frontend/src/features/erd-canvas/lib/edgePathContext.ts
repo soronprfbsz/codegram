@@ -5,7 +5,7 @@
  * features layer (FSD): local to erd-canvas.
  */
 import { createContext, useContext } from 'react'
-import type { PathPoint } from '@/entities/layout'
+import type { EdgeSide, PathPoint } from '@/entities/layout'
 
 export interface EdgePathContextValue {
   /** Commit a new manual path for the edge (drag end / panel edit). */
@@ -17,6 +17,12 @@ export interface EdgePathContextValue {
    * canvas can expose it (SelectionInfo waypoints + panel edits on auto paths).
    */
   reportPath: (edgeId: string, full: PathPoint[]) => void
+  /**
+   * Re-anchor one endpoint to the other side of its table (좌/우 스왑).
+   * Clears the edge's manual waypoints — the old geometry is meaningless after
+   * the endpoint jumps sides; the path re-routes automatically.
+   */
+  setEdgeSide: (edgeId: string, end: 'source' | 'target', side: EdgeSide) => void
 }
 
 const noop = () => {}
@@ -26,6 +32,7 @@ export const EdgePathContext = createContext<EdgePathContextValue>({
   commitWaypoints: noop,
   resetPath: noop,
   reportPath: noop,
+  setEdgeSide: noop,
 })
 
 export function useEdgePathContext(): EdgePathContextValue {

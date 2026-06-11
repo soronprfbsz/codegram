@@ -32,13 +32,21 @@ export interface StoredPosition {
 /** Map of node id -> persisted position. Node id == ADR-0004 name key. */
 export type LayoutPositions = Record<string, StoredPosition>
 
+/** Which side of its table an edge endpoint anchors to. */
+export type EdgeSide = 'left' | 'right'
+
 /**
  * One manual edge path (ADR-0012): interior bend vertices in ABSOLUTE canvas
  * coords. Endpoints are NOT stored — they anchor to the column handles live,
  * so a table move stretches the end segments instead of detaching them.
+ * `sourceSide`/`targetSide` override the DEFAULT anchor sides (source exits
+ * RIGHT, target enters LEFT) — stored only when non-default, so an entry may
+ * carry sides without waypoints (side swapped, path still auto-routed).
  */
 export interface StoredEdgePath {
-  waypoints: XYPosition[]
+  waypoints?: XYPosition[]
+  sourceSide?: EdgeSide
+  targetSide?: EdgeSide
 }
 
 /** Map of edge id -> manual path. Edge id == schemaToFlow's `${ref.id}#${i}`

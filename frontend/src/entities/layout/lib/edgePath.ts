@@ -8,7 +8,7 @@
  * entities layer: no React, no React Flow runtime (FSD downward imports).
  */
 import type { XYPosition } from '@xyflow/react' // TYPE-ONLY import
-import type { EdgePaths } from '../model/types'
+import type { EdgePaths, EdgeSide, StoredEdgePath } from '../model/types'
 
 export type PathPoint = XYPosition
 
@@ -126,6 +126,27 @@ export function editVertexAxis(
   const prevOwns = axis === 'x' ? alignedX(prev, cur) : alignedY(prev, cur)
   const segIndex = prevOwns ? i - 1 : i
   return dragSegment(full, segIndex, value)
+}
+
+/**
+ * Apply an endpoint anchor-side change (좌/우 스왑) to a stored edge entry.
+ * Clears the manual waypoints (the old geometry is meaningless once the
+ * endpoint jumps sides) and stores only NON-DEFAULT sides (source exits
+ * RIGHT, target enters LEFT). Returns undefined when the entry becomes empty
+ * — the caller drops it from the map.
+ */
+export function applyEdgeSide(
+  entry: StoredEdgePath | undefined,
+  end: 'source' | 'target',
+  side: EdgeSide,
+): StoredEdgePath | undefined {
+  const next: StoredEdgePath = { ...entry }
+  delete next.waypoints
+  const key = end === 'source' ? 'sourceSide' : 'targetSide'
+  const defaultSide: EdgeSide = end === 'source' ? 'right' : 'left'
+  if (side === defaultSide) delete next[key]
+  else next[key] = side
+  return next.sourceSide || next.targetSide ? next : undefined
 }
 
 /** Drop manual paths whose edge no longer exists (GC at commit time, ADR-0012). */

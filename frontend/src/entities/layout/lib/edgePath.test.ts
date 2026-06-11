@@ -5,6 +5,7 @@ import {
   editVertexAxis,
   simplifyPath,
   pruneEdgePaths,
+  applyEdgeSide,
 } from './edgePath'
 
 // 기준 Z-경로: source(0,0) → (50,0) → (50,100) → target(100,100)
@@ -135,5 +136,35 @@ describe('pruneEdgePaths', () => {
     expect(pruneEdgePaths(paths, new Set(['a#0']))).toEqual({
       'a#0': { waypoints: Z },
     })
+  })
+})
+
+describe('applyEdgeSide (좌/우 앵커 스왑)', () => {
+  it('records a NON-default side on a fresh entry', () => {
+    expect(applyEdgeSide(undefined, 'source', 'left')).toEqual({
+      sourceSide: 'left',
+    })
+    expect(applyEdgeSide(undefined, 'target', 'right')).toEqual({
+      targetSide: 'right',
+    })
+  })
+
+  it('returns undefined when flipping back to the default side empties the entry', () => {
+    // source default = right, target default = left.
+    expect(applyEdgeSide({ sourceSide: 'left' }, 'source', 'right')).toBeUndefined()
+    expect(applyEdgeSide({ targetSide: 'right' }, 'target', 'left')).toBeUndefined()
+    expect(applyEdgeSide(undefined, 'source', 'right')).toBeUndefined()
+  })
+
+  it('clears manual waypoints — the old geometry dies with the side swap', () => {
+    expect(
+      applyEdgeSide({ waypoints: Z, targetSide: 'right' }, 'source', 'left'),
+    ).toEqual({ sourceSide: 'left', targetSide: 'right' })
+  })
+
+  it('keeps the OTHER end untouched when one end flips back to default', () => {
+    expect(
+      applyEdgeSide({ sourceSide: 'left', targetSide: 'right' }, 'source', 'right'),
+    ).toEqual({ targetSide: 'right' })
   })
 })

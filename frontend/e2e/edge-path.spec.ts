@@ -54,8 +54,9 @@ async function clickEdgeMidpoint(page: Page) {
  * circle 대신 노드의 span이 잡힌다 — pointerdown이 핸들로 안 들어가 수동 경로가
  * 만들어지지 않는다(실측). 그래서 circle 중심에서 elementFromPoint가 자기 자신
  * (data-testid 일치)으로 해석되는 — 노드에 가리지 않은 — 핸들을 고른다.
- * orientation은 cursor(ns/ew-resize) 대신 인접 두 점 좌표로 직접 판정해 수직/
- * 수평을 가리고, 드래그는 세그먼트에 **수직**으로 줘야 경로가 실제로 휜다.
+ * orientation은 핸들의 data-orient(h/v) 속성으로 판정하고(커서는 이제 모든
+ * 핸들이 pointer라 정보가 없다), 드래그는 세그먼트에 **수직**으로 줘야 경로가
+ * 실제로 휜다.
  */
 async function pickDraggableHandle(
   page: Page,
@@ -76,9 +77,8 @@ async function pickDraggableHandle(
           hit &&
           hit.getAttribute('data-testid') === el.getAttribute('data-testid')
         ) {
-          // 세그먼트 방향: cursor 스타일 ns-resize=수평 세그먼트, ew-resize=수직.
-          const cursor = (el as unknown as SVGElement).style.cursor
-          return { x: sx, y: sy, horizontal: cursor === 'ns-resize' }
+          // 세그먼트 방향: data-orient h=수평 세그먼트, v=수직.
+          return { x: sx, y: sy, horizontal: el.getAttribute('data-orient') === 'h' }
         }
       }
       return null
@@ -204,6 +204,54 @@ test.describe('Manual edge paths', () => {
     await page.getByTestId('edge-reset').click()
     await expect(page.getByTestId('edge-reset')).toBeHidden()
     await resetPatch
+  })
+
+  test('swap a target endpoint to the other side, persist across reload', async ({ page }) => {
+    const email = `edgeswap-${Date.now()}@example.com`
+    await registerAndLogin(page, email, 'password123')
+    const projectId = await createProjectWithRef(page)
+
+    // 엣지 선택 → 선택 강조(흐르는 dash 오버레이) + 스왑 버튼 표시
+    await clickEdgeMidpoint(page)
+    await expect(page.getByTestId('edge-flow')).toBeVisible()
+    await expect(page.getByTestId('edge-swap-target')).toBeVisible()
+
+    const dBefore = await page
+      .locator('.react-flow__edge-path')
+      .first()
+      .getAttribute('d')
+
+    // PATCH payload 검사: targetSide=right가 실린 저장만 통과 (디바운스 600ms)
+    const swapPatch = page.waitForResponse((resp) => {
+      if (!resp.url().includes(`/api/projects/${projectId}`)) return false
+      if (resp.request().method() !== 'PATCH' || !resp.ok()) return false
+      const body = resp.request().postDataJSON() as
+        | { layout?: { edges?: Record<string, { targetSide?: string }> } }
+        | null
+      return Object.values(body?.layout?.edges ?? {}).some(
+        (e) => e.targetSide === 'right',
+      )
+    })
+    await page.getByTestId('edge-swap-target').click()
+    await swapPatch
+
+    // 엔드포인트가 반대편으로 옮겨가 경로가 달라진다
+    const dAfter = await page
+      .locator('.react-flow__edge-path')
+      .first()
+      .getAttribute('d')
+    expect(dAfter).not.toBe(dBefore)
+
+    // 새로고침 후에도 스왑된 앵커로 렌더 (d 동일)
+    await page.reload()
+    await expect
+      .poll(async () => page.locator('.react-flow__edge').count(), { timeout: 5000 })
+      .toBeGreaterThanOrEqual(1)
+    await expect
+      .poll(async () =>
+        page.locator('.react-flow__edge-path').first().getAttribute('d'),
+      )
+      .toBe(dAfter)
   })
 
   test('Info panel shows and edits node coordinates', async ({ page }) => {

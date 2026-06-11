@@ -2,7 +2,7 @@ import * as React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ErdCanvas } from './ErdCanvas'
+import { ErdCanvas, type ErdCaptureHandle } from './ErdCanvas'
 import { schema } from './ErdCanvas.fixture'
 import type { TableNodeData } from '@/entities/erd'
 
@@ -292,6 +292,56 @@ describe('ErdCanvas manual edge paths — display wiring', () => {
     }
     const edge = props.edges.find((e) => e.id === edgeId)
     expect(edge?.data?.waypoints).toEqual([{ x: 50, y: 0 }, { x: 50, y: 100 }])
+  })
+})
+
+describe('ErdCanvas edge anchor side overrides (좌/우 스왑)', () => {
+  const edgeId = 'public.posts.(user_id)>public.users.(id)#0'
+
+  it('rewrites the handle ids to the alternate-side handles when sides are stored', () => {
+    render(
+      <ErdCanvas
+        schema={schema}
+        edgePaths={{ [edgeId]: { sourceSide: 'left', targetSide: 'right' } }}
+      />,
+    )
+    const props = (globalThis as Record<string, unknown>).__rfProps as {
+      edges: Array<{ id: string; sourceHandle?: string; targetHandle?: string }>
+    }
+    const edge = props.edges.find((e) => e.id === edgeId)!
+    expect(edge.sourceHandle).toBe('public.posts.user_id@left')
+    expect(edge.targetHandle).toBe('public.users.id@right')
+  })
+
+  it('keeps the default handle ids when no sides are stored', () => {
+    render(<ErdCanvas schema={schema} edgePaths={{}} />)
+    const props = (globalThis as Record<string, unknown>).__rfProps as {
+      edges: Array<{ id: string; sourceHandle?: string; targetHandle?: string }>
+    }
+    const edge = props.edges.find((e) => e.id === edgeId)!
+    expect(edge.sourceHandle).toBe('public.posts.user_id')
+    expect(edge.targetHandle).toBe('public.users.id')
+  })
+
+  it('Reset line drops the waypoints but KEEPS a stored side swap', () => {
+    const onEdgePathsChange = vi.fn()
+    let handle: ErdCaptureHandle | undefined
+    render(
+      <ErdCanvas
+        schema={schema}
+        edgePaths={{
+          [edgeId]: { waypoints: [{ x: 1, y: 2 }], sourceSide: 'left' },
+        }}
+        onEdgePathsChange={onEdgePathsChange}
+        onCaptureReady={(h) => {
+          handle = h
+        }}
+      />,
+    )
+    handle!.resetEdgePath(edgeId)
+    expect(onEdgePathsChange).toHaveBeenCalledWith({
+      [edgeId]: { sourceSide: 'left' },
+    })
   })
 })
 

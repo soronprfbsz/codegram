@@ -7,6 +7,7 @@ export type {
   StoredLayout,
   StoredEdgePath,
   EdgePaths,
+  EdgeSide,
 } from './model/types'
 
 export {
@@ -15,5 +16,6 @@ export {
   editVertexAxis,
   simplifyPath,
   pruneEdgePaths,
+  applyEdgeSide,
   type PathPoint,
 } from './lib/edgePath'

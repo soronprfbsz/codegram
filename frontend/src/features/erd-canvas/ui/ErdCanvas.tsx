@@ -29,6 +29,7 @@ import {
   reconcileLayout,
   nodesToLayout,
   pruneEdgePaths,
+  applyEdgeSide,
   editVertexAxis,
   type LayoutPositions,
   type StoredLayout,
@@ -350,16 +351,39 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
           x: Math.round(p.x),
           y: Math.round(p.y),
         }))
+        // Spread the existing entry so a stored side swap survives a path edit.
         onEdgePathsChangeRef.current?.(
           pruneEdgePaths(
-            { ...edgePathsRef.current, [edgeId]: { waypoints: rounded } },
+            {
+              ...edgePathsRef.current,
+              [edgeId]: { ...edgePathsRef.current[edgeId], waypoints: rounded },
+            },
             flowEdgeIdsRef.current,
           ),
         )
       },
       resetPath: (edgeId) => {
+        // Reset line drops the WAYPOINTS only — an anchor-side swap is a
+        // separate user choice and stays until swapped back.
         const next = { ...edgePathsRef.current }
-        delete next[edgeId]
+        const { sourceSide, targetSide } = next[edgeId] ?? {}
+        if (sourceSide || targetSide) {
+          next[edgeId] = {
+            ...(sourceSide && { sourceSide }),
+            ...(targetSide && { targetSide }),
+          }
+        } else {
+          delete next[edgeId]
+        }
+        onEdgePathsChangeRef.current?.(
+          pruneEdgePaths(next, flowEdgeIdsRef.current),
+        )
+      },
+      setEdgeSide: (edgeId, end, side) => {
+        const next = { ...edgePathsRef.current }
+        const entry = applyEdgeSide(next[edgeId], end, side)
+        if (entry) next[edgeId] = entry
+        else delete next[edgeId]
         onEdgePathsChangeRef.current?.(
           pruneEdgePaths(next, flowEdgeIdsRef.current),
         )
@@ -481,17 +505,27 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   )
 
   // Derive display edges: inject `active` flag + stored manual waypoints.
+  // A stored side swap rewrites the handle id to the table's alternate-side
+  // handle (`@left` source / `@right` target — see TableNode), which moves the
+  // endpoint AND flips sourcePosition/targetPosition for routing + markers.
   const displayEdges = useMemo(
     () =>
-      edges.map((e) => ({
-        ...e,
-        data: {
-          ...e.data,
-          active: activeEdgeIds.has(e.id),
-          waypoints: edgePaths?.[e.id]?.waypoints,
-          isEdgeSelected: e.id === selectedEdgeId,
-        },
-      })),
+      edges.map((e) => {
+        const stored = edgePaths?.[e.id]
+        const swapSource = stored?.sourceSide === 'left' && e.sourceHandle
+        const swapTarget = stored?.targetSide === 'right' && e.targetHandle
+        return {
+          ...e,
+          ...(swapSource && { sourceHandle: `${e.sourceHandle}@left` }),
+          ...(swapTarget && { targetHandle: `${e.targetHandle}@right` }),
+          data: {
+            ...e.data,
+            active: activeEdgeIds.has(e.id),
+            waypoints: stored?.waypoints,
+            isEdgeSelected: e.id === selectedEdgeId,
+          },
+        }
+      }),
     [edges, activeEdgeIds, edgePaths, selectedEdgeId],
   )
 
@@ -612,21 +646,22 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     >
       <HelperLines vertical={helperLines.vertical} horizontal={helperLines.horizontal} />
 
-      {/* Two-layer Background: minor 24px grid + major 120px grid.
+      {/* Two-layer Background — 모눈종이 (graph paper): fine 16px minor grid
+          with a bolder line every 5 cells (80px), dbdiagram-style.
           Unique ids are REQUIRED — React Flow v12 derives the SVG <pattern>
           id from the Background id; without distinct ids both layers share
           one pattern and the second overwrites the first (minor grid lost). */}
       <Background
         id="erd-grid-minor"
         variant={BackgroundVariant.Lines}
-        gap={24}
+        gap={16}
         color="var(--erd-grid)"
         style={{ opacity: 1 }}
       />
       <Background
         id="erd-grid-major"
         variant={BackgroundVariant.Lines}
-        gap={120}
+        gap={80}
         color="var(--erd-grid-strong)"
         style={{ opacity: 1 }}
       />
