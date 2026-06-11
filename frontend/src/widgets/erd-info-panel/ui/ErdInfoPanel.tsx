@@ -1,5 +1,9 @@
+import { useState } from 'react'
+import { Plus } from 'lucide-react'
 import type { DbmlSchema } from '@/entities/dbml'
 import { deriveDisplayGroups } from '@/entities/erd'
+import type { GroupOpHandlers } from '../model/types'
+import { GroupSection } from './GroupSection'
 
 export interface ErdInfoPanelProps {
   schema: DbmlSchema | undefined
@@ -9,10 +13,20 @@ export interface ErdInfoPanelProps {
   onSelect: (tableName: string) => void
   /** DBML Project database_type value, when available. */
   dialect?: string
+  /** Group mutation callbacks. When omitted, renders in read-only mode. */
+  groupOps?: GroupOpHandlers
+  /** While false, mutation triggers are disabled. Defaults to true. */
+  mutationsEnabled?: boolean
 }
 
 /** Shared `panel-head` header row (44px, `--erd-border` bottom). */
-function PanelHead({ label }: { label: string }) {
+function PanelHead({
+  label,
+  actions,
+}: {
+  label: string
+  actions?: React.ReactNode
+}) {
   return (
     <div
       style={{
@@ -32,10 +46,12 @@ function PanelHead({ label }: { label: string }) {
           letterSpacing: '.04em',
           textTransform: 'uppercase' as const,
           color: 'var(--erd-text-2)',
+          flex: 1,
         }}
       >
         {label}
       </span>
+      {actions}
     </div>
   )
 }
@@ -47,7 +63,14 @@ function PanelHead({ label }: { label: string }) {
  * widgets layer: composes entities/erd (deriveDisplayGroups) + entities/dbml
  * types; no upward feature imports.
  */
-export function ErdInfoPanel({ schema, selected, onSelect, dialect }: ErdInfoPanelProps) {
+export function ErdInfoPanel({
+  schema,
+  selected,
+  onSelect,
+  dialect,
+  groupOps,
+  mutationsEnabled = true,
+}: ErdInfoPanelProps) {
   // Stat cells — safe to 0 when schema is undefined.
   const tables = schema?.tables.length ?? 0
   const refs = schema?.refs.length ?? 0
@@ -66,6 +89,45 @@ export function ErdInfoPanel({ schema, selected, onSelect, dialect }: ErdInfoPan
   ]
 
   const displayGroups = schema ? deriveDisplayGroups(schema) : []
+
+  // Collapse state: set of group keys that are collapsed
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
+  // Create group inline input state
+  const [creating, setCreating] = useState(false)
+  const [createValue, setCreateValue] = useState('')
+  const [createError, setCreateError] = useState(false)
+
+  // Named group names for Move-to targets
+  const groupNames = displayGroups
+    .filter((g) => g.key !== '__ungrouped')
+    .map((g) => g.label)
+
+  function toggleCollapse(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
+  function commitCreate() {
+    const trimmed = createValue.trim()
+    if (!trimmed) return
+    const isDuplicate = schema?.tableGroups.some((g) => g.name === trimmed)
+    if (isDuplicate) {
+      setCreateError(true)
+      return
+    }
+    groupOps?.onCreateGroup(trimmed)
+    setCreating(false)
+    setCreateValue('')
+    setCreateError(false)
+  }
 
   return (
     <div
@@ -126,11 +188,85 @@ export function ErdInfoPanel({ schema, selected, onSelect, dialect }: ErdInfoPan
       </div>
 
       {/* ── Table names ───────────────────────────── */}
-      <PanelHead label="Table names" />
+      <PanelHead
+        label="Table names"
+        actions={
+          groupOps ? (
+            <button
+              data-testid="group-create-button"
+              disabled={!mutationsEnabled}
+              title={mutationsEnabled ? 'New group' : 'Fix DBML errors first'}
+              onClick={() => {
+                setCreating(true)
+                setCreateValue('')
+                setCreateError(false)
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 4,
+                cursor: mutationsEnabled ? 'pointer' : 'not-allowed',
+                color: 'var(--erd-text-3)',
+                display: 'flex',
+                alignItems: 'center',
+                borderRadius: 4,
+              }}
+              aria-label="New group"
+            >
+              <Plus size={14} />
+            </button>
+          ) : undefined
+        }
+      />
 
       {/* Scrollable list */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {displayGroups.length === 0 && (
+        {/* Inline create input row */}
+        {creating && (
+          <div style={{ padding: '8px 14px' }}>
+            <input
+              data-testid="group-create-input"
+              value={createValue}
+              autoFocus
+              placeholder="Group name…"
+              onChange={(e) => {
+                setCreateValue(e.target.value)
+                setCreateError(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commitCreate()
+                } else if (e.key === 'Escape') {
+                  setCreating(false)
+                  setCreateValue('')
+                  setCreateError(false)
+                }
+              }}
+              style={{
+                width: '100%',
+                fontSize: 12,
+                fontFamily: 'var(--font-mono, ui-monospace)',
+                background: 'var(--erd-surface)',
+                border: '1px solid var(--erd-border)',
+                borderRadius: 4,
+                padding: '4px 8px',
+                color: 'inherit',
+                boxSizing: 'border-box' as const,
+              }}
+            />
+            {createError && (
+              <div
+                data-testid="group-create-error"
+                style={{ fontSize: 11, color: 'var(--erd-error)', marginTop: 4 }}
+              >
+                A group with that name already exists.
+              </div>
+            )}
+          </div>
+        )}
+
+        {displayGroups.length === 0 && !creating && (
           <div
             style={{ padding: '16px 14px', fontSize: 12, color: 'var(--erd-text-3)' }}
           >
@@ -139,118 +275,17 @@ export function ErdInfoPanel({ schema, selected, onSelect, dialect }: ErdInfoPan
         )}
 
         {displayGroups.map((group) => (
-          <div key={group.key}>
-            {/* Section label: glyph in group color + label, 10px uppercase 600 */}
-            <div
-              style={{
-                padding: '14px 14px 5px',
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: '.08em',
-                textTransform: 'uppercase' as const,
-                color: 'var(--erd-text-3)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-              }}
-            >
-              <span
-                style={{
-                  color: group.color,
-                  fontFamily: 'var(--font-mono, ui-monospace)',
-                  fontSize: 10,
-                  opacity: 0.85,
-                }}
-              >
-                {group.glyph}
-              </span>
-              {group.label}
-            </div>
-
-            {/* Table rows */}
-            {group.tables.map((table) => {
-              const isSelected = selected === table.name
-              return (
-                <div
-                  key={table.id}
-                  role="button"
-                  tabIndex={0}
-                  data-testid={`tablelist-row-${table.name}`}
-                  onClick={() => onSelect(table.name)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      onSelect(table.name)
-                    }
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '8px 14px',
-                    cursor: 'pointer',
-                    borderRadius: 8,
-                    transition: 'background 80ms ease',
-                    background: isSelected
-                      ? 'var(--erd-accent-soft)'
-                      : undefined,
-                    fontSize: 13,
-                  }}
-                  className={isSelected ? 'tlist-item-selected' : 'tlist-item'}
-                  onMouseEnter={(e) => {
-                    if (!isSelected) {
-                      ;(e.currentTarget as HTMLDivElement).style.background =
-                        'var(--erd-hover)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    ;(e.currentTarget as HTMLDivElement).style.background = isSelected
-                      ? 'var(--erd-accent-soft)'
-                      : ''
-                  }}
-                >
-                  {/* Glyph in group color */}
-                  <span
-                    style={{
-                      color: group.color,
-                      fontFamily: 'var(--font-mono, ui-monospace)',
-                      fontSize: 11,
-                      width: 18,
-                      textAlign: 'center' as const,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {group.glyph}
-                  </span>
-
-                  {/* Table name mono 12.5px */}
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-mono, ui-monospace)',
-                      fontSize: 12.5,
-                      flex: 1,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap' as const,
-                    }}
-                  >
-                    {table.name}
-                  </span>
-
-                  {/* Field count in --erd-text-3 */}
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--erd-text-3)',
-                      fontFamily: 'var(--font-mono, ui-monospace)',
-                    }}
-                  >
-                    {table.columns.length}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
+          <GroupSection
+            key={group.key}
+            group={group}
+            groupNames={groupNames}
+            selected={selected}
+            onSelect={onSelect}
+            collapsed={collapsed.has(group.key)}
+            onToggleCollapse={() => toggleCollapse(group.key)}
+            groupOps={groupOps}
+            mutationsEnabled={mutationsEnabled}
+          />
         ))}
       </div>
     </div>

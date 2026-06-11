@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ErdInfoPanel } from './ErdInfoPanel'
 import type { DbmlSchema } from '@/entities/dbml'
@@ -182,5 +182,45 @@ describe('ErdInfoPanel — accessibility', () => {
     )
     const row = screen.getByTestId('tablelist-row-users')
     expect(row).toHaveAttribute('tabindex', '0')
+  })
+})
+
+describe('ErdInfoPanel — create group', () => {
+  const handlers = {
+    onCreateGroup: vi.fn(), onRenameGroup: vi.fn(), onDeleteGroup: vi.fn(),
+    onSetGroupColor: vi.fn(), onMoveTable: vi.fn(),
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('+ button reveals an inline input; Enter commits a valid name', () => {
+    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} groupOps={handlers} mutationsEnabled />)
+    fireEvent.click(screen.getByTestId('group-create-button'))
+    const input = screen.getByTestId('group-create-input')
+    fireEvent.change(input, { target: { value: 'auth' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(handlers.onCreateGroup).toHaveBeenCalledWith('auth')
+  })
+
+  it('duplicate name shows an inline error and does not call back', () => {
+    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} groupOps={handlers} mutationsEnabled />)
+    fireEvent.click(screen.getByTestId('group-create-button'))
+    const input = screen.getByTestId('group-create-input')
+    fireEvent.change(input, { target: { value: 'core' } }) // baseSchema의 기존 그룹명
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getByTestId('group-create-error')).toBeTruthy()
+    expect(handlers.onCreateGroup).not.toHaveBeenCalledWith('core')
+  })
+
+  it('+ button is disabled while mutations are disabled', () => {
+    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} groupOps={handlers} mutationsEnabled={false} />)
+    expect((screen.getByTestId('group-create-button') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('renders no + button without groupOps (read-only mode)', () => {
+    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
+    expect(screen.queryByTestId('group-create-button')).toBeNull()
   })
 })
