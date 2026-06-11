@@ -51,7 +51,7 @@ function CoordInput({
     setDraft(String(value))
   }, [value])
   function commit() {
-    const n = Math.round(Number(draft))
+    const n = draft.trim() === '' ? NaN : Math.round(Number(draft))
     if (Number.isFinite(n) && n !== value) onCommit(n)
     else setDraft(String(value))
   }
@@ -154,6 +154,8 @@ export function SelectionSection({
         <div style={{ fontSize: 11, color: 'var(--erd-text-3)' }}>No bends</div>
       ) : (
         info.waypoints.map((p, i) => (
+          // key={i}: 꺾임점 병합으로 리스트가 줄면 살아남은 행이 새 vertex 값으로 리싱크된다
+          // (커밋 시점에만 병합이 일어나므로 입력 중 충돌은 없다) — 좌표 기반 key는 중복 좌표에서 깨져 의도적으로 회피.
           <div key={i} style={rowStyle}>
             <span style={{ ...labelStyle, width: 18 }}>#{i + 1}</span>
             <CoordInput

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { NodeSelectionInfo, EdgeSelectionInfo } from '@/entities/erd'
 import { SelectionSection } from './SelectionSection'
 
-const nodeInfo = {
+// SelectionInfo 멤버 타입으로 주석해 테스트 경계에서 타입 드리프트를 잡는다.
+const nodeInfo: NodeSelectionInfo = {
   kind: 'node' as const,
   nodeId: 'public.users',
   nodeType: 'table' as const,
@@ -11,7 +13,7 @@ const nodeInfo = {
   x: 320,
   y: 80,
 }
-const edgeInfo = {
+const edgeInfo: EdgeSelectionInfo = {
   kind: 'edge' as const,
   edgeId: 'public.posts.(user_id)>public.users.(id)#0',
   label: 'posts.user_id → users.id',
@@ -37,6 +39,42 @@ describe('SelectionSection — node', () => {
     await user.clear(x)
     await user.type(x, '600{Enter}')
     expect(onEditNodePosition).toHaveBeenCalledWith('public.users', { x: 600, y: 80 })
+  })
+
+  it('blank input reverts on Enter instead of committing 0', async () => {
+    const onEditNodePosition = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SelectionSection
+        info={nodeInfo}
+        onEditNodePosition={onEditNodePosition}
+        onEditEdgeWaypoint={vi.fn()}
+        onResetEdgePath={vi.fn()}
+      />,
+    )
+    const x = screen.getByTestId('sel-x')
+    await user.clear(x)
+    await user.type(x, '{Enter}')
+    expect(onEditNodePosition).not.toHaveBeenCalled()
+    expect(x).toHaveValue('320')
+  })
+
+  it('non-numeric input reverts on Enter', async () => {
+    const onEditNodePosition = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SelectionSection
+        info={nodeInfo}
+        onEditNodePosition={onEditNodePosition}
+        onEditEdgeWaypoint={vi.fn()}
+        onResetEdgePath={vi.fn()}
+      />,
+    )
+    const x = screen.getByTestId('sel-x')
+    await user.clear(x)
+    await user.type(x, '12abc{Enter}')
+    expect(onEditNodePosition).not.toHaveBeenCalled()
+    expect(x).toHaveValue('320')
   })
 })
 
@@ -87,5 +125,17 @@ describe('SelectionSection — edge', () => {
     )
     expect(screen.queryByTestId('edge-reset-panel')).toBeNull()
     expect(screen.getByText('Auto')).toBeInTheDocument()
+  })
+
+  it('shows "No bends" when the edge has no interior waypoints', () => {
+    render(
+      <SelectionSection
+        info={{ ...edgeInfo, waypoints: [] }}
+        onEditNodePosition={vi.fn()}
+        onEditEdgeWaypoint={vi.fn()}
+        onResetEdgePath={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('No bends')).toBeInTheDocument()
   })
 })
