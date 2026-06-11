@@ -234,3 +234,20 @@ describe('ErdCanvas drag-snap + helper lines', () => {
     expect(layout.version).toBe(1)
   })
 })
+
+describe('ErdCanvas manual edge paths — display wiring', () => {
+  it('injects stored waypoints into the matching edge data', () => {
+    const edgeId = 'public.posts.(user_id)>public.users.(id)#0'
+    render(
+      <ErdCanvas
+        schema={schema}
+        edgePaths={{ [edgeId]: { waypoints: [{ x: 50, y: 0 }, { x: 50, y: 100 }] } }}
+      />,
+    )
+    const props = (globalThis as Record<string, unknown>).__rfProps as {
+      edges: Array<{ id: string; data?: { waypoints?: Array<{ x: number; y: number }> } }>
+    }
+    const edge = props.edges.find((e) => e.id === edgeId)
+    expect(edge?.data?.waypoints).toEqual([{ x: 50, y: 0 }, { x: 50, y: 100 }])
+  })
+})

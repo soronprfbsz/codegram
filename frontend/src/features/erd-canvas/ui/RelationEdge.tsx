@@ -13,6 +13,7 @@ import {
   polylineToPath,
   type Rect,
 } from '../lib/routeOrthogonal'
+import { buildManualPath } from '@/entities/layout'
 
 export type RelationEdgeProps = EdgeProps & { data?: RelationEdgeData }
 
@@ -62,6 +63,8 @@ function markerPath(kind: MarkerKind, side: 'start' | 'end'): string {
  * Stroke uses --erd-edge (1.5px) or --erd-accent (2px) when active. Crow-foot
  * cardinality markers set stroke via `style` (var() is invalid in SVG
  * presentation attributes). Enum-link edges are dashed, smoothstep, no markers.
+ * Edges carrying manual `data.waypoints` (ADR-0012) render from those stored
+ * points (bridged to the live endpoints) and skip A* routing entirely.
  * features layer: depends on shared + entities/erd + entities/dbml +
  * @xyflow/react (FSD downward imports).
  */
@@ -84,6 +87,7 @@ function RelationEdgeImpl({
   const nodeLookup = useStore((s) => s.nodeLookup)
 
   const isEnumLink = data?.isEnumLink ?? false
+  const manualWaypoints = data?.waypoints ?? null
 
   // Approach-lane index for this edge among the relation edges entering the SAME
   // target table, grouped by referenced PK (the source handle == the `${schema}.
@@ -121,10 +125,10 @@ function RelationEdgeImpl({
     borderRadius: 8,
   })
 
-  // Orthogonal route around the OTHER nodes. Null while dragging or for enum
-  // links (those stay smoothstep). Memoized so A* runs only when inputs change.
-  const orthoPath = useMemo(() => {
-    if (dragging || isEnumLink) return null
+  // Orthogonal route POINTS around the OTHER nodes. Null while dragging, for
+  // enum links, and for manual-path edges (those render from stored waypoints).
+  const orthoPoints = useMemo(() => {
+    if (dragging || isEnumLink || manualWaypoints) return null
     const obstacles: Rect[] = []
     for (const n of nodeLookup.values()) {
       if (n.id === source || n.id === target) continue
@@ -137,7 +141,7 @@ function RelationEdgeImpl({
         height: n.measured?.height ?? 80,
       })
     }
-    const points = routeOrthogonal(
+    return routeOrthogonal(
       { x: sourceX, y: sourceY },
       { x: targetX, y: targetY },
       sourcePosition === Position.Left ? 'left' : 'right',
@@ -146,10 +150,10 @@ function RelationEdgeImpl({
       undefined,
       laneIndex * LANE_GAP,
     )
-    return polylineToPath(points)
   }, [
     dragging,
     isEnumLink,
+    manualWaypoints,
     nodeLookup,
     source,
     target,
@@ -161,6 +165,18 @@ function RelationEdgeImpl({
     targetPosition,
     laneIndex,
   ])
+
+  // Manual path: stored waypoints + live endpoints, bridged to stay orthogonal.
+  // Cheap (no A*), so it does NOT fall back to smoothstep during node drags —
+  // the waypoints stay put and only the end segments stretch (dbdiagram 실측).
+  const manualPoints = useMemo(() => {
+    if (!manualWaypoints || isEnumLink) return null
+    return buildManualPath(
+      { x: sourceX, y: sourceY },
+      { x: targetX, y: targetY },
+      manualWaypoints,
+    )
+  }, [manualWaypoints, isEnumLink, sourceX, sourceY, targetX, targetY])
 
   const isActive = data?.active ?? false
   // SVG presentation ATTRIBUTES (stroke="...") do NOT support var() — only CSS
@@ -187,7 +203,8 @@ function RelationEdgeImpl({
   const relation = data?.relation ?? '1-n'
   const startKind = startMarkerKind(relation)
   const endKind = endMarkerKind(relation)
-  const edgePath = orthoPath ?? smoothPath
+  const routedPoints = manualPoints ?? orthoPoints
+  const edgePath = routedPoints ? polylineToPath(routedPoints) : smoothPath
   // The edge id contains '(', ')', '>', '#' (e.g. `public.a.(bid)>public.b.(id)#0`).
   // A ')' inside `url(#…)` closes the reference early, so the markers never apply
   // — sanitize the id to [A-Za-z0-9_-] for the marker id + its url() reference.

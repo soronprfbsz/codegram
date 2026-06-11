@@ -7,7 +7,7 @@
  * entities layer: imports only TYPES from @xyflow/react + entities/dbml types.
  * No JSX, no hooks, no side effects (FSD downward imports).
  */
-import type { Node, Edge } from '@xyflow/react'
+import type { Node, Edge, XYPosition } from '@xyflow/react'
 import type { DbmlRelation } from '@/entities/dbml'
 
 /** Discriminator for the four custom React Flow node kinds. */
@@ -92,6 +92,10 @@ export interface RelationEdgeData {
   isEnumLink?: boolean
   /** Set by Phase 5 selection state: renders accent stroke + width 2. */
   active?: boolean
+  /** Manual path interior waypoints (ADR-0012). Present = skip auto routing. */
+  waypoints?: XYPosition[]
+  /** True when this edge is the current canvas selection (handles + reset UI). */
+  isEdgeSelected?: boolean
   [key: string]: unknown
 }
 

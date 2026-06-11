@@ -21,6 +21,7 @@ import {
   nodesToLayout,
   type LayoutPositions,
   type StoredLayout,
+  type EdgePaths,
 } from '@/entities/layout'
 import { getHelperLines } from '../lib/helperLines'
 import { TableNode } from './TableNode'
@@ -35,6 +36,8 @@ export interface ErdCanvasProps {
   schema?: DbmlSchema
   /** Persisted positions to reconcile in (project.layout.positions). */
   savedPositions?: LayoutPositions
+  /** Manual edge paths to render (project.layout.edges). */
+  edgePaths?: EdgePaths
   /** Fired on drag-stop (and Auto-arrange) with the FULL layout to persist. */
   onLayoutChange?: (layout: StoredLayout) => void
   /**
@@ -246,7 +249,7 @@ function ZoomBar() {
   )
 }
 
-function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady, containerRef, selected, onSelectNode }: ErdCanvasInnerProps) {
+function ErdCanvasInner({ schema, savedPositions, edgePaths, onLayoutChange, onCaptureReady, containerRef, selected, onSelectNode }: ErdCanvasInnerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [helperLines, setHelperLines] = useState<{ vertical?: number; horizontal?: number }>({})
   useEffect(() => {
@@ -359,14 +362,18 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
     [nodes, selected, highlightColIds],
   )
 
-  // Derive display edges: inject `active` flag.
+  // Derive display edges: inject `active` flag + stored manual waypoints.
   const displayEdges = useMemo(
     () =>
       edges.map((e) => ({
         ...e,
-        data: { ...e.data, active: activeEdgeIds.has(e.id) },
+        data: {
+          ...e.data,
+          active: activeEdgeIds.has(e.id),
+          waypoints: edgePaths?.[e.id]?.waypoints,
+        },
       })),
-    [edges, activeEdgeIds],
+    [edges, activeEdgeIds, edgePaths],
   )
 
   // Secondary button style (spec: --erd-surface bg, 1px --erd-border-2, radius 8)
@@ -501,7 +508,7 @@ function ErdCanvasInner({ schema, savedPositions, onLayoutChange, onCaptureReady
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-export function ErdCanvas({ schema, savedPositions, onLayoutChange, onCaptureReady, selected, onSelectNode }: ErdCanvasProps) {
+export function ErdCanvas({ schema, savedPositions, edgePaths, onLayoutChange, onCaptureReady, selected, onSelectNode }: ErdCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
@@ -540,6 +547,7 @@ export function ErdCanvas({ schema, savedPositions, onLayoutChange, onCaptureRea
         <ErdCanvasInner
           schema={schema}
           savedPositions={savedPositions}
+          edgePaths={edgePaths}
           onLayoutChange={onLayoutChange}
           onCaptureReady={onCaptureReady}
           containerRef={rootRef}
