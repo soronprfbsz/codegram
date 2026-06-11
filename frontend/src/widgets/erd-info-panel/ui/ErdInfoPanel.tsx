@@ -2,21 +2,28 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import type { DbmlSchema } from '@/entities/dbml'
 import { deriveDisplayGroups } from '@/entities/erd'
+import type { SelectionInfo } from '@/entities/erd'
 import type { GroupOpHandlers } from '../model/types'
 import { GroupSection } from './GroupSection'
+import { SelectionSection } from './SelectionSection'
 
 export interface ErdInfoPanelProps {
   schema: DbmlSchema | undefined
   /** Name of the currently selected table (for row highlight). */
   selected: string | null
-  /** Called when a table row is clicked. */
-  onSelect: (tableName: string) => void
+  /** Called when a table row is clicked, with the schema-qualified table id. */
+  onSelect: (tableId: string) => void
   /** DBML Project database_type value, when available. */
   dialect?: string
   /** Group mutation callbacks. When omitted, renders in read-only mode. */
   groupOps?: GroupOpHandlers
   /** While false, mutation triggers are disabled. Defaults to true. */
   mutationsEnabled?: boolean
+  /** 캔버스가 보고한 현재 선택의 좌표 정보. 있으면 최상단에 Selection 섹션 표시. */
+  selectionInfo?: SelectionInfo | null
+  onEditNodePosition?: (nodeId: string, pos: { x: number; y: number }) => void
+  onEditEdgeWaypoint?: (edgeId: string, vertexIndex: number, axis: 'x' | 'y', value: number) => void
+  onResetEdgePath?: (edgeId: string) => void
 }
 
 /** Shared `panel-head` header row (44px, `--erd-border` bottom). */
@@ -70,6 +77,10 @@ export function ErdInfoPanel({
   dialect,
   groupOps,
   mutationsEnabled = true,
+  selectionInfo,
+  onEditNodePosition,
+  onEditEdgeWaypoint,
+  onResetEdgePath,
 }: ErdInfoPanelProps) {
   // Stat cells — safe to 0 when schema is undefined.
   const tables = schema?.tables.length ?? 0
@@ -138,6 +149,19 @@ export function ErdInfoPanel({
         height: '100%',
       }}
     >
+      {/* ── Selection (Q4 #3: 최상단, 선택 시에만) ─────────────── */}
+      {selectionInfo && onEditNodePosition && onEditEdgeWaypoint && onResetEdgePath && (
+        <>
+          <PanelHead label="Selection" />
+          <SelectionSection
+            info={selectionInfo}
+            onEditNodePosition={onEditNodePosition}
+            onEditEdgeWaypoint={onEditEdgeWaypoint}
+            onResetEdgePath={onResetEdgePath}
+          />
+        </>
+      )}
+
       {/* ── Schema summary ─────────────────────────── */}
       <PanelHead label="Schema summary" />
       <div style={{ padding: 14, flexShrink: 0 }}>

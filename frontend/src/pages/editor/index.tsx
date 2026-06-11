@@ -181,7 +181,6 @@ export function EditorPage() {
 
   // 단일 선택 모델: 노드(테이블/Enum/스티키) 또는 엣지 하나만 선택된다.
   const [selection, setSelection] = useState<CanvasSelection>(null)
-  // consumed by SelectionSection (Task 7)
   const [selectionInfo, setSelectionInfo] = useState<SelectionInfo | null>(null)
   // 레거시 이름 기반 파생값 — DbmlEditor 스크롤 + 패널 리스트 하이라이트용.
   const selected =
@@ -189,13 +188,9 @@ export function EditorPage() {
       ? selection.tableName ?? null
       : null
 
-  // 패널의 Table names 리스트는 이름으로 선택한다 → 노드 선택으로 변환.
-  // FIXME(task7): name-only find collides when two schemas share a table name —
-  // the resolved nodeId may point at the wrong schema's node. Inert while only
-  // name-based highlights consume it, but panel coord editing keys off nodeId;
-  // fix by having the panel row pass the schema-qualified table id.
-  function selectTableByName(name: string) {
-    const t = schema?.tables.find((tb) => tb.name === name)
+  // 패널의 Table names 리스트는 schema-qualified table id로 선택한다 → 노드 선택으로 변환.
+  function selectTableById(tableId: string) {
+    const t = schema?.tables.find((tb) => tb.id === tableId)
     setSelection(
       t ? { kind: 'node', nodeId: t.id, nodeType: 'table', tableName: t.name } : null,
     )
@@ -406,10 +401,20 @@ export function EditorPage() {
             <ErdInfoPanel
               schema={schema}
               selected={selected}
-              onSelect={selectTableByName}
+              onSelect={selectTableById}
               dialect={dialect}
               groupOps={groupOps}
               mutationsEnabled={mutationsEnabled}
+              selectionInfo={selectionInfo}
+              onEditNodePosition={(nodeId, pos) =>
+                captureHandleRef.current?.setNodePositionAbs(nodeId, pos)
+              }
+              onEditEdgeWaypoint={(edgeId, i, axis, v) =>
+                captureHandleRef.current?.setEdgeWaypoint(edgeId, i, axis, v)
+              }
+              onResetEdgePath={(edgeId) =>
+                captureHandleRef.current?.resetEdgePath(edgeId)
+              }
             />
           </div>
         </div>

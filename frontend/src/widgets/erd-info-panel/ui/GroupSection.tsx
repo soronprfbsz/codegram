@@ -21,7 +21,7 @@ export interface GroupSectionProps {
   /** 모든 명명 그룹 이름 (Move to 대상 목록). */
   groupNames: string[]
   selected: string | null
-  onSelect: (tableName: string) => void
+  onSelect: (tableId: string) => void
   collapsed: boolean
   onToggleCollapse: () => void
   groupOps?: GroupOpHandlers
@@ -236,11 +236,11 @@ export function GroupSection({
             role="button"
             tabIndex={0}
             data-testid={`tablelist-row-${table.name}`}
-            onClick={() => onSelect(table.name)}
+            onClick={() => onSelect(table.id)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
-                onSelect(table.name)
+                onSelect(table.id)
               }
             }}
             style={{

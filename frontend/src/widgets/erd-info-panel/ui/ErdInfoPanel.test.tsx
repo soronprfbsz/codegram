@@ -119,13 +119,13 @@ describe('ErdInfoPanel — table list rendering', () => {
 })
 
 describe('ErdInfoPanel — selection', () => {
-  it('clicking a row calls onSelect with the table name', () => {
+  it('clicking a row calls onSelect with the schema-qualified table id', () => {
     const onSelect = vi.fn()
     render(
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={onSelect} />,
     )
     fireEvent.click(screen.getByTestId('tablelist-row-users'))
-    expect(onSelect).toHaveBeenCalledWith('users')
+    expect(onSelect).toHaveBeenCalledWith('public.users')
   })
 
   it('pressing Enter on a row calls onSelect', () => {
@@ -134,7 +134,7 @@ describe('ErdInfoPanel — selection', () => {
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={onSelect} />,
     )
     fireEvent.keyDown(screen.getByTestId('tablelist-row-posts'), { key: 'Enter' })
-    expect(onSelect).toHaveBeenCalledWith('posts')
+    expect(onSelect).toHaveBeenCalledWith('public.posts')
   })
 
   it('pressing Space on a row calls onSelect', () => {
@@ -143,7 +143,7 @@ describe('ErdInfoPanel — selection', () => {
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={onSelect} />,
     )
     fireEvent.keyDown(screen.getByTestId('tablelist-row-posts'), { key: ' ' })
-    expect(onSelect).toHaveBeenCalledWith('posts')
+    expect(onSelect).toHaveBeenCalledWith('public.posts')
   })
 
   it('selected row gets the selected background class/style', () => {
