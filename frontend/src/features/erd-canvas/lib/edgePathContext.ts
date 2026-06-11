@@ -21,6 +21,7 @@ export interface EdgePathContextValue {
 
 const noop = () => {}
 
+// Noop default is intentional: isolated renders/tests run without a provider.
 export const EdgePathContext = createContext<EdgePathContextValue>({
   commitWaypoints: noop,
   resetPath: noop,

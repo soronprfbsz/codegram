@@ -200,7 +200,11 @@ function RelationEdgeImpl({
   // dragged. Geometry is computed from the path CAPTURED at pointerdown (not
   // the draft) so the dragged segment's index never shifts under the pointer.
   const [draftWaypoints, setDraftWaypoints] = useState<PathPoint[] | null>(null)
-  const dragStateRef = useRef<{ full: PathPoint[]; segmentIndex: number } | null>(null)
+  const dragStateRef = useRef<{
+    full: PathPoint[]
+    segmentIndex: number
+    draft?: PathPoint[]
+  } | null>(null)
 
   const draftPoints = useMemo(() => {
     if (!draftWaypoints) return null
@@ -236,16 +240,32 @@ function RelationEdgeImpl({
     const a = st.full[st.segmentIndex]
     const b = st.full[st.segmentIndex + 1]
     const horizontal = Math.abs(a.y - b.y) < 0.5
-    setDraftWaypoints(
-      dragSegment(st.full, st.segmentIndex, horizontal ? flowPos.y : flowPos.x),
+    const next = dragSegment(
+      st.full,
+      st.segmentIndex,
+      horizontal ? flowPos.y : flowPos.x,
     )
+    // Stash on the ref too: the pointerup commit reads st.draft directly, so
+    // correctness does not depend on React having flushed the state update.
+    st.draft = next
+    setDraftWaypoints(next)
   }
   function onHandlePointerUp() {
     const st = dragStateRef.current
     dragStateRef.current = null
-    if (st && draftWaypoints) {
-      ctx.commitWaypoints(id, draftWaypoints)
+    const committed = st?.draft ?? draftWaypoints
+    if (st && committed) {
+      ctx.commitWaypoints(id, committed)
     }
+    setDraftWaypoints(null)
+  }
+  // Aborted gestures (pointercancel: touch interruption, context menu, OS
+  // gesture) clear the drag WITHOUT committing. Also wired to
+  // lostpointercapture, which ALSO fires after a normal pointerup — safe,
+  // because pointerup runs FIRST: the commit already happened and
+  // dragStateRef is null, so this just re-clears nulls.
+  function onHandlePointerAbort() {
+    dragStateRef.current = null
     setDraftWaypoints(null)
   }
 
@@ -375,6 +395,8 @@ function RelationEdgeImpl({
                 onPointerDown={(e) => onHandlePointerDown(e, i)}
                 onPointerMove={onHandlePointerMove}
                 onPointerUp={onHandlePointerUp}
+                onPointerCancel={onHandlePointerAbort}
+                onLostPointerCapture={onHandlePointerAbort}
               />
             )
           })}
@@ -383,7 +405,7 @@ function RelationEdgeImpl({
       {isEdgeSelected && manualWaypoints && renderedPoints && (
         <EdgeLabelRenderer>
           {(() => {
-            const mid = renderedPoints[Math.floor(renderedPoints.length / 2)]
+            const midPoint = renderedPoints[Math.floor(renderedPoints.length / 2)]
             return (
               <button
                 data-testid="edge-reset"
@@ -391,7 +413,7 @@ function RelationEdgeImpl({
                 onClick={() => ctx.resetPath(id)}
                 style={{
                   position: 'absolute',
-                  transform: `translate(-50%, -50%) translate(${mid.x + 18}px, ${mid.y - 18}px)`,
+                  transform: `translate(-50%, -50%) translate(${midPoint.x + 18}px, ${midPoint.y - 18}px)`,
                   pointerEvents: 'all',
                   width: 26,
                   height: 26,
