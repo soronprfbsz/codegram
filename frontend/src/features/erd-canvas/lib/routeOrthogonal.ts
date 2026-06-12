@@ -9,8 +9,11 @@
  * are placed just outside every obstacle (±MARGIN) plus the endpoints' lines; A*
  * over the intersection grid (with a turn penalty to prefer few bends) finds the
  * shortest path whose segments avoid all obstacle interiors. The source/target
- * NODES must be excluded from `obstacles` by the caller so the stub segments can
- * leave/enter them.
+ * cards MAY be included in `obstacles` (the caller does this to stop routes from
+ * tunnelling THROUGH an endpoint card to reach an anchor on its far side): the
+ * step-out ports sit MARGIN outside the anchor, exactly on the inflated card
+ * border, and crossesObstacle treats grazing a border as allowed (strict
+ * interior test), so the stub segments still leave/enter the endpoint cards.
  *
  * features layer: no imports beyond local types. PURE, deterministic.
  */

@@ -142,13 +142,21 @@ function RelationEdgeImpl({
     borderRadius: 8,
   })
 
-  // Orthogonal route POINTS around the OTHER nodes. Null while dragging, for
-  // enum links, and for manual-path edges (those render from stored waypoints).
+  // Orthogonal route POINTS around the node rectangles. Null while dragging,
+  // for enum links, and for manual-path edges (those render from stored points).
+  // The SOURCE and TARGET cards are included as obstacles too: the step-out
+  // ports sit `margin` OUTSIDE the anchor (on the inflated card border), and
+  // crossesObstacle treats grazing the border as allowed (strict-interior
+  // test), so the stub still leaves/enters cleanly — but the router can no
+  // longer draw a segment straight THROUGH an endpoint card to reach an anchor
+  // on its far side. That "tunnel under the card" path (hidden by the HTML node
+  // layer that paints above the SVG edges) was the visible bug; routing around
+  // the card keeps the whole line visible. Edges whose endpoints face each
+  // other are unaffected — their L/Z path never enters either card interior.
   const orthoPoints = useMemo(() => {
     if (dragging || isEnumLink || manualWaypoints) return null
     const obstacles: Rect[] = []
     for (const n of nodeLookup.values()) {
-      if (n.id === source || n.id === target) continue
       if (n.type !== 'table' && n.type !== 'enum' && n.type !== 'sticky') continue
       const pos = n.internals.positionAbsolute
       obstacles.push({

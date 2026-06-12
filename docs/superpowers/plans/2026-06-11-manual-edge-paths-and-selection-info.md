@@ -2203,7 +2203,13 @@ git commit -m "test(e2e): manual edge path drag/persist/reset + selection coordi
 3. **고지 사항**: `pages/editor/index.test.tsx`가 `selected`/`onSelectNode`를 모킹하면 Task 4 Step 6에서 함께 갱신. `useNodesState`의 노드 타입(`ErdFlowNode`)과 `setNodes(next)` 호환은 기존 helper-lines 코드와 동일 패턴.
 ## 구현 후 알려진 제한 (v1 기록 — 차단 아님)
 
-- **HTML 노드 레이어가 SVG 엣지 장식을 가린다**: React Flow v12는 `EdgeRenderer → edgelabel-renderer → NodeRenderer` 순으로 그리므로, 세그먼트 핸들이나 플로팅 Reset 버튼의 위치가 테이블 카드와 겹치면 카드가 클릭을 가로챈다. 핸들은 경로 전체에 분포해 열린 구간에서 항상 잡을 수 있고, Reset은 패널의 `edge-reset-panel`이 완전한 대체 수단이라 v1 허용. 개선 옵션: Reset 버튼을 NodeRenderer 위 포털로 승격.
+- **HTML 노드 레이어가 SVG 엣지 *장식*을 가린다**: React Flow v12는 `EdgeRenderer → edgelabel-renderer → NodeRenderer` 순으로 그리므로, 세그먼트 핸들이나 플로팅 Reset/스왑 버튼의 위치가 테이블 카드와 겹치면 카드가 클릭을 가로챈다. 핸들은 경로 전체에 분포해 열린 구간에서 항상 잡을 수 있고, Reset은 패널의 `edge-reset-panel`이 완전한 대체 수단이라 v1 허용. 개선 옵션: Reset 버튼을 NodeRenderer 위 포털로 승격. (주의: 이것은 *장식 z-order* 문제이며, 아래의 *경로 터널링*과는 별개다 — 한때 메모리에 혼동되어 있었음.)
 - **Playwright 설정 빚 (기존)**: `playwright.config.ts`의 baseURL이 `:5173`인데 도커 스택은 `:4001` — 12개 스펙 전체가 공유하는 리포 차원의 문제. 중앙에서 한 번에 고칠 것.
+
+### 2026-06-12 후속 처리 (Finding 1·2)
+
+- **Finding 1 — `erd-redesign.spec.ts` 테이블 클릭 테스트가 main에서도 실패하던 건 = 테스트 버그**: `.cm-active-table` 데코레이션은 블록의 **모든 줄**(여는 줄 + 컬럼 + 닫는 `}`)에 붙어 5개 요소로 해석되는데, `expect(locator).toBeVisible()`은 단일 요소를 요구해 **strict-mode 위반**으로 죽었다(제품은 정상). `.first()` + `toContainText('Table users')`로 의도(올바른 블록 하이라이트)를 명시해 수정. 제품 코드 변경 없음.
+- **Finding 2 — routeOrthogonal 경로 터널링 = 수정함**: 자동 라우터가 source/target 카드를 장애물에서 제외해, 앵커가 카드 반대편을 향할 때(예: target이 source 뒤에 위치) 경로가 **카드 밑을 직선으로 통과**(노드 레이어가 위에서 덮어 보이지 않음)했다. 이제 caller(`RelationEdge`)가 두 끝점 카드도 장애물로 넘긴다 — step-out 포트는 카드 인플레이트 경계 위에 있고 `crossesObstacle`이 경계 그레이징을 허용하므로 stub은 그대로 진입/진출, A*만 카드를 관통하지 못한다. **서로 마주보는 정상 엣지는 영향 없음**(L/Z 경로가 카드 내부를 지나지 않음). 회귀 테스트: `routeOrthogonal.test.ts`의 "does not tunnel under an endpoint card". 사용자는 좌/우 스왑으로 짧은 경로를 선택할 수도 있다.
+- **신규 발견 — 끝점 stub 세그먼트 드래그는 커밋이 불안정 (기존 한계, v1 허용)**: 첫/마지막 세그먼트(끝점에 앵커된 16px step-out stub)를 드래그하면 `dragSegment`가 stub 모서리를 삽입하며 세그먼트를 재번호화 → 캡처된 핸들 요소가 사라져 pointer capture가 끊기고 수동 경로 커밋이 안 된다(실측: **중간 세그먼트는 정상 커밋**). Finding 2 수정으로 일부 레이아웃에서 stub 핸들이 가려지지 않게 되어 E2E가 이를 처음 노출 → `edge-path.spec.ts`의 `pickDraggableHandle`이 첫/마지막을 제외한 **중간 세그먼트**를 고르도록 수정. 제품 측 개선 옵션(후속): stub 드래그 시 드래그 상태를 세그먼트 인덱스가 아닌 안정 키로 추적하거나, 첫/마지막 세그먼트는 끝점 핸들 드래그로 별도 처리.
 
 4. **적대적 검증 반영 (4-리뷰어 워크플로, 19건 → 고유 14건 수정 완료)**: 기하 엔진은 14/14 기대값 기계 검증 통과(수정 불요). 반영된 수정 — `edgePathCtx` 선언 위치(TDZ), `onSelectionInfo` 외부 래퍼 명시 전달, 세그먼트 핸들 `pointerEvents: 'all'`(React Flow `visibleStroke` 상속 대응), E2E `getByText('Auto')` 스코프+exact, dbml autosave PATCH 레이스(initPatch 소진 + payload 검사 waiter), `useLayoutPersistence.test.tsx` 기존 파일 충돌(생성→수정 + exact-shape 단언 5+1곳 갱신), `ErdCaptureHandle` 확장에 따른 editor 테스트 목 3곳 갱신, wiring 테스트 교체 블록에 active/highlight 회귀 케이스 보존, 엣지 클릭을 `getPointAtLength` 중점 클릭 헬퍼로 교체, 가로 세그먼트 드래그 테스트 픽스처 교정, index.ts 멀티라인 anchor 주의, CONTEXT.md 스테이징 포함.

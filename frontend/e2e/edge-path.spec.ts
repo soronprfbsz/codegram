@@ -49,11 +49,14 @@ async function clickEdgeMidpoint(page: Page) {
 }
 
 /**
- * 드래그 가능한 세그먼트 핸들 하나를 화면 좌표 + 방향과 함께 고른다. 첫 번째
- * `edge-seg-0`는 이 레이아웃에서 source 카드(HTML 노드 레이어)에 가려 핸들
- * circle 대신 노드의 span이 잡힌다 — pointerdown이 핸들로 안 들어가 수동 경로가
- * 만들어지지 않는다(실측). 그래서 circle 중심에서 elementFromPoint가 자기 자신
- * (data-testid 일치)으로 해석되는 — 노드에 가리지 않은 — 핸들을 고른다.
+ * 드래그 가능한 INTERIOR 세그먼트 핸들 하나를 화면 좌표 + 방향과 함께 고른다.
+ * 두 가지를 피해야 한다:
+ *   (1) 노드 카드(HTML 레이어)에 가린 핸들 — pointerdown이 핸들로 안 들어간다.
+ *   (2) **양 끝의 step-out stub 세그먼트**(첫/마지막 세그먼트). 끝점에 앵커된
+ *       stub을 드래그하면 dragSegment가 stub 모서리를 삽입하며 세그먼트를
+ *       재번호화 → 캡처된 핸들 요소가 사라져 pointer capture가 끊기고 커밋이
+ *       안 된다(실측: 중간 세그먼트는 정상 커밋, stub은 커밋 실패 — 제품의
+ *       기존 한계). 그래서 첫/마지막을 제외한 가운데 세그먼트를 고른다.
  * orientation은 핸들의 data-orient(h/v) 속성으로 판정하고(커서는 이제 모든
  * 핸들이 pointer라 정보가 없다), 드래그는 세그먼트에 **수직**으로 줘야 경로가
  * 실제로 휜다.
@@ -64,21 +67,33 @@ async function pickDraggableHandle(
   const found = await page
     .locator('[data-testid^="edge-seg-"]')
     .evaluateAll((els) => {
-      for (const raw of els) {
-        const el = raw as SVGCircleElement
+      // 세그먼트 인덱스로 정렬해 첫/마지막(끝점 stub)을 식별한다.
+      const indexOf = (el: Element) =>
+        parseInt((el.getAttribute('data-testid') ?? '').replace('edge-seg-', ''), 10)
+      const sorted = [...els].sort((a, b) => indexOf(a) - indexOf(b))
+      const firstIdx = sorted.length ? indexOf(sorted[0]) : -1
+      const lastIdx = sorted.length ? indexOf(sorted[sorted.length - 1]) : -1
+      const screenOf = (el: SVGCircleElement) => {
         const ctm = el.getScreenCTM()
-        if (!ctm) continue
+        if (!ctm) return null
         const ucx = parseFloat(el.getAttribute('cx') ?? 'NaN')
         const ucy = parseFloat(el.getAttribute('cy') ?? 'NaN')
-        const sx = ctm.a * ucx + ctm.c * ucy + ctm.e
-        const sy = ctm.b * ucx + ctm.d * ucy + ctm.f
-        const hit = document.elementFromPoint(sx, sy)
-        if (
-          hit &&
-          hit.getAttribute('data-testid') === el.getAttribute('data-testid')
-        ) {
-          // 세그먼트 방향: data-orient h=수평 세그먼트, v=수직.
-          return { x: sx, y: sy, horizontal: el.getAttribute('data-orient') === 'h' }
+        return { x: ctm.a * ucx + ctm.c * ucy + ctm.e, y: ctm.b * ucx + ctm.d * ucy + ctm.f }
+      }
+      const unoccluded = (el: SVGCircleElement, s: { x: number; y: number }) => {
+        const hit = document.elementFromPoint(s.x, s.y)
+        return hit?.getAttribute('data-testid') === el.getAttribute('data-testid')
+      }
+      // 1순위: 가린 적 없는 INTERIOR(첫/마지막 제외) 세그먼트.
+      // 2순위(폴백): 가린 적 없는 아무 세그먼트(경로가 2-세그먼트뿐일 때).
+      for (const onlyInterior of [true, false]) {
+        for (const raw of sorted) {
+          const el = raw as SVGCircleElement
+          const idx = indexOf(el)
+          if (onlyInterior && (idx === firstIdx || idx === lastIdx)) continue
+          const s = screenOf(el)
+          if (!s || !unoccluded(el, s)) continue
+          return { x: s.x, y: s.y, horizontal: el.getAttribute('data-orient') === 'h' }
         }
       }
       return null

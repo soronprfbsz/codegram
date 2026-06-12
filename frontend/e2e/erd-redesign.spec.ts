@@ -125,9 +125,14 @@ test.describe('ERD redesign — 3-zone layout', () => {
     //    (ErdInfoPanel applies class "tlist-item-selected" when selected === table.name)
     await expect(usersRow).toHaveClass(/tlist-item-selected/)
 
-    // 2. The editor block for the users table gets highlighted
-    //    (useDbmlEditor scrolls to & applies .cm-active-table to the block)
-    await expect(page.locator('.cm-active-table')).toBeVisible()
+    // 2. The editor block for the users table gets highlighted.
+    //    The decoration tags EVERY line of the block (opening line + columns +
+    //    closing brace), so `.cm-active-table` resolves to multiple elements —
+    //    a bare `toBeVisible()` would trip Playwright strict mode. Scope to the
+    //    opening line and confirm it's the `users` block (not just any block).
+    const activeBlock = page.locator('.cm-active-table')
+    await expect(activeBlock.first()).toBeVisible()
+    await expect(activeBlock.first()).toContainText('Table users')
 
     // 3. The canvas shows the users node selected
     //    (react-flow node for users should be present; the node itself shows a

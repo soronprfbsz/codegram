@@ -89,6 +89,27 @@ describe('routeOrthogonal', () => {
     expect(lane2[lane2.length - 1]).toEqual(target)
   })
 
+  it('does not tunnel under an endpoint card when that card is an obstacle', () => {
+    // Regression: the source card's RIGHT-edge anchor with the target sitting
+    // BEHIND it (to the lower-left). When the endpoint cards are supplied as
+    // obstacles (the caller now does this), the route must detour AROUND the
+    // source card instead of running a segment straight through its interior —
+    // which the HTML node layer would paint over (invisible "tunnel").
+    const sourceCard: Rect = { x: 0, y: 0, width: 240, height: 80 }
+    const targetCard: Rect = { x: -400, y: 200, width: 240, height: 80 }
+    const source = { x: 240, y: 40 } // right edge of sourceCard
+    const target = { x: -160, y: 240 } // right edge of targetCard (swapped side)
+    const pts = routeOrthogonal(source, target, 'right', 'right', [
+      sourceCard,
+      targetCard,
+    ])
+    expect(pts[0]).toEqual(source)
+    expect(pts[pts.length - 1]).toEqual(target)
+    expect(isOrthogonal(pts)).toBe(true)
+    // The whole polyline stays out of BOTH endpoint card interiors.
+    expect(pathAvoids(pts, [sourceCard, targetCard])).toBe(true)
+  })
+
   it('polylineToPath builds an M/L svg path', () => {
     const d = polylineToPath([
       { x: 0, y: 0 },
