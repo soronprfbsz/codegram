@@ -312,3 +312,60 @@ test.describe('Manual edge paths', () => {
     ).toBeVisible()
   })
 })
+
+test('edges leaving the same PK fan onto separate horizontal corridors', async ({ page }) => {
+  const email = `fanout-${Date.now()}@example.com`
+  await registerAndLogin(page, email, 'password123')
+  const dbml = [
+    'Table customer {',
+    '  id BIGINT [pk]',
+    '}',
+    'Table a {',
+    '  id BIGINT [pk]',
+    '  customer_id BIGINT [ref: > customer.id]',
+    '}',
+    'Table b {',
+    '  id BIGINT [pk]',
+    '  customer_id BIGINT [ref: > customer.id]',
+    '}',
+  ].join('\n')
+  // Seed: customer on the left, a and b stacked on the right (same exit side).
+  const layout = {
+    version: 1,
+    positions: {
+      'public.customer': { x: 0, y: 0 },
+      'public.a': { x: 600, y: 0 },
+      'public.b': { x: 600, y: 300 },
+    },
+  }
+  const resp = await page.request.post('/api/projects', {
+    data: { name: 'Fanout', dbml_text: dbml, layout },
+  })
+  const { id } = await resp.json()
+  await page.goto(`/editor/${id}`)
+  await expect
+    .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })
+    .toBeGreaterThanOrEqual(2)
+  await page.waitForTimeout(800)
+
+  // Both edges leave customer.id. Collect, for each, the set of Y values on its
+  // long horizontal segments. The two edges must NOT share an identical single
+  // exit corridor — at least one must travel on a distinct (offset) Y.
+  const exitYs = await page.evaluate(() => {
+    const edges = Array.from(document.querySelectorAll('.react-flow__edge'))
+      .filter((g) => (g.getAttribute('data-id') ?? '').includes('public.customer.(id)'))
+    return edges.map((g) => {
+      const d = g.querySelector('.react-flow__edge-path')?.getAttribute('d') ?? ''
+      // Parse "M x y L x y L ..." → collect the Y of every point. Two edges that
+      // share one exit corridor would yield identical point-Y sequences; a fan
+      // pushes at least one edge onto a distinct Y row.
+      const nums = d.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []
+      const ys: number[] = []
+      for (let i = 1; i < nums.length; i += 2) ys.push(nums[i])
+      return ys
+    })
+  })
+  expect(exitYs.length).toBe(2)
+  // The two edges' point-Y sets must not be identical (they fan apart).
+  expect(JSON.stringify(exitYs[0])).not.toBe(JSON.stringify(exitYs[1]))
+})
