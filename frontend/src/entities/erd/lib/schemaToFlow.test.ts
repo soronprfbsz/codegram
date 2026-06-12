@@ -202,6 +202,7 @@ describe('schemaToFlow — table groups', () => {
     expect((groupNode.data as { color?: string }).color).toBe('#ffcc00')
     // 그룹 노드는 라벨(.erd-group-handle)로만 드래그된다.
     expect(groupNode!.dragHandle).toBe('.erd-group-handle')
+    expect(groupNode!.selectable).toBe(false)
 
     const users = nodes.find((n) => n.id === 'public.users')!
     const posts = nodes.find((n) => n.id === 'public.posts')!

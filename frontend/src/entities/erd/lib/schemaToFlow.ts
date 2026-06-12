@@ -191,6 +191,7 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
       type: 'group',
       position: { ...ZERO },
       dragHandle: '.erd-group-handle',
+      selectable: false,
       data,
     }
   })
