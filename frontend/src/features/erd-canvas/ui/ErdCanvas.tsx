@@ -31,12 +31,14 @@ import {
   pruneEdgePaths,
   applyEdgeSide,
   editVertexAxis,
+  arrangeGroupInPlace,
   type LayoutPositions,
   type StoredLayout,
   type EdgePaths,
   type PathPoint,
 } from '@/entities/layout'
 import { EdgePathContext, type EdgePathContextValue } from '../lib/edgePathContext'
+import { GroupActionContext, type GroupActionContextValue } from '../lib/groupActionContext'
 import { getHelperLines } from '../lib/helperLines'
 import { TableNode } from './TableNode'
 import { EnumNode } from './EnumNode'
@@ -399,6 +401,33 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     [],
   )
 
+  const groupActionCtx = useMemo<GroupActionContextValue>(
+    () => ({
+      onArrangeGroup: (groupId) => {
+        const current = nodesRef.current
+        const movedMemberIds = new Set(
+          current.filter((n) => n.parentId === groupId).map((n) => n.id),
+        )
+        if (movedMemberIds.size === 0) return
+        const next = arrangeGroupInPlace(current, groupId)
+        setNodes(next)
+        onLayoutChange?.(nodesToLayout(next))
+        // 이동 멤버에 닿는 엣지(한쪽 끝점이라도)의 수동 경로만 제거 (CONTEXT.md 수동경로 그룹별 예외).
+        const paths = edgePathsRef.current
+        const survivors: typeof paths = {}
+        let changed = false
+        for (const [edgeId, path] of Object.entries(paths)) {
+          const e = flow.edges.find((x) => x.id === edgeId)
+          const touches = e && (movedMemberIds.has(e.source) || movedMemberIds.has(e.target))
+          if (touches) changed = true
+          else survivors[edgeId] = path
+        }
+        if (changed) onEdgePathsChangeRef.current?.(pruneEdgePaths(survivors, flowEdgeIdsRef.current))
+      },
+    }),
+    [flow.edges, onLayoutChange, setNodes],
+  )
+
   const rf = useReactFlow()
   const { fitView } = rf
 
@@ -597,6 +626,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
 
   return (
     <EdgePathContext.Provider value={edgePathCtx}>
+    <GroupActionContext.Provider value={groupActionCtx}>
     <ReactFlow
       nodes={displayNodes}
       edges={displayEdges}
@@ -707,6 +737,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
         <ZoomBar />
       </Panel>
     </ReactFlow>
+    </GroupActionContext.Provider>
     </EdgePathContext.Provider>
   )
 }
