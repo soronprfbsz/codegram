@@ -293,6 +293,7 @@
   padding: 0;
   box-shadow: none;
   outline: none;
+  pointer-events: none; /* 그룹 영역 통과 — .erd-group-handle만 auto로 재활성 (요청 1) */
 }
 
 /* 그룹 라벨 크롬 hover 시에만 정렬 버튼 노출 (요청 2: 항상 노출 아님) */
