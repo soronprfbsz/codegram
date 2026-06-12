@@ -93,6 +93,7 @@ function RelationEdgeImpl({
   sourcePosition,
   targetPosition,
   sourceHandleId,
+  targetHandleId,
   data,
 }: RelationEdgeProps) {
   // nodeLookup (InternalNode map) carries `internals.positionAbsolute` — correct
@@ -123,6 +124,23 @@ function RelationEdgeImpl({
     }
     const myKey = sourceHandleId ?? source
     const idx = [...keys].sort().indexOf(myKey)
+    return idx < 0 ? 0 : idx
+  })
+  // Source fan-out lane: index of THIS edge among the relation edges LEAVING the
+  // SAME source handle (the PK column), ordered by target handle. Edges sharing
+  // a source PK otherwise leave on one shared corridor (the PK's exit row) and
+  // overlap into a single line; a distinct lane per edge fans them apart.
+  const sourceLaneIndex = useStore((s) => {
+    if (isEnumLink) return 0
+    const myKey = sourceHandleId ?? source
+    const targets: string[] = []
+    for (const e of s.edges) {
+      if ((e.data as { isEnumLink?: boolean } | undefined)?.isEnumLink) continue
+      if ((e.sourceHandle ?? e.source) !== myKey) continue
+      targets.push(e.targetHandle ?? e.target)
+    }
+    const myTarget = targetHandleId ?? target
+    const idx = [...new Set(targets)].sort().indexOf(myTarget)
     return idx < 0 ? 0 : idx
   })
   // Skip the (expensive) re-route while any node is being dragged — the layout
@@ -174,6 +192,7 @@ function RelationEdgeImpl({
       obstacles,
       undefined,
       laneIndex * LANE_GAP,
+      sourceLaneIndex * LANE_GAP,
     )
   }, [
     dragging,
@@ -189,6 +208,7 @@ function RelationEdgeImpl({
     sourcePosition,
     targetPosition,
     laneIndex,
+    sourceLaneIndex,
   ])
 
   // Manual path: stored waypoints + live endpoints, bridged to stay orthogonal.
