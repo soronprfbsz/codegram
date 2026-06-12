@@ -267,6 +267,13 @@
   cursor: default !important;
 }
 
+/* 캔버스 패닝은 휠 클릭 전용(panOnDrag={[1]}) — 좌클릭으로 끄는 펼친손(grab/
+   grabbing) 커서를 없애 평소 기본 커서를 유지한다. React Flow base.css가
+   .react-flow__pane 에 grab을 주므로 !important로 덮는다. */
+.react-flow__pane {
+  cursor: default !important;
+}
+
 /* DBML editor: active-table block highlight (Phase 5) */
 .cm-active-table {
   background: var(--erd-accent-soft) !important;

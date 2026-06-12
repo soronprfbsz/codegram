@@ -695,6 +695,11 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
       onPaneClick={() => onSelect?.(null)}
       nodesConnectable={false}
       deleteKeyCode={null}
+      // 캔버스 이동은 휠(가운데) 클릭 드래그로만. 좌클릭 드래그는 패닝에서 제외해
+      // 선 이동·세그먼트 핸들·Reset/스왑 버튼 클릭을 가로채지 않게 한다. (panOnDrag
+      // 의 숫자 배열 = 패닝을 시작하는 마우스 버튼: 0=좌, 1=가운데, 2=우 → [1] 만.)
+      panOnDrag={[1]}
+      selectionOnDrag={false}
       fitView
       minZoom={0.2}
       proOptions={{ hideAttribution: true }}
