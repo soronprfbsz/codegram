@@ -39,7 +39,7 @@ describe('autoLayout', () => {
     const out = autoLayout(nodes, edges)
     const users = out.find((n) => n.id === 'public.users')!
     const posts = out.find((n) => n.id === 'public.posts')!
-    // Distinct positions (dagre separated them along the rank axis).
+    // Distinct positions (gridLayout packs them into separate cells).
     expect(users.position).not.toEqual(posts.position)
   })
 
@@ -140,7 +140,7 @@ describe('autoLayout', () => {
     expect(xs.size).toBeGreaterThan(1) // more than one column (not a single vertical stack)
   })
 
-  it('still uses dagre compound clustering when groups are present', () => {
+  it('clusters group members and sizes the group node when groups are present', () => {
     const nodes = [groupNode('group:core'), tableNode('public.a', 'group:core'), tableNode('public.b', 'group:core')]
     const out = autoLayout(nodes, [])
     expect(out.find((n) => n.id === 'group:core')!.style?.width).toBeTruthy()
