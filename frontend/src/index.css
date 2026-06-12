@@ -294,3 +294,8 @@
   box-shadow: none;
   outline: none;
 }
+
+/* 그룹 라벨 크롬 hover 시에만 정렬 버튼 노출 (요청 2: 항상 노출 아님) */
+.erd-group-handle:hover .erd-group-arrange {
+  display: inline-flex !important;
+}
