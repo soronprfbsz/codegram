@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { ErdCanvas, type ErdCaptureHandle } from './ErdCanvas'
 import { schema } from './ErdCanvas.fixture'
 import type { TableNodeData } from '@/entities/erd'
+import { parseDbml } from '@/entities/dbml'
 
 // `schema` is the two-table fixture (`public.users` + `public.posts` with a
 // relation) extracted into ErdCanvas.fixture.ts so this file
@@ -369,5 +370,34 @@ describe('ErdCanvas selection info reporting', () => {
     await vi.waitFor(() => {
       expect(onSelectionInfo).toHaveBeenCalledWith(null)
     })
+  })
+})
+
+describe('ErdCanvas group node wiring', () => {
+  const parsed = parseDbml(`Table users {
+  id integer [pk]
+}
+Table orgs {
+  id integer [pk]
+}
+TableGroup acct {
+  users
+  orgs
+}`)
+
+  if (!parsed.ok) {
+    throw new Error(`Test fixture DBML failed to parse: ${parsed.errors.map((e) => e.message).join(', ')}`)
+  }
+
+  const groupedSchema = parsed.schema
+
+  it('passes the group node to ReactFlow with the .erd-group-handle dragHandle', () => {
+    render(<ErdCanvas schema={groupedSchema} />)
+    const props = (globalThis as Record<string, unknown>).__rfProps as {
+      nodes: Array<{ id: string; type?: string; dragHandle?: string }>
+    }
+    const groupNode = props.nodes.find((n) => n.type === 'group')
+    expect(groupNode).toBeTruthy()
+    expect(groupNode!.dragHandle).toBe('.erd-group-handle')
   })
 })
