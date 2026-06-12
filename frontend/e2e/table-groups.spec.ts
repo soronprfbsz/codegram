@@ -1,5 +1,36 @@
 import { test, expect, type Page } from '@playwright/test'
 
+/**
+ * 엣지의 '경로 위' 한 점을 클릭한다. `.react-flow__edge` bbox 중심 클릭은 ㄱ자
+ * 경로에서 빈 공간일 수 있으므로, 경로를 따라 촘촘히 샘플링하며
+ * elementFromPoint가 `.react-flow__edge`로 해석되는 첫 점을 골라 클릭한다.
+ */
+async function clickEdgeMidpoint(page: Page) {
+  const pt = await page
+    .locator('.react-flow__edge-path')
+    .first()
+    .evaluate((el) => {
+      const p = el as SVGPathElement
+      const total = p.getTotalLength()
+      const c = p.getScreenCTM()!
+      const toScreen = (m: DOMPoint) => ({
+        x: c.a * m.x + c.c * m.y + c.e,
+        y: c.b * m.x + c.d * m.y + c.f,
+      })
+      for (let d = 0; d <= 0.45; d += 0.02) {
+        for (const f of d === 0 ? [0.5] : [0.5 + d, 0.5 - d]) {
+          const s = toScreen(p.getPointAtLength(total * f))
+          const hit = document.elementFromPoint(s.x, s.y)
+          if (hit && hit.closest('.react-flow__edge')) return s
+        }
+      }
+      // 폴백: 기하학적 중점
+      const m = toScreen(p.getPointAtLength(total / 2))
+      return m
+    })
+  await page.mouse.click(pt.x, pt.y)
+}
+
 async function registerAndLogin(page: Page, email: string, password: string) {
   await page.goto('/register')
   await page.locator('#register-email').fill(email)
@@ -160,4 +191,56 @@ test('table groups: full CRUD scenario', async ({ page }) => {
   // Click Info again to re-open.
   await page.getByRole('button', { name: /^info$/i }).click()
   await expect(page.getByTestId('schema-summary-grid')).toBeInViewport({ timeout: 5_000 })
+})
+
+test('그룹 라벨 드래그로 멤버 이동, 내부 엣지는 그룹을 통과해 클릭 가능', async ({ page }) => {
+  const email = `tg-drag-${Date.now()}@example.com`
+  const password = 'password123'
+  await registerAndLogin(page, email, password)
+
+  // API로 프로젝트 직접 생성 (FK가 있어 캔버스에 엣지가 그려지는 DBML).
+  const dbml_text = [
+    'Table users {',
+    '  id integer [pk]',
+    '  org_id integer [ref: > orgs.id]',
+    '}',
+    'Table orgs {',
+    '  id integer [pk]',
+    '  name varchar',
+    '}',
+    'TableGroup acct {',
+    '  users',
+    '  orgs',
+    '}',
+  ].join('\n')
+
+  const createResp = await page.request.post('/api/projects', {
+    data: { name: `TG-Drag-${Date.now()}`, dbml_text, layout: {} },
+  })
+  const created = await createResp.json()
+  const projectId = created.id as string
+  await page.goto(`/editor/${projectId}`)
+
+  // 그룹 리전과 엣지가 모두 렌더될 때까지 대기.
+  await page.waitForSelector('[data-testid^="group-region-"]')
+  await expect
+    .poll(async () => page.locator('.react-flow__edge').count(), { timeout: 8000 })
+    .toBeGreaterThanOrEqual(1)
+
+  // (1) 내부 엣지 클릭 → 선택되어 세그먼트 핸들 표시 (그룹이 클릭을 가로채지 않음).
+  await clickEdgeMidpoint(page)
+  await expect(page.locator('[data-testid^="edge-seg-"]').first()).toBeVisible()
+
+  // (2) 그룹 라벨(.erd-group-handle) 드래그 → 멤버 테이블 transform 이동.
+  const before = await page.locator('.react-flow__node-table').first().getAttribute('style')
+  const handle = page.locator('.erd-group-handle').first()
+  const box = await handle.boundingBox()
+  if (!box) throw new Error('group handle has no bounding box')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 140, box.y + 90, { steps: 6 })
+  await page.mouse.up()
+  await expect
+    .poll(async () => page.locator('.react-flow__node-table').first().getAttribute('style'))
+    .not.toBe(before)
 })
