@@ -2,8 +2,6 @@ import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'reac
 import {
   ReactFlow,
   ReactFlowProvider,
-  Background,
-  BackgroundVariant,
   Panel,
   useNodesState,
   useReactFlow,
@@ -676,25 +674,8 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     >
       <HelperLines vertical={helperLines.vertical} horizontal={helperLines.horizontal} />
 
-      {/* Two-layer Background — 모눈종이 (graph paper): fine 16px minor grid
-          with a bolder line every 5 cells (80px), dbdiagram-style.
-          Unique ids are REQUIRED — React Flow v12 derives the SVG <pattern>
-          id from the Background id; without distinct ids both layers share
-          one pattern and the second overwrites the first (minor grid lost). */}
-      <Background
-        id="erd-grid-minor"
-        variant={BackgroundVariant.Lines}
-        gap={16}
-        color="var(--erd-grid)"
-        style={{ opacity: 1 }}
-      />
-      <Background
-        id="erd-grid-major"
-        variant={BackgroundVariant.Lines}
-        gap={80}
-        color="var(--erd-grid-strong)"
-        style={{ opacity: 1 }}
-      />
+      {/* 배경 격자 없음 — 관계선이 격자선과 헷갈리지 않도록 평면 캔버스(--erd-canvas)만
+          사용한다. (이전: 16/80px 모눈종이 Background 2겹 — 사용자 요청으로 제거) */}
 
       {/* Top-right controls panel */}
       <Panel position="top-right">

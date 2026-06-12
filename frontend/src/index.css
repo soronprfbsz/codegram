@@ -91,8 +91,6 @@
     --erd-surface: #FFFFFF;
     --erd-surface-2: #FFFFFF;
     --erd-canvas: #F1F2F4;
-    --erd-grid: rgba(16,24,40,.055);
-    --erd-grid-strong: rgba(16,24,40,.10);
     --erd-node: #FFFFFF;
     --erd-node-head: #FAFAFA;
     --erd-border: #E7E8EA;
@@ -161,8 +159,6 @@
     --erd-surface: #171717;
     --erd-surface-2: #0F0F0F;
     --erd-canvas: #0E0E0E;
-    --erd-grid: rgba(255,255,255,.05);
-    --erd-grid-strong: rgba(255,255,255,.09);
     --erd-node: #1B1B1B;
     --erd-node-head: #242424;
     --erd-border: #2A2A2A;
