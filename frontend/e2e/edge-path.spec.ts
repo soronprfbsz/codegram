@@ -329,13 +329,18 @@ test('edges leaving the same PK fan onto separate horizontal corridors', async (
     '  customer_id BIGINT [ref: > customer.id]',
     '}',
   ].join('\n')
-  // Seed: customer on the left, a and b stacked on the right (same exit side).
+  // Seed: customer on the left, a and b on the SAME row (y:0), staggered in X so
+  // both FK edges leave customer.id's right handle along the same source exit row.
+  // Without the source-lane fan-out both edges would travel that one shared
+  // corridor (the PK's exit Y); the fix must push them onto distinct corridors.
+  // (Same-row placement is what makes this test actually guard the fix — if the
+  // targets were at different Y the edges would diverge vertically regardless.)
   const layout = {
     version: 1,
     positions: {
       'public.customer': { x: 0, y: 0 },
       'public.a': { x: 600, y: 0 },
-      'public.b': { x: 600, y: 300 },
+      'public.b': { x: 1100, y: 0 },
     },
   }
   const resp = await page.request.post('/api/projects', {
@@ -348,24 +353,31 @@ test('edges leaving the same PK fan onto separate horizontal corridors', async (
     .toBeGreaterThanOrEqual(2)
   await page.waitForTimeout(800)
 
-  // Both edges leave customer.id. Collect, for each, the set of Y values on its
-  // long horizontal segments. The two edges must NOT share an identical single
-  // exit corridor — at least one must travel on a distinct (offset) Y.
-  const exitYs = await page.evaluate(() => {
+  // For each edge leaving customer.id, find its SOURCE EXIT CORRIDOR: the Y of the
+  // first long horizontal run after the source step-out (skipping the short
+  // ~margin step-out and any vertical jog). Two edges sharing the PK's exit row
+  // would report the SAME corridor Y; the fan-out separates them.
+  const corridors = await page.evaluate(() => {
     const edges = Array.from(document.querySelectorAll('.react-flow__edge'))
       .filter((g) => (g.getAttribute('data-id') ?? '').includes('public.customer.(id)'))
     return edges.map((g) => {
       const d = g.querySelector('.react-flow__edge-path')?.getAttribute('d') ?? ''
-      // Parse "M x y L x y L ..." → collect the Y of every point. Two edges that
-      // share one exit corridor would yield identical point-Y sequences; a fan
-      // pushes at least one edge onto a distinct Y row.
       const nums = d.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []
-      const ys: number[] = []
-      for (let i = 1; i < nums.length; i += 2) ys.push(nums[i])
-      return ys
+      const pts: { x: number; y: number }[] = []
+      for (let i = 0; i + 1 < nums.length; i += 2) pts.push({ x: nums[i], y: nums[i + 1] })
+      // First horizontal segment (same Y on consecutive points) travelling a
+      // meaningful distance — this is the corridor the edge uses to leave source.
+      for (let i = 0; i + 1 < pts.length; i++) {
+        if (pts[i].y === pts[i + 1].y && Math.abs(pts[i + 1].x - pts[i].x) > 50) {
+          return pts[i].y
+        }
+      }
+      return null
     })
   })
-  expect(exitYs.length).toBe(2)
-  // The two edges' point-Y sets must not be identical (they fan apart).
-  expect(JSON.stringify(exitYs[0])).not.toBe(JSON.stringify(exitYs[1]))
+  expect(corridors.length).toBe(2)
+  expect(corridors[0]).not.toBeNull()
+  expect(corridors[1]).not.toBeNull()
+  // The two co-source edges must leave on DIFFERENT corridors (fanned apart).
+  expect(corridors[0]).not.toBe(corridors[1])
 })
