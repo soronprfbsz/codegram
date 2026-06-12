@@ -36,6 +36,7 @@ import {
   type PathPoint,
 } from '@/entities/layout'
 import { EdgePathContext, type EdgePathContextValue } from '../lib/edgePathContext'
+import { resolveEdgeSides } from '../lib/edgeSides'
 import { GroupActionContext, type GroupActionContextValue } from '../lib/groupActionContext'
 import { getHelperLines } from '../lib/helperLines'
 import { TableNode } from './TableNode'
@@ -531,20 +532,47 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     [nodes, selectedTableName, highlightColIds],
   )
 
-  // Derive display edges: inject `active` flag + stored manual waypoints.
-  // A stored side swap rewrites the handle id to the table's alternate-side
-  // handle (`@left` source / `@right` target — see TableNode), which moves the
-  // endpoint AND flips sourcePosition/targetPosition for routing + markers.
+  // Absolute X of every node (grouped members = parent origin + relative), used
+  // to pick FK edge anchor sides by geometry below.
+  const nodeAbsX = useMemo(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    const m = new Map<string, number>()
+    for (const n of nodes) {
+      const parent = n.parentId ? byId.get(n.parentId) : undefined
+      m.set(n.id, (parent ? parent.position.x : 0) + n.position.x)
+    }
+    return m
+  }, [nodes])
+
+  // Derive display edges: inject `active` flag + stored manual waypoints, and
+  // choose each FK edge's anchor SIDES by geometry (resolveEdgeSides): handles
+  // are fixed (FK left / PK right), so when auto-layout places an FK table left
+  // of its PK table the edge would wrap around to reach the left handle and
+  // multiple such edges share one gutter → they merge into a single visible
+  // line. Flipping to the table's alternate-side handle (`@left` source /
+  // `@right` target) makes the edge take the short FACING path instead, so
+  // distinct relationships stay distinct. A stored manual swap wins over
+  // geometry; enum links keep the default sides.
   const displayEdges = useMemo(
     () =>
       edges.map((e) => {
         const stored = edgePaths?.[e.id]
-        const swapSource = stored?.sourceSide === 'left' && e.sourceHandle
-        const swapTarget = stored?.targetSide === 'right' && e.targetHandle
+        const isEnumLink = (e.data as { isEnumLink?: boolean } | undefined)?.isEnumLink
+        let sourceHandle = e.sourceHandle
+        let targetHandle = e.targetHandle
+        if (!isEnumLink && e.sourceHandle && e.targetHandle) {
+          const { sourceSide, targetSide } = resolveEdgeSides(
+            nodeAbsX.get(e.source) ?? 0,
+            nodeAbsX.get(e.target) ?? 0,
+            stored,
+          )
+          if (sourceSide === 'left') sourceHandle = `${e.sourceHandle}@left`
+          if (targetSide === 'right') targetHandle = `${e.targetHandle}@right`
+        }
         return {
           ...e,
-          ...(swapSource && { sourceHandle: `${e.sourceHandle}@left` }),
-          ...(swapTarget && { targetHandle: `${e.targetHandle}@right` }),
+          ...(sourceHandle !== e.sourceHandle && { sourceHandle }),
+          ...(targetHandle !== e.targetHandle && { targetHandle }),
           data: {
             ...e.data,
             active: activeEdgeIds.has(e.id),
@@ -553,7 +581,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
           },
         }
       }),
-    [edges, activeEdgeIds, edgePaths, selectedEdgeId],
+    [edges, activeEdgeIds, edgePaths, selectedEdgeId, nodeAbsX],
   )
 
   // Report coordinate info for the current selection — value-equality guarded
