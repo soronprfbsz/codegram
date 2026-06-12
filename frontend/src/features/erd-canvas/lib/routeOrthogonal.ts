@@ -71,14 +71,17 @@ export function routeOrthogonal(
   obstacles: Rect[],
   margin = MARGIN,
   targetLaneOffset = 0,
+  sourceLaneOffset = 0,
 ): Point[] {
   // Step-out ports: leave/enter the node by `margin` before turning. The target
   // port is pushed an extra `targetLaneOffset` away from the node so edges that
   // reference DIFFERENT PKs enter on distinct vertical lanes instead of piling
   // onto one shared lane (same-PK edges share an offset → stay bundled).
+  // sourceLaneOffset pushes the source port in Y with an L-stub so edges leaving
+  // the same PK fan onto separate corridors.
   const sPort: Point = {
     x: source.x + (sourceSide === 'right' ? margin : -margin),
-    y: source.y,
+    y: source.y + sourceLaneOffset,
   }
   const tMargin = margin + targetLaneOffset
   const tPort: Point = {
@@ -157,7 +160,14 @@ export function routeOrthogonal(
 
   // No route found → simple L/Z fallback through the ports.
   if (startKey !== goalKey && !came.has(goalKey)) {
-    return simplify([source, sPort, { x: tPort.x, y: sPort.y }, tPort, target])
+    return simplify([
+      source,
+      { x: sPort.x, y: source.y },
+      sPort,
+      { x: tPort.x, y: sPort.y },
+      tPort,
+      target,
+    ])
   }
 
   const path: Point[] = []
@@ -169,7 +179,11 @@ export function routeOrthogonal(
     key = came.get(key) as string
   }
 
-  return simplify([source, ...path, target])
+  // L-stub at the source: step out horizontally on the anchor row, then jog
+  // vertically to the lane corridor. When sourceLaneOffset is 0 the corner
+  // equals sPort and simplify() drops it, so the straight case is unchanged.
+  const sourceCorner: Point = { x: sPort.x, y: source.y }
+  return simplify([source, sourceCorner, ...path, target])
 }
 
 /** Build the SVG path `d` string for an orthogonal polyline. */

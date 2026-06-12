@@ -110,6 +110,37 @@ describe('routeOrthogonal', () => {
     expect(pathAvoids(pts, [sourceCard, targetCard])).toBe(true)
   })
 
+  describe('routeOrthogonal sourceLaneOffset (source-side fan-out)', () => {
+    it('with offset 0, two facing endpoints route on a single straight line', () => {
+      const pts = routeOrthogonal({ x: 0, y: 0 }, { x: 300, y: 0 }, 'right', 'left', [], undefined, 0, 0)
+      expect(isOrthogonal(pts)).toBe(true)
+      const ys = new Set(pts.map((p) => p.y))
+      expect(ys.size).toBe(1) // no jog when offset is 0
+    })
+
+    it('offsets the source exit corridor by sourceLaneOffset (Y), staying orthogonal', () => {
+      // Same endpoints, lane 1 (offset 20) must leave the source row and travel on y=20.
+      const pts = routeOrthogonal({ x: 0, y: 0 }, { x: 300, y: 0 }, 'right', 'left', [], undefined, 0, 20)
+      expect(isOrthogonal(pts)).toBe(true)
+      expect(pts[0]).toEqual({ x: 0, y: 0 }) // still anchored at the source handle
+      expect(pts[pts.length - 1]).toEqual({ x: 300, y: 0 }) // still anchored at the target handle
+      // The long horizontal travel happens at the offset Y (20), not the source row (0).
+      const ysVisited = pts.map((p) => p.y)
+      expect(ysVisited).toContain(20)
+      // There is an L-stub at the source: a horizontal step out then a vertical jog to y=20.
+      expect(pts[1]).toEqual({ x: 16, y: 0 }) // margin step-out at source row (MARGIN=16)
+      expect(pts[2]).toEqual({ x: 16, y: 20 }) // vertical jog to the lane corridor
+    })
+
+    it('two co-source edges (lanes 0 and 1) end up on DIFFERENT horizontal corridors', () => {
+      const lane0 = routeOrthogonal({ x: 0, y: 0 }, { x: 300, y: 100 }, 'right', 'left', [], undefined, 0, 0)
+      const lane1 = routeOrthogonal({ x: 0, y: 0 }, { x: 300, y: 140 }, 'right', 'left', [], undefined, 0, 20)
+      // The Y at which each edge leaves the source neighbourhood differs by the lane offset.
+      expect(lane0[1].y).toBe(0)
+      expect(lane1[2].y).toBe(20)
+    })
+  })
+
   it('polylineToPath builds an M/L svg path', () => {
     const d = polylineToPath([
       { x: 0, y: 0 },
