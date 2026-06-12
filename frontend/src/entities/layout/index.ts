@@ -19,3 +19,4 @@ export {
   applyEdgeSide,
   type PathPoint,
 } from './lib/edgePath'
+export { arrangeGroupInPlace } from './lib/arrangeGroup'
