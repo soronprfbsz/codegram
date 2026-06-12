@@ -139,6 +139,15 @@ describe('routeOrthogonal', () => {
       expect(lane0[1].y).toBe(0)
       expect(lane1[2].y).toBe(20)
     })
+
+    it('mirrors the L-stub when the source exits on the LEFT side', () => {
+      // Source exits left toward a facing target on the left; the step-out is at
+      // x=-16 (margin) and the vertical jog still moves to the offset corridor.
+      const pts = routeOrthogonal({ x: 0, y: 0 }, { x: -300, y: 0 }, 'left', 'right', [], undefined, 0, 20)
+      expect(isOrthogonal(pts)).toBe(true)
+      expect(pts[1]).toEqual({ x: -16, y: 0 }) // margin step-out on the left
+      expect(pts[2]).toEqual({ x: -16, y: 20 }) // vertical jog to the lane corridor
+    })
   })
 
   it('polylineToPath builds an M/L svg path', () => {
