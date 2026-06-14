@@ -44,22 +44,28 @@ export function endMarkerKind(relation: DbmlRelation): MarkerKind {
  * SVG path for a crow-foot marker. 'one' = a single perpendicular bar; 'many'
  * = a three-prong crow-foot. Drawn in a 16x16 box.
  *
- * The END marker (target, on the table's LEFT edge) anchors the foot at x=15
- * (refX=15) with the apex at x=1, under orient="auto" — foot hugs the edge,
- * apex on the line. The START marker (source, on the table's RIGHT edge) is the
- * horizontal MIRROR (x -> 16 - x), anchored at x=1 (refX=1), ALSO under
- * orient="auto". We do NOT use orient="auto-start-reverse": it renders the foot
- * mirrored/inside-out here, so the symmetric look is built into the path instead.
+ * The END marker (target, on the table's LEFT edge) anchors at x=15 (refX=15);
+ * the START marker (source, on the table's RIGHT edge) is the horizontal MIRROR
+ * anchored at x=1 (refX=1). Both use orient="auto" (NOT auto-start-reverse,
+ * which renders the foot inside-out here — the symmetric look is in the path).
+ *
+ * The foot is INSET 5px from the table edge (the card-side region of the marker
+ * box carries no glyph) so the relationship line shows as a short plain stub
+ * between the entity and the crow-foot instead of the foot sitting flush on the
+ * card. The apex still reaches ~14px out (within the MARGIN=16 step-out), so the
+ * foot stays on the straight stub before the line turns.
  */
 function markerPath(kind: MarkerKind, side: 'start' | 'end'): string {
   if (side === 'start') {
+    // refX=1, +x points AWAY from the table → foot base at x=6 (5px stub), apex out at x=15.
     return kind === 'many'
-      ? 'M1 2 L15 8 L1 14 M15 8 L1 8'
-      : 'M5 2 L5 14'
+      ? 'M6 2 L15 8 L6 14 M15 8 L6 8'
+      : 'M7 2 L7 14'
   }
+  // refX=15, +x points INTO the table → foot base at x=10 (5px stub), apex out at x=1.
   return kind === 'many'
-    ? 'M15 2 L1 8 L15 14 M1 8 L15 8'
-    : 'M11 2 L11 14'
+    ? 'M10 2 L1 8 L10 14 M1 8 L10 8'
+    : 'M9 2 L9 14'
 }
 
 /**

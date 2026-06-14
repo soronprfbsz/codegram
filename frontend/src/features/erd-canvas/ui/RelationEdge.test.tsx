@@ -84,9 +84,9 @@ describe('RelationEdge', () => {
     const start = container.querySelector('marker#crowfoot-start-e1')!
     expect(start.getAttribute('orient')).toBe('auto')
     expect(start.getAttribute('refX')).toBe('1')
-    // mirrored many glyph: prongs at x=1 (anchored), apex at x=15.
+    // mirrored many glyph, inset 5px from the card: prongs at x=6, apex at x=15.
     expect(start.querySelector('path')!.getAttribute('d')).toBe(
-      'M1 2 L15 8 L1 14 M15 8 L1 8',
+      'M6 2 L15 8 L6 14 M15 8 L6 8',
     )
 
     const end = container.querySelector('marker#crowfoot-end-e1')!
