@@ -13,7 +13,7 @@
  * No React, no imports beyond the local `Point` type. Deterministic, pure:
  * inputs are deep-copied and never mutated; a NEW map is returned.
  */
-import type { Point } from './routeOrthogonal'
+import { crossesObstacle, type Point, type Rect } from './routeOrthogonal'
 
 export interface EdgeRoute {
   id: string
@@ -35,7 +35,12 @@ interface Segment {
  * tracks. Endpoint stub segments (index 0 and the last) are never moved.
  * Returns a NEW map id -> adjusted points; inputs are not mutated.
  */
-export function spreadEdgeRoutes(routes: EdgeRoute[], gap = 12): Map<string, Point[]> {
+export function spreadEdgeRoutes(
+  routes: EdgeRoute[],
+  gap = 12,
+  bundleKeyOf?: (id: string) => string | null,
+  obstacles: Rect[] = [],
+): Map<string, Point[]> {
   // 1. Deep-copy each route's points so we never mutate the caller's data.
   const copies = new Map<string, Point[]>()
   for (const r of routes) {
@@ -82,9 +87,13 @@ export function spreadEdgeRoutes(routes: EdgeRoute[], gap = 12): Map<string, Poi
     }
   }
 
-  // 3. Group segments that are collinear (same orient + same fixed, integer-grid
-  //    exact equality), have OVERLAPPING ranges, and come from DIFFERENT edges.
-  //    Transitive grouping via union-find so a chain A–B–C lands in one group.
+  // 3. Group segments that are collinear (same orient), have OVERLAPPING ranges,
+  //    come from DIFFERENT edges, and sit CLOSER THAN `gap` on the perpendicular
+  //    axis. This is a NEAR-overlap test (not exact): two parallel lines that
+  //    merely run too close — not just ones that land on the identical grid line —
+  //    are pulled into one group and later fanned out to the full `gap`, so
+  //    distinct lines always keep a clean minimum separation. Transitive grouping
+  //    via union-find so a chain A–B–C lands in one group.
   const parent = segments.map((_, idx) => idx)
   const find = (x: number): number => {
     let root = x
@@ -108,10 +117,9 @@ export function spreadEdgeRoutes(routes: EdgeRoute[], gap = 12): Map<string, Poi
       const sb = segments[b]
       if (sa.id === sb.id) continue // same edge never spreads against itself
       if (sa.orient !== sb.orient) continue
-      // Exact === is safe: routes come off the integer grid (routeOrthogonal's
-      // candidate lines are integer obstacle/port coords), so collinear segments
-      // share an exact `fixed` value — no float tolerance needed.
-      if (sa.fixed !== sb.fixed) continue
+      // Near-overlap on the perpendicular axis: closer than a full gap (exact
+      // coincidence is the |Δ|=0 case). Lines already ≥ gap apart are left alone.
+      if (Math.abs(sa.fixed - sb.fixed) >= gap) continue
       // overlapping ranges: aLo < bHi && bLo < aHi (touching-only doesn't count)
       if (sa.lo < sb.hi && sb.lo < sa.hi) union(a, b)
     }
@@ -126,12 +134,17 @@ export function spreadEdgeRoutes(routes: EdgeRoute[], gap = 12): Map<string, Poi
     else groups.set(root, [idx])
   }
 
-  // 4. For each group of size k >= 2: order deterministically by (id, i) and
-  //    assign track offset (j - (k-1)/2) * gap. Shift the segment perpendicular
-  //    to its orientation by moving BOTH endpoint vertices. Because neighbouring
-  //    segments are perpendicular and share those vertices, the polyline stays
-  //    orthogonal (the neighbours just change length). Stubs are never in this
-  //    set, so anchors never move.
+  // 4. For each cluster of too-close collinear segments: lay out one TRACK per
+  //    distinct BUNDLE (not per segment), evenly spaced by `gap` and centred on
+  //    the cluster's mean position. All segments sharing a bundle key collapse
+  //    onto ONE track, so a same-PK bundle the merge pass put on one trunk is
+  //    NEVER split apart — even when an unrelated edge transitively joins the
+  //    cluster. Segments with a null key each get their own track. A cluster that
+  //    resolves to a single track (all one bundle) is left untouched. Because
+  //    members may start at DIFFERENT near coords, each is SHIFTED by
+  //    (track − its own fixed) — not a uniform offset. Shifting moves BOTH the
+  //    segment's vertices perpendicular; the perpendicular neighbours just change
+  //    length, so the polyline stays orthogonal. Stubs are never in this set.
   for (const members of groups.values()) {
     if (members.length < 2) continue
     members.sort((m, n) => {
@@ -140,21 +153,59 @@ export function spreadEdgeRoutes(routes: EdgeRoute[], gap = 12): Map<string, Poi
       if (sm.id !== sn.id) return sm.id < sn.id ? -1 : 1
       return sm.i - sn.i
     })
-    const k = members.length
-    members.forEach((m, j) => {
-      const seg = segments[m]
-      const offset = (j - (k - 1) / 2) * gap
-      if (offset === 0) return
-      const pts = copies.get(seg.id)!
-      if (seg.orient === 'v') {
-        // vertical segment → shift perpendicular = X on both vertices
-        pts[seg.i].x += offset
-        pts[seg.i + 1].x += offset
-      } else {
-        // horizontal segment → shift perpendicular = Y on both vertices
-        pts[seg.i].y += offset
-        pts[seg.i + 1].y += offset
+    // Map each member → a track slot, collapsing same-bundle members onto one.
+    const slotOfBundle = new Map<string, number>()
+    let nextSlot = 0
+    const memberSlot = members.map((m) => {
+      const key = bundleKeyOf ? bundleKeyOf(segments[m].id) : null
+      if (key == null) return nextSlot++ // unbundled → its own track
+      let slot = slotOfBundle.get(key)
+      if (slot === undefined) {
+        slot = nextSlot++
+        slotOfBundle.set(key, slot)
       }
+      return slot
+    })
+    const k = nextSlot
+    if (k < 2) continue // one bundle only → nothing to fan apart
+
+    // Each slot's representative position = mean `fixed` of its members. Order the
+    // slots by it and centre the evenly-spaced tracks on the cluster mean, so the
+    // fan stays put on average and members keep their relative left-to-right order.
+    const slotSum = new Array<number>(k).fill(0)
+    const slotCount = new Array<number>(k).fill(0)
+    members.forEach((m, idx) => {
+      slotSum[memberSlot[idx]] += segments[m].fixed
+      slotCount[memberSlot[idx]] += 1
+    })
+    const slotPos = slotSum.map((s, i) => s / slotCount[i])
+    const order = [...Array(k).keys()].sort((a, b) => slotPos[a] - slotPos[b] || a - b)
+    const center = slotPos.reduce((s, v) => s + v, 0) / k
+    const slotTrack = new Array<number>(k)
+    order.forEach((slot, j) => {
+      slotTrack[slot] = center + (j - (k - 1) / 2) * gap
+    })
+
+    members.forEach((m, idx) => {
+      const seg = segments[m]
+      const delta = slotTrack[memberSlot[idx]] - seg.fixed
+      if (delta === 0) return
+      const pts = copies.get(seg.id)!
+      // 이동 후보 좌표 계산 (pt0/pt1 = 세그먼트 양 끝점; a/b는 위 그룹화 루프의
+      // 인덱스라 이름 충돌을 피한다).
+      const pt0 = { x: pts[seg.i].x, y: pts[seg.i].y }
+      const pt1 = { x: pts[seg.i + 1].x, y: pts[seg.i + 1].y }
+      if (seg.orient === 'v') {
+        pt0.x += delta
+        pt1.x += delta
+      } else {
+        pt0.y += delta
+        pt1.y += delta
+      }
+      // 이동한 세그먼트가 카드를 가로지르면 이동 취소(원좌표 유지).
+      if (crossesObstacle(pt0, pt1, obstacles)) return
+      pts[seg.i] = pt0
+      pts[seg.i + 1] = pt1
     })
   }
 
