@@ -166,9 +166,26 @@ export function mergeBundleRoutes(
           ]),
         }
       })
+      // 이 번들의 끝점 카드(소스 PK 카드 + 각 타깃 FK 카드)는 가로지름 검사에서
+      // 제외한다. 트렁크의 leave/fork는 자기 끝점 앵커에서 출발/도착하는데, 앵커가
+      // 카드 박스 안쪽 몇 px에 있을 수 있어(React Flow 핸들/measured 폭) strict
+      // -interior 검사가 거짓 양성을 낸다. 끝점 카드 grazing은 정상 — 무관한 중간
+      // 카드 가로지름만 잡아야 버스가 살아남는다.
+      const EPS = 2
+      const anchors: Point[] = [src, ...cluster.map((m) => m.pts[m.pts.length - 1])]
+      const checkObstacles = obstacles.filter(
+        (o) =>
+          !anchors.some(
+            (p) =>
+              p.x > o.x - EPS &&
+              p.x < o.x + o.width + EPS &&
+              p.y > o.y - EPS &&
+              p.y < o.y + o.height + EPS,
+          ),
+      )
       const crosses = candidates.some((c) => {
         for (let i = 0; i < c.line.length - 1; i++) {
-          if (crossesObstacle(c.line[i], c.line[i + 1], obstacles)) return true
+          if (crossesObstacle(c.line[i], c.line[i + 1], checkObstacles)) return true
         }
         return false
       })

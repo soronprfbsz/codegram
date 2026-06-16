@@ -143,4 +143,53 @@ describe('mergeBundleRoutes obstacle awareness', () => {
     expect(out.get('a')).toEqual(withUndef.get('a'))
     expect(out.get('b')).toEqual(withUndef.get('b'))
   })
+
+  // Regression: the bundle's OWN endpoint cards (source PK card + each target FK
+  // card) must NOT count as crossings. The trunk's leave/fork legitimately start
+  // and end at those cards' borders, and the anchor can sit a few px inside the
+  // card box (React Flow handles / measured width), so a strict-interior test
+  // produces a FALSE crossing and wrongly cancels the bus. Only an UNRELATED
+  // intervening card should trigger fallback.
+  describe('endpoint cards do not count as crossings', () => {
+    const keyL = () => 'pk|L'
+    // src anchor (240,30) sits 2px inside the source card's right edge (x→242);
+    // target anchors (700,*) sit 2px inside the target cards' left edge (x:698→).
+    const busRoutes = [
+      { id: 'a', points: [ { x: 240, y: 30 }, { x: 280, y: 30 }, { x: 280, y: 30 }, { x: 700, y: 30 } ] },
+      { id: 'b', points: [ { x: 240, y: 30 }, { x: 280, y: 30 }, { x: 280, y: 230 }, { x: 700, y: 230 } ] },
+    ]
+    const endpointCards = [
+      { x: 0, y: 0, width: 242, height: 66 },     // source card (anchor 240 inside)
+      { x: 698, y: 0, width: 242, height: 66 },    // target card a (anchor 700 inside)
+      { x: 698, y: 200, width: 242, height: 66 },  // target card b
+    ]
+
+    it('still merges the bus when the trunk only grazes its own endpoint cards', () => {
+      const out = mergeBundleRoutes(busRoutes, keyL, endpointCards)
+      // Bus formed → both members share the trunk x=670 (min target 700 - 30).
+      const trunkXOf = (pts: { x: number; y: number }[]) => {
+        let best = { x: NaN, len: -1 }
+        for (let i = 0; i + 1 < pts.length; i++) {
+          if (pts[i].x === pts[i + 1].x) {
+            const len = Math.abs(pts[i + 1].y - pts[i].y)
+            if (len > best.len) best = { x: pts[i].x, len }
+          }
+        }
+        return best.x
+      }
+      // member b has a real vertical trunk segment; it must hug the column (x=670).
+      expect(trunkXOf(out.get('b')!)).toBe(670)
+      // and member a was rewritten onto the same trunk (not its raw route).
+      expect(out.get('a')).not.toEqual(busRoutes[0].points)
+    })
+
+    it('still falls back when an UNRELATED intervening card blocks the trunk', () => {
+      // A card sitting on the vertical trunk corridor (x=670) between the rows —
+      // not an endpoint card — must still cancel the bus.
+      const intervening = { x: 660, y: 60, width: 40, height: 120 }
+      const out = mergeBundleRoutes(busRoutes, keyL, [...endpointCards, intervening])
+      expect(out.get('a')).toEqual(busRoutes[0].points)
+      expect(out.get('b')).toEqual(busRoutes[1].points)
+    })
+  })
 })
