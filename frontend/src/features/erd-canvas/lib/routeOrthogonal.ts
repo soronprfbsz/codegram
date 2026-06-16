@@ -35,6 +35,13 @@ export type Side = 'left' | 'right'
 
 const MARGIN = 16
 const TURN_PENALTY = 12
+// Distance the edge steps straight OUT of a card before it may turn — the
+// endpoint "stub". Decoupled from MARGIN (obstacle inflation) on purpose: a
+// longer stub guarantees a visible plain line between the entity and the
+// crow-foot marker (which itself spans ~14px), while routing gutters stay at
+// MARGIN so tightly-placed cards still get a corridor between them. Lane/trunk
+// offsets are added ON TOP of this base.
+const STEP_OUT = 30
 
 /** True if the axis-aligned segment a→b passes through any obstacle's interior. */
 function crossesObstacle(a: Point, b: Point, obstacles: Rect[]): boolean {
@@ -78,7 +85,8 @@ export function routeOrthogonal(
   sourceLaneOffset = 0,
   sourceTrunkOffset = 0,
 ): Point[] {
-  // Step-out ports: leave/enter the node by `margin` before turning. The target
+  // Step-out ports: leave/enter the node by STEP_OUT before turning (a generous
+  // stub so the crow-foot has a visible plain line at the entity). The target
   // port is pushed an extra `targetLaneOffset` away from the node so edges that
   // reference DIFFERENT PKs enter on distinct vertical lanes instead of piling
   // onto one shared lane (same-PK edges share an offset → stay bundled).
@@ -86,13 +94,14 @@ export function routeOrthogonal(
   // the same PK fan onto separate corridors. sourceTrunkOffset pushes the source
   // step-out perpendicular to the card (X) so edges leaving the same handle fan
   // onto parallel vertical trunks instead of collapsing onto one — complementing
-  // the in-Y sourceLaneOffset.
-  const sMargin = margin + sourceTrunkOffset
+  // the in-Y sourceLaneOffset. (Obstacle inflation still uses `margin`, NOT
+  // STEP_OUT, so routing gutters between close cards are preserved.)
+  const sMargin = STEP_OUT + sourceTrunkOffset
   const sPort: Point = {
     x: source.x + (sourceSide === 'right' ? sMargin : -sMargin),
     y: source.y + sourceLaneOffset,
   }
-  const tMargin = margin + targetLaneOffset
+  const tMargin = STEP_OUT + targetLaneOffset
   const tPort: Point = {
     x: target.x + (targetSide === 'right' ? tMargin : -tMargin),
     y: target.y,

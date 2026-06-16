@@ -74,16 +74,16 @@ describe('routeOrthogonal', () => {
   it('pushes the target approach lane out by targetLaneOffset (per-PK fan-out)', () => {
     const source = { x: 0, y: 0 }
     const target = { x: 400, y: 100 }
-    // Lane 0 (offset 0) turns at target.x - margin(16) = 384.
+    // Lane 0 (offset 0) turns at target.x - STEP_OUT(30) = 370.
     const lane0 = routeOrthogonal(source, target, 'right', 'left', [], undefined, 0)
-    // Lane 2 (offset 28) turns 28px further from the table: 384 - 28 = 356.
+    // Lane 2 (offset 28) turns 28px further from the table: 370 - 28 = 342.
     const lane2 = routeOrthogonal(source, target, 'right', 'left', [], undefined, 28)
 
     const turnX = (pts: Point[]) =>
       // the vertical approach lane = x of the point just before the target.
       pts[pts.length - 2].x
-    expect(turnX(lane0)).toBe(384)
-    expect(turnX(lane2)).toBe(356)
+    expect(turnX(lane0)).toBe(370)
+    expect(turnX(lane2)).toBe(342)
     // Both still terminate exactly at the target handle.
     expect(lane0[lane0.length - 1]).toEqual(target)
     expect(lane2[lane2.length - 1]).toEqual(target)
@@ -128,8 +128,8 @@ describe('routeOrthogonal', () => {
       const ysVisited = pts.map((p) => p.y)
       expect(ysVisited).toContain(20)
       // There is an L-stub at the source: a horizontal step out then a vertical jog to y=20.
-      expect(pts[1]).toEqual({ x: 16, y: 0 }) // margin step-out at source row (MARGIN=16)
-      expect(pts[2]).toEqual({ x: 16, y: 20 }) // vertical jog to the lane corridor
+      expect(pts[1]).toEqual({ x: 30, y: 0 }) // STEP_OUT stub at source row (STEP_OUT=30)
+      expect(pts[2]).toEqual({ x: 30, y: 20 }) // vertical jog to the lane corridor
     })
 
     it('two co-source edges (lanes 0 and 1) end up on DIFFERENT horizontal corridors', () => {
@@ -142,11 +142,11 @@ describe('routeOrthogonal', () => {
 
     it('mirrors the L-stub when the source exits on the LEFT side', () => {
       // Source exits left toward a facing target on the left; the step-out is at
-      // x=-16 (margin) and the vertical jog still moves to the offset corridor.
+      // x=-30 (STEP_OUT) and the vertical jog still moves to the offset corridor.
       const pts = routeOrthogonal({ x: 0, y: 0 }, { x: -300, y: 0 }, 'left', 'right', [], undefined, 0, 20)
       expect(isOrthogonal(pts)).toBe(true)
-      expect(pts[1]).toEqual({ x: -16, y: 0 }) // margin step-out on the left
-      expect(pts[2]).toEqual({ x: -16, y: 20 }) // vertical jog to the lane corridor
+      expect(pts[1]).toEqual({ x: -30, y: 0 }) // STEP_OUT stub on the left
+      expect(pts[2]).toEqual({ x: -30, y: 20 }) // vertical jog to the lane corridor
     })
   })
 
@@ -158,18 +158,18 @@ describe('routeOrthogonal', () => {
     // trunk actually materialises.
     const obstacle = { x: 260, y: 120, width: 240, height: 200 }
 
-    it('with offset 0 the source step-out sits at the plain margin', () => {
+    it('with offset 0 the source step-out sits at the plain STEP_OUT', () => {
       const pts = routeOrthogonal({ x: 0, y: 0 }, { x: 260, y: 200 }, 'right', 'left', [obstacle], undefined, 0, 0, 0)
       expect(isOrthogonal(pts)).toBe(true)
       expect(pts[0]).toEqual({ x: 0, y: 0 }) // anchored at the source handle
-      expect(pts[1].x).toBe(16) // step-out at MARGIN, no trunk push
+      expect(pts[1].x).toBe(30) // step-out at STEP_OUT, no trunk push
     })
 
     it('pushes the source step-out port out by sourceTrunkOffset (right side)', () => {
       const pts = routeOrthogonal({ x: 0, y: 0 }, { x: 260, y: 200 }, 'right', 'left', [obstacle], undefined, 0, 0, 14)
       expect(isOrthogonal(pts)).toBe(true)
       expect(pts[0]).toEqual({ x: 0, y: 0 })
-      expect(pts[1].x).toBe(30) // MARGIN(16) + trunkOffset(14)
+      expect(pts[1].x).toBe(44) // STEP_OUT(30) + trunkOffset(14)
       expect(pts[pts.length - 1]).toEqual({ x: 260, y: 200 }) // still anchored at target
     })
 
@@ -177,7 +177,7 @@ describe('routeOrthogonal', () => {
       const obstacleL = { x: -500, y: 120, width: 240, height: 200 }
       const pts = routeOrthogonal({ x: 0, y: 0 }, { x: -260, y: 200 }, 'left', 'right', [obstacleL], undefined, 0, 0, 14)
       expect(isOrthogonal(pts)).toBe(true)
-      expect(pts[1].x).toBe(-30) // -(MARGIN + trunkOffset)
+      expect(pts[1].x).toBe(-44) // -(STEP_OUT + trunkOffset)
     })
 
     it('two co-source edges to vertically-stacked targets run on DIFFERENT trunk X', () => {
