@@ -313,51 +313,38 @@ test.describe('Manual edge paths', () => {
   })
 })
 
-test('edges leaving the same PK fan onto separate horizontal corridors', async ({ page }) => {
-  const email = `fanout-${Date.now()}@example.com`
+test('edges leaving the same PK share ONE trunk, forking near the targets', async ({ page }) => {
+  const email = `bus-${Date.now()}@example.com`
   await registerAndLogin(page, email, 'password123')
+  // customer.id is referenced by a/b/c (DIFFERENT tables) stacked in a column to
+  // the right. Per the reporter, these must read as ONE bus: a single vertical
+  // trunk just before the column, forking a short stub into each table — NOT a
+  // fan of parallel lines near the source.
   const dbml = [
-    'Table customer {',
-    '  id BIGINT [pk]',
-    '}',
-    'Table a {',
-    '  id BIGINT [pk]',
-    '  customer_id BIGINT [ref: > customer.id]',
-    '}',
-    'Table b {',
-    '  id BIGINT [pk]',
-    '  customer_id BIGINT [ref: > customer.id]',
-    '}',
+    'Table customer { id BIGINT [pk] }',
+    'Table a { id BIGINT [pk]\n  customer_id BIGINT [ref: > customer.id] }',
+    'Table b { id BIGINT [pk]\n  customer_id BIGINT [ref: > customer.id] }',
+    'Table c { id BIGINT [pk]\n  customer_id BIGINT [ref: > customer.id] }',
   ].join('\n')
-  // Seed: customer on the left, a and b on the SAME row (y:0), staggered in X so
-  // both FK edges leave customer.id's right handle along the same source exit row.
-  // Without the source-lane fan-out both edges would travel that one shared
-  // corridor (the PK's exit Y); the fix must push them onto distinct corridors.
-  // (Same-row placement is what makes this test actually guard the fix — if the
-  // targets were at different Y the edges would diverge vertically regardless.)
   const layout = {
     version: 1,
     positions: {
       'public.customer': { x: 0, y: 0 },
-      'public.a': { x: 600, y: 0 },
-      'public.b': { x: 1100, y: 0 },
+      'public.a': { x: 700, y: 0 },
+      'public.b': { x: 700, y: 200 },
+      'public.c': { x: 700, y: 400 },
     },
   }
-  const resp = await page.request.post('/api/projects', {
-    data: { name: 'Fanout', dbml_text: dbml, layout },
-  })
+  const resp = await page.request.post('/api/projects', { data: { name: 'Bus', dbml_text: dbml, layout } })
   const { id } = await resp.json()
   await page.goto(`/editor/${id}`)
   await expect
     .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })
-    .toBeGreaterThanOrEqual(2)
-  await page.waitForTimeout(800)
+    .toBeGreaterThanOrEqual(3)
+  await page.waitForTimeout(1000) // allow the merge + spread passes (rAF) to settle
 
-  // For each edge leaving customer.id, find its SOURCE EXIT CORRIDOR: the Y of the
-  // first long horizontal run after the source step-out (skipping the short
-  // ~margin step-out and any vertical jog). Two edges sharing the PK's exit row
-  // would report the SAME corridor Y; the fan-out separates them.
-  const corridors = await page.evaluate(() => {
+  // Longest vertical segment X (the approach trunk) for each customer.id edge.
+  const trunkXs = await page.evaluate(() => {
     const edges = Array.from(document.querySelectorAll('.react-flow__edge'))
       .filter((g) => (g.getAttribute('data-id') ?? '').includes('public.customer.(id)'))
     return edges.map((g) => {
@@ -365,21 +352,21 @@ test('edges leaving the same PK fan onto separate horizontal corridors', async (
       const nums = d.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []
       const pts: { x: number; y: number }[] = []
       for (let i = 0; i + 1 < nums.length; i += 2) pts.push({ x: nums[i], y: nums[i + 1] })
-      // First horizontal segment (same Y on consecutive points) travelling a
-      // meaningful distance — this is the corridor the edge uses to leave source.
+      let best = { x: NaN, len: -1 }
       for (let i = 0; i + 1 < pts.length; i++) {
-        if (pts[i].y === pts[i + 1].y && Math.abs(pts[i + 1].x - pts[i].x) > 50) {
-          return pts[i].y
+        if (pts[i].x === pts[i + 1].x) {
+          const len = Math.abs(pts[i + 1].y - pts[i].y)
+          if (len > best.len) best = { x: pts[i].x, len }
         }
       }
-      return null
+      return best.x
     })
   })
-  expect(corridors.length).toBe(2)
-  expect(corridors[0]).not.toBeNull()
-  expect(corridors[1]).not.toBeNull()
-  // The two co-source edges must leave on DIFFERENT corridors (fanned apart).
-  expect(corridors[0]).not.toBe(corridors[1])
+  expect(trunkXs.length).toBe(3)
+  // All three co-source edges run down the SAME vertical trunk (one bus)…
+  expect(new Set(trunkXs).size).toBe(1)
+  // …and that trunk hugs the target column (≈ x 700), not the source (x 0).
+  expect(trunkXs[0]).toBeGreaterThan(500)
 })
 
 test('edges leaving the same source handle fan onto distinct vertical trunks', async ({ page }) => {
@@ -505,4 +492,169 @@ test('independent edges do not share an identical vertical corridor', async ({ p
     a.id !== b.id && a.x === b.x && a.lo < b.hi && b.lo < a.hi
   const clash = segs.some((a, i) => segs.slice(i + 1).some((b) => overlap(a, b)))
   expect(clash).toBe(false)
+})
+
+test('no edge path crosses any table card interior (corridor routing)', async ({ page }) => {
+  const email = `corridor-${Date.now()}@example.com`
+  await registerAndLogin(page, email, 'password123')
+
+  // Two TableGroups with a cross-group FK. The inter-group edge must route
+  // AROUND table cards, not through them. Layout places the groups far apart
+  // so the edge has to travel past intermediate tables in the other group.
+  //   GroupA: orders (0,0) → order_items (0,250)
+  //   GroupB: products (700,0) → categories (700,250)
+  // Cross-group FK: order_items.product_id → products.product_id
+  // Same-PK FK: order_items.order_id → orders.id  (stays inside GroupA)
+  // The cross-group edge must cross the gap between x≈0 and x≈700 without
+  // passing through any card's interior.
+  const dbml = [
+    'Table orders {',
+    '  id BIGINT [pk]',
+    '}',
+    'Table order_items {',
+    '  id BIGINT [pk]',
+    '  order_id BIGINT [ref: > orders.id]',
+    '  product_id BIGINT [ref: > products.product_id]',
+    '}',
+    'Table products {',
+    '  product_id BIGINT [pk]',
+    '}',
+    'Table categories {',
+    '  category_id BIGINT [pk]',
+    '  product_id BIGINT [ref: > products.product_id]',
+    '}',
+    'TableGroup GroupA {',
+    '  orders',
+    '  order_items',
+    '}',
+    'TableGroup GroupB {',
+    '  products',
+    '  categories',
+    '}',
+  ].join('\n')
+
+  const layout = {
+    version: 1,
+    positions: {
+      'public.orders':      { x: 0,   y: 0   },
+      'public.order_items': { x: 0,   y: 280  },
+      'public.products':    { x: 700, y: 0   },
+      'public.categories':  { x: 700, y: 280  },
+    },
+  }
+
+  const resp = await page.request.post('/api/projects', {
+    data: { name: 'Corridor', dbml_text: dbml, layout },
+  })
+  const { id } = await resp.json()
+  await page.goto(`/editor/${id}`)
+
+  // Wait for at least 3 edges (order_items.order_id, order_items.product_id,
+  // categories.product_id) plus routing settle (rAF merge + spread passes).
+  await expect
+    .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })
+    .toBeGreaterThanOrEqual(3)
+  await page.waitForTimeout(1200) // allow merge + spread + corridor rAF passes to settle
+
+  // Approach A: in-page evaluate — sample every ~4px along each edge path,
+  // convert to screen coords via getScreenCTM(), test against each
+  // .react-flow__node-table getBoundingClientRect() with a 2px inset.
+  const result = await page.evaluate(() => {
+    const INSET = 2
+    const STEP = 4
+
+    const tableNodes = Array.from(document.querySelectorAll('.react-flow__node-table'))
+    const tableRects = tableNodes.map((n) => {
+      const r = n.getBoundingClientRect()
+      return { left: r.left + INSET, right: r.right - INSET, top: r.top + INSET, bottom: r.bottom - INSET }
+    })
+
+    const hits: { edgeId: string; sx: number; sy: number; rect: typeof tableRects[0] }[] = []
+
+    for (const path of Array.from(document.querySelectorAll('.react-flow__edge-path'))) {
+      const p = path as SVGPathElement
+      const edgeGroup = p.closest('[data-id]')
+      const edgeId = edgeGroup?.getAttribute('data-id') ?? '?'
+      const ctm = p.getScreenCTM()
+      if (!ctm) continue
+
+      const total = p.getTotalLength()
+      for (let dist = 0; dist <= total; dist += STEP) {
+        const pt = p.getPointAtLength(dist)
+        const sx = ctm.a * pt.x + ctm.c * pt.y + ctm.e
+        const sy = ctm.b * pt.x + ctm.d * pt.y + ctm.f
+        for (const rect of tableRects) {
+          if (sx > rect.left && sx < rect.right && sy > rect.top && sy < rect.bottom) {
+            hits.push({ edgeId, sx, sy, rect })
+          }
+        }
+      }
+    }
+    return { hitCount: hits.length, hits: hits.slice(0, 5) }
+  })
+
+  if (result.hitCount > 0) {
+    console.error('Interior crossings found:', JSON.stringify(result.hits, null, 2))
+  }
+  expect(result.hitCount).toBe(0)
+})
+
+test('same-PK FKs of one table share a trunk; a different-PK FK stays separate', async ({ page }) => {
+  const email = `bundle-${Date.now()}@example.com`
+  await registerAndLogin(page, email, 'password123')
+  // service has THREE FKs: created_by + updated_by reference the SAME PK
+  // (account.account_id) → must bundle onto ONE trunk; publishing_id references a
+  // DIFFERENT PK → must keep its own trunk. (Reporter's rule: same PK = one line.)
+  const dbml = [
+    'Table account { account_id BIGINT [pk] }',
+    'Table publishing { publishing_id BIGINT [pk] }',
+    'Table service {',
+    '  service_id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '  updated_by BIGINT [ref: > account.account_id]',
+    '  publishing_id BIGINT [ref: > publishing.publishing_id]',
+    '}',
+  ].join('\n')
+  // account + publishing on the LEFT, service on the RIGHT — all FK edges enter
+  // service's left handles, so each has a vertical approach trunk.
+  const layout = {
+    version: 1,
+    positions: {
+      'public.account': { x: 0, y: 0 },
+      'public.publishing': { x: 0, y: 200 },
+      'public.service': { x: 500, y: 0 },
+    },
+  }
+  const resp = await page.request.post('/api/projects', { data: { name: 'Bundle', dbml_text: dbml, layout } })
+  const { id } = await resp.json()
+  await page.goto(`/editor/${id}`)
+  await expect.poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 }).toBeGreaterThanOrEqual(3)
+  await page.waitForTimeout(1000) // allow the merge + spread passes (rAF) to settle
+
+  // Longest vertical segment X (the approach trunk) per FK edge, keyed by target col.
+  const trunkByCol = await page.evaluate(() => {
+    const byCol: Record<string, number> = {}
+    for (const g of Array.from(document.querySelectorAll('.react-flow__edge'))) {
+      const eid = g.getAttribute('data-id') ?? ''
+      const m = eid.match(/public\.service\.\(([a-z_]+)\)/)
+      if (!m) continue
+      const d = g.querySelector('.react-flow__edge-path')?.getAttribute('d') ?? ''
+      const nums = d.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []
+      const pts: { x: number; y: number }[] = []
+      for (let i = 0; i + 1 < nums.length; i += 2) pts.push({ x: nums[i], y: nums[i + 1] })
+      let best = { x: NaN, len: -1 }
+      for (let i = 0; i + 1 < pts.length; i++) {
+        if (pts[i].x === pts[i + 1].x) {
+          const len = Math.abs(pts[i + 1].y - pts[i].y)
+          if (len > best.len) best = { x: pts[i].x, len }
+        }
+      }
+      byCol[m[1]] = best.x
+    }
+    return byCol
+  })
+  // created_by + updated_by (same PK) → IDENTICAL trunk X (one forked line).
+  expect(trunkByCol.created_by).toBeCloseTo(trunkByCol.updated_by, 1)
+  // publishing_id (different PK) → a DIFFERENT trunk X (its own line).
+  expect(trunkByCol.publishing_id).not.toBeCloseTo(trunkByCol.created_by, 1)
 })
