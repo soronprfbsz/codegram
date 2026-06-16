@@ -31,6 +31,41 @@ type MarkerKind = 'one' | 'many'
 /** Horizontal spacing between the per-PK approach lanes at a target table. */
 const LANE_GAP = 14
 
+/** 장애물 선택용 최소 노드 형태(테스트 가능하도록 InternalNode에서 분리). */
+export interface ObstacleNode {
+  id: string
+  type?: string
+  parentId?: string
+  rect: Rect
+}
+
+/**
+ * 이 엣지의 A* 장애물 집합을 만든다.
+ * - 모든 table/enum/sticky 카드는 항상 장애물.
+ * - group 박스는 "이 엣지의 source 그룹도 target 그룹도 아닌" 경우에만 장애물
+ *   → 무관한 그룹을 통째로 우회(공장라인 1단계 채널). 끝점이 속한 그룹은 제외해
+ *   진입을 허용하되, 그 내부 테이블은 위 규칙으로 여전히 장애물(2단계 위빙).
+ */
+export function buildObstacles(
+  nodes: ObstacleNode[],
+  sourceId: string,
+  targetId: string,
+): Rect[] {
+  const groupOf = (id: string): string | undefined =>
+    nodes.find((n) => n.id === id)?.parentId
+  const srcGroup = groupOf(sourceId)
+  const tgtGroup = groupOf(targetId)
+  const out: Rect[] = []
+  for (const n of nodes) {
+    if (n.type === 'table' || n.type === 'enum' || n.type === 'sticky') {
+      out.push(n.rect)
+    } else if (n.type === 'group') {
+      if (n.id !== srcGroup && n.id !== tgtGroup) out.push(n.rect)
+    }
+  }
+  return out
+}
+
 /** Crow-foot kind for the SOURCE end = the `from` half of `${from}-${to}`. */
 export function startMarkerKind(relation: DbmlRelation): MarkerKind {
   return relation.startsWith('n') ? 'many' : 'one'
@@ -182,17 +217,30 @@ function RelationEdgeImpl({
   // other are unaffected — their L/Z path never enters either card interior.
   const orthoPoints = useMemo(() => {
     if (dragging || isEnumLink || manualWaypoints) return null
-    const obstacles: Rect[] = []
+    const obsNodes: ObstacleNode[] = []
     for (const n of nodeLookup.values()) {
-      if (n.type !== 'table' && n.type !== 'enum' && n.type !== 'sticky') continue
+      if (
+        n.type !== 'table' &&
+        n.type !== 'enum' &&
+        n.type !== 'sticky' &&
+        n.type !== 'group'
+      )
+        continue
       const pos = n.internals.positionAbsolute
-      obstacles.push({
-        x: pos.x,
-        y: pos.y,
-        width: n.measured?.width ?? 240,
-        height: n.measured?.height ?? 80,
+      obsNodes.push({
+        id: n.id,
+        type: n.type,
+        parentId: n.parentId,
+        rect: {
+          x: pos.x,
+          y: pos.y,
+          // 그룹 박스는 style width/height(레이아웃이 설정), 카드는 measured.
+          width: n.measured?.width ?? (n.style?.width as number | undefined) ?? 240,
+          height: n.measured?.height ?? (n.style?.height as number | undefined) ?? 80,
+        },
       })
     }
+    const obstacles = buildObstacles(obsNodes, source, target)
     return routeOrthogonal(
       { x: sourceX, y: sourceY },
       { x: targetX, y: targetY },
@@ -221,10 +269,16 @@ function RelationEdgeImpl({
     sourceLaneIndex,
   ])
 
+  // Bundle key = referenced PK (the source handle == the "one" side) + the
+  // approach SIDE. Every edge leaving the SAME PK toward the same side forms
+  // one bundle: the central pass runs them as ONE trunk across the canvas and
+  // only forks to each target row near the targets — regardless of which table
+  const bundleKey = `${sourceHandleId ?? source}|${targetPosition === Position.Left ? 'L' : 'R'}`
+
   useEffect(() => {
-    registerRoute?.(id, orthoPoints ?? null)
+    registerRoute?.(id, orthoPoints ?? null, bundleKey)
     return () => registerRoute?.(id, null)
-  }, [registerRoute, id, orthoPoints])
+  }, [registerRoute, id, orthoPoints, bundleKey])
 
   // Manual path: stored waypoints + live endpoints, bridged to stay orthogonal.
   // Cheap (no A*), so it does NOT fall back to smoothstep during node drags —

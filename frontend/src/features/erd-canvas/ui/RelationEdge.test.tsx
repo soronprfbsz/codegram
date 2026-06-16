@@ -6,7 +6,9 @@ import {
   RelationEdge,
   startMarkerKind,
   endMarkerKind,
+  buildObstacles,
   type RelationEdgeProps,
+  type ObstacleNode,
 } from './RelationEdge'
 import { EdgePathContext } from '../lib/edgePathContext'
 
@@ -341,5 +343,48 @@ describe('RelationEdge segment drag interaction (Task 5)', () => {
     // ...but an aborted gesture never commits and the path reverts.
     expect(ctx.commitWaypoints).not.toHaveBeenCalled()
     expect(pathD()).toBe(committedD)
+  })
+})
+
+describe('buildObstacles', () => {
+  const rect = (x: number) => ({ x, y: 0, width: 100, height: 60 })
+  const nodes: ObstacleNode[] = [
+    { id: 't1', type: 'table', parentId: 'gA', rect: rect(0) },
+    { id: 't2', type: 'table', parentId: 'gB', rect: rect(500) },
+    { id: 't3', type: 'table', parentId: 'gC', rect: rect(1000) }, // 중간/무관 그룹 멤버
+    { id: 'gA', type: 'group', rect: rect(-10) },
+    { id: 'gB', type: 'group', rect: rect(490) },
+    { id: 'gC', type: 'group', rect: rect(990) },
+  ]
+
+  it('always includes all table/enum/sticky cards', () => {
+    const obs = buildObstacles(nodes, 't1', 't2')
+    expect(obs).toContainEqual(rect(0))
+    expect(obs).toContainEqual(rect(500))
+    expect(obs).toContainEqual(rect(1000))
+  })
+
+  it('excludes the source and target groups, includes other groups', () => {
+    const obs = buildObstacles(nodes, 't1', 't2') // src group gA, tgt group gB
+    expect(obs).not.toContainEqual(rect(-10)) // gA excluded
+    expect(obs).not.toContainEqual(rect(490)) // gB excluded
+    expect(obs).toContainEqual(rect(990))     // gC included (1단계 우회 대상)
+  })
+
+  it('includes all groups when neither endpoint is grouped', () => {
+    const ungrouped: ObstacleNode[] = [
+      { id: 'u1', type: 'table', rect: rect(0) },
+      { id: 'u2', type: 'table', rect: rect(500) },
+      { id: 'gC', type: 'group', rect: rect(990) },
+    ]
+    const obs = buildObstacles(ungrouped, 'u1', 'u2')
+    expect(obs).toContainEqual(rect(990))
+  })
+
+  it('treats an intra-group edge as having no group obstacle for its own group', () => {
+    const obs = buildObstacles(nodes, 't1', 't1') // 같은 그룹 gA
+    expect(obs).not.toContainEqual(rect(-10)) // gA 제외
+    expect(obs).toContainEqual(rect(490))     // gB 포함
+    expect(obs).toContainEqual(rect(990))     // gC 포함
   })
 })
