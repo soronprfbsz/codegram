@@ -150,6 +150,47 @@ describe('routeOrthogonal', () => {
     })
   })
 
+  describe('routeOrthogonal sourceTrunkOffset (perpendicular trunk fan)', () => {
+    // A target card BELOW-RIGHT forces the route to leave the source and travel
+    // vertically along the step-out X — the trunk. Without such a trunk the
+    // route runs straight out along the source row and simplify() collapses the
+    // step-out corner, so the trunk offset is only observable once a vertical
+    // trunk actually materialises.
+    const obstacle = { x: 260, y: 120, width: 240, height: 200 }
+
+    it('with offset 0 the source step-out sits at the plain margin', () => {
+      const pts = routeOrthogonal({ x: 0, y: 0 }, { x: 260, y: 200 }, 'right', 'left', [obstacle], undefined, 0, 0, 0)
+      expect(isOrthogonal(pts)).toBe(true)
+      expect(pts[0]).toEqual({ x: 0, y: 0 }) // anchored at the source handle
+      expect(pts[1].x).toBe(16) // step-out at MARGIN, no trunk push
+    })
+
+    it('pushes the source step-out port out by sourceTrunkOffset (right side)', () => {
+      const pts = routeOrthogonal({ x: 0, y: 0 }, { x: 260, y: 200 }, 'right', 'left', [obstacle], undefined, 0, 0, 14)
+      expect(isOrthogonal(pts)).toBe(true)
+      expect(pts[0]).toEqual({ x: 0, y: 0 })
+      expect(pts[1].x).toBe(30) // MARGIN(16) + trunkOffset(14)
+      expect(pts[pts.length - 1]).toEqual({ x: 260, y: 200 }) // still anchored at target
+    })
+
+    it('mirrors the push to the LEFT when the source exits on the left side', () => {
+      const obstacleL = { x: -500, y: 120, width: 240, height: 200 }
+      const pts = routeOrthogonal({ x: 0, y: 0 }, { x: -260, y: 200 }, 'left', 'right', [obstacleL], undefined, 0, 0, 14)
+      expect(isOrthogonal(pts)).toBe(true)
+      expect(pts[1].x).toBe(-30) // -(MARGIN + trunkOffset)
+    })
+
+    it('two co-source edges to vertically-stacked targets run on DIFFERENT trunk X', () => {
+      // A target card BELOW-RIGHT forces the route to leave the source and travel
+      // vertically along the step-out X — the trunk. Two lanes must use different X.
+      const obstacles = [{ x: 260, y: 120, width: 240, height: 200 }]
+      const lane0 = routeOrthogonal({ x: 0, y: 0 }, { x: 260, y: 200 }, 'right', 'left', obstacles, undefined, 0, 0, 0)
+      const lane1 = routeOrthogonal({ x: 0, y: 0 }, { x: 260, y: 260 }, 'right', 'left', obstacles, undefined, 0, 0, 14)
+      // The step-out / trunk X differs by the trunk offset.
+      expect(lane1[1].x - lane0[1].x).toBe(14)
+    })
+  })
+
   it('polylineToPath builds an M/L svg path', () => {
     const d = polylineToPath([
       { x: 0, y: 0 },

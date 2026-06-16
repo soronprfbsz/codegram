@@ -15,6 +15,10 @@
  * border, and crossesObstacle treats grazing a border as allowed (strict
  * interior test), so the stub segments still leave/enter the endpoint cards.
  *
+ * sourceTrunkOffset pushes the source step-out perpendicular to the card (X) so
+ * edges leaving the same handle fan onto parallel vertical trunks instead of
+ * collapsing onto one — complementing the in-Y sourceLaneOffset.
+ *
  * features layer: no imports beyond local types. PURE, deterministic.
  */
 export interface Rect {
@@ -72,15 +76,20 @@ export function routeOrthogonal(
   margin = MARGIN,
   targetLaneOffset = 0,
   sourceLaneOffset = 0,
+  sourceTrunkOffset = 0,
 ): Point[] {
   // Step-out ports: leave/enter the node by `margin` before turning. The target
   // port is pushed an extra `targetLaneOffset` away from the node so edges that
   // reference DIFFERENT PKs enter on distinct vertical lanes instead of piling
   // onto one shared lane (same-PK edges share an offset → stay bundled).
   // sourceLaneOffset pushes the source port in Y with an L-stub so edges leaving
-  // the same PK fan onto separate corridors.
+  // the same PK fan onto separate corridors. sourceTrunkOffset pushes the source
+  // step-out perpendicular to the card (X) so edges leaving the same handle fan
+  // onto parallel vertical trunks instead of collapsing onto one — complementing
+  // the in-Y sourceLaneOffset.
+  const sMargin = margin + sourceTrunkOffset
   const sPort: Point = {
-    x: source.x + (sourceSide === 'right' ? margin : -margin),
+    x: source.x + (sourceSide === 'right' ? sMargin : -sMargin),
     y: source.y + sourceLaneOffset,
   }
   const tMargin = margin + targetLaneOffset
