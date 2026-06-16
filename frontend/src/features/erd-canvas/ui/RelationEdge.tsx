@@ -22,7 +22,7 @@ import {
   type PathPoint,
 } from '@/entities/layout'
 import { useEdgePathContext } from '../lib/edgePathContext'
-import { useEdgeRoutes } from '../lib/edgeRoutesContext'
+import { useRegisterRoute, useAdjustedRoutes } from '../lib/edgeRoutesContext'
 
 export type RelationEdgeProps = EdgeProps & { data?: RelationEdgeData }
 
@@ -107,7 +107,8 @@ function RelationEdgeImpl({
   // for grouped children too — and a stable reference across pan/zoom (it only
   // changes when nodes change), so we don't re-route on viewport moves.
   const nodeLookup = useStore((s) => s.nodeLookup)
-  const edgeRoutes = useEdgeRoutes()
+  const registerRoute = useRegisterRoute()
+  const adjustedRoutes = useAdjustedRoutes()
 
   const isEnumLink = data?.isEnumLink ?? false
   // NOTE: an EMPTY waypoints array is still a MANUAL path (the user dragged the
@@ -221,9 +222,9 @@ function RelationEdgeImpl({
   ])
 
   useEffect(() => {
-    edgeRoutes?.register(id, orthoPoints ?? null)
-    return () => edgeRoutes?.register(id, null)
-  }, [edgeRoutes, id, orthoPoints])
+    registerRoute?.(id, orthoPoints ?? null)
+    return () => registerRoute?.(id, null)
+  }, [registerRoute, id, orthoPoints])
 
   // Manual path: stored waypoints + live endpoints, bridged to stay orthogonal.
   // Cheap (no A*), so it does NOT fall back to smoothstep during node drags —
@@ -261,7 +262,9 @@ function RelationEdgeImpl({
   }, [draftWaypoints, sourceX, sourceY, targetX, targetY])
 
   // The polyline actually rendered this frame (draft > manual > auto).
-  const autoPoints = edgeRoutes?.adjusted.get(id) ?? orthoPoints
+  // Prefer the spread (adjusted) route; on first paint / before the rAF settle
+  // this falls back to the raw orthoPoints (a one-frame ≤gap reflow, not a bug).
+  const autoPoints = adjustedRoutes.get(id) ?? orthoPoints
   const renderedPoints = draftPoints ?? manualPoints ?? autoPoints
 
   // Report the rendered path while selected — feeds SelectionInfo + panel
