@@ -36,6 +36,7 @@ import {
   type PathPoint,
 } from '@/entities/layout'
 import { EdgePathContext, type EdgePathContextValue } from '../lib/edgePathContext'
+import { EdgeRoutesProvider } from '../lib/edgeRoutesContext'
 import { resolveEdgeSides } from '../lib/edgeSides'
 import { GroupActionContext, type GroupActionContextValue } from '../lib/groupActionContext'
 import { getHelperLines } from '../lib/helperLines'
@@ -653,6 +654,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   return (
     <EdgePathContext.Provider value={edgePathCtx}>
     <GroupActionContext.Provider value={groupActionCtx}>
+    <EdgeRoutesProvider>
     <ReactFlow
       nodes={displayNodes}
       edges={displayEdges}
@@ -751,6 +753,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
         <ZoomBar />
       </Panel>
     </ReactFlow>
+    </EdgeRoutesProvider>
     </GroupActionContext.Provider>
     </EdgePathContext.Provider>
   )
