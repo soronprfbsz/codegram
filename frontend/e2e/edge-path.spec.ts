@@ -381,3 +381,69 @@ test('edges leaving the same PK fan onto separate horizontal corridors', async (
   // The two co-source edges must leave on DIFFERENT corridors (fanned apart).
   expect(corridors[0]).not.toBe(corridors[1])
 })
+
+test('edges leaving the same source handle fan onto distinct vertical trunks', async ({ page }) => {
+  const email = `trunk-${Date.now()}@example.com`
+  await registerAndLogin(page, email, 'password123')
+  const dbml = [
+    'Table account {',
+    '  account_id BIGINT [pk]',
+    '}',
+    'Table a {',
+    '  id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '}',
+    'Table b {',
+    '  id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '}',
+    'Table c {',
+    '  id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '}',
+  ].join('\n')
+  // account on top; a/b/c stacked directly BELOW it so every account edge runs
+  // down a vertical trunk to reach its target.
+  const layout = {
+    version: 1,
+    positions: {
+      'public.account': { x: 0, y: 0 },
+      'public.a': { x: 0, y: 240 },
+      'public.b': { x: 0, y: 440 },
+      'public.c': { x: 0, y: 640 },
+    },
+  }
+  const resp = await page.request.post('/api/projects', {
+    data: { name: 'Trunk', dbml_text: dbml, layout },
+  })
+  const { id } = await resp.json()
+  await page.goto(`/editor/${id}`)
+  await expect
+    .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })
+    .toBeGreaterThanOrEqual(3)
+  await page.waitForTimeout(800)
+
+  // For each edge leaving account.account_id, find the X of its longest VERTICAL
+  // segment (the trunk it runs down). With the fix these must be distinct.
+  const trunkXs = await page.evaluate(() => {
+    const edges = Array.from(document.querySelectorAll('.react-flow__edge'))
+      .filter((g) => (g.getAttribute('data-id') ?? '').includes('public.account.(account_id)'))
+    return edges.map((g) => {
+      const d = g.querySelector('.react-flow__edge-path')?.getAttribute('d') ?? ''
+      const nums = d.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []
+      const pts: { x: number; y: number }[] = []
+      for (let i = 0; i + 1 < nums.length; i += 2) pts.push({ x: nums[i], y: nums[i + 1] })
+      let best = { x: NaN, len: -1 }
+      for (let i = 0; i + 1 < pts.length; i++) {
+        if (pts[i].x === pts[i + 1].x) {
+          const len = Math.abs(pts[i + 1].y - pts[i].y)
+          if (len > best.len) best = { x: pts[i].x, len }
+        }
+      }
+      return best.x
+    })
+  })
+  expect(trunkXs.length).toBeGreaterThanOrEqual(3)
+  // No two co-source edges share the same trunk X (all distinct).
+  expect(new Set(trunkXs).size).toBe(trunkXs.length)
+})
