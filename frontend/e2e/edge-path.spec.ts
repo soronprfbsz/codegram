@@ -599,6 +599,100 @@ test('no edge path crosses any table card interior (corridor routing)', async ({
   expect(result.hitCount).toBe(0)
 })
 
+test('dense grouped schema: a same-PK bus never tunnels through an intervening card', async ({ page }) => {
+  // Regression for the real-app bug: account.account_id is referenced by
+  // created_by/updated_by across MANY tables packed into a group grid. A naive
+  // same-PK bus would run a horizontal "leave" at the account_id row straight
+  // through nearer member cards (e.g. customer_note) to reach a far member. The
+  // post-passes must (a) actually receive the measured card obstacles and (b)
+  // detect the per-segment crossing and fall back so the route goes AROUND.
+  const email = `dense-${Date.now()}@example.com`
+  await registerAndLogin(page, email, 'password123')
+  const dbml = [
+    'Table department { id BIGINT [pk] }',
+    'Table account {',
+    '  account_id BIGINT [pk]',
+    '  department_id BIGINT [ref: > department.id]',
+    '}',
+    'Table customer {',
+    '  customer_id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '  updated_by BIGINT [ref: > account.account_id]',
+    '}',
+    'Table project {',
+    '  project_id VARCHAR [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '}',
+    'Table customer_note {',
+    '  note_id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '  updated_by BIGINT [ref: > account.account_id]',
+    '}',
+    'Table patch_file {',
+    '  patch_id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '}',
+    'Table patch_history {',
+    '  history_id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '}',
+    'Table release_version {',
+    '  release_id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '  updated_by BIGINT [ref: > account.account_id]',
+    '}',
+    'TableGroup VERSION {',
+    '  customer',
+    '  project',
+    '  customer_note',
+    '  patch_file',
+    '  patch_history',
+    '  release_version',
+    '}',
+  ].join('\n')
+
+  const resp = await page.request.post('/api/projects', { data: { name: 'Dense', dbml_text: dbml } })
+  const { id } = await resp.json()
+  await page.goto(`/editor/${id}`)
+  await expect
+    .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })
+    .toBeGreaterThanOrEqual(6)
+  await page.waitForTimeout(1500)
+
+  const result = await page.evaluate(() => {
+    const INSET = 2
+    const STEP = 4
+    const tableRects = Array.from(document.querySelectorAll('.react-flow__node-table')).map((n) => {
+      const r = n.getBoundingClientRect()
+      return { left: r.left + INSET, right: r.right - INSET, top: r.top + INSET, bottom: r.bottom - INSET }
+    })
+    const hits: { edgeId: string; sx: number; sy: number }[] = []
+    for (const path of Array.from(document.querySelectorAll('.react-flow__edge-path'))) {
+      const p = path as SVGPathElement
+      const edgeId = p.closest('[data-id]')?.getAttribute('data-id') ?? '?'
+      const ctm = p.getScreenCTM()
+      if (!ctm) continue
+      const total = p.getTotalLength()
+      for (let dist = 0; dist <= total; dist += STEP) {
+        const pt = p.getPointAtLength(dist)
+        const sx = ctm.a * pt.x + ctm.c * pt.y + ctm.e
+        const sy = ctm.b * pt.x + ctm.d * pt.y + ctm.f
+        for (const rect of tableRects) {
+          if (sx > rect.left && sx < rect.right && sy > rect.top && sy < rect.bottom) {
+            hits.push({ edgeId, sx, sy })
+          }
+        }
+      }
+    }
+    return { hitCount: hits.length, hits: hits.slice(0, 8) }
+  })
+
+  if (result.hitCount > 0) {
+    console.error('Dense-schema interior crossings:', JSON.stringify(result.hits, null, 2))
+  }
+  expect(result.hitCount).toBe(0)
+})
+
 test('same-PK FKs of one table share a trunk; a different-PK FK stays separate', async ({ page }) => {
   const email = `bundle-${Date.now()}@example.com`
   await registerAndLogin(page, email, 'password123')

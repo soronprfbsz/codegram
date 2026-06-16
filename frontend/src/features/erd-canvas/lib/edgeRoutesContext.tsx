@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { useStore } from '@xyflow/react'
+import { useStore, type ReactFlowState } from '@xyflow/react'
 import type { Point, Rect } from './routeOrthogonal'
 import { spreadEdgeRoutes } from './spreadEdgeRoutes'
 import { mergeBundleRoutes } from './mergeBundleRoutes'
@@ -59,27 +59,38 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
   const bundleRef = useRef<Map<string, string>>(new Map())
   const [version, setVersion] = useState(0)
 
-  // 후처리 가로지름 검사용 카드 장애물(테이블/enum/sticky). ReactFlowProvider
-  // 안이라 nodeLookup을 구독한다 — 이 Map 참조는 pan/zoom에는 안정하고 노드가
-  // 바뀔 때만 변하므로(RelationEdge와 동일), 매 store 업데이트가 아니라 노드
-  // 변경 시에만 rect를 재파생한다. ref에 담아 기존 version recompute 시점에
-  // 최신값을 쓴다(노드 이동 시 엣지 재등록 → bump 발생).
-  const nodeLookup = useStore((s) => s.nodeLookup)
-  const obstaclesRef = useRef<Rect[]>([])
-  obstaclesRef.current = useMemo(() => {
-    const rects: Rect[] = []
-    for (const n of nodeLookup.values()) {
-      if (n.type !== 'table' && n.type !== 'enum' && n.type !== 'sticky') continue
-      const pos = n.internals.positionAbsolute
-      rects.push({
-        x: pos.x,
-        y: pos.y,
-        width: n.measured?.width ?? 240,
-        height: n.measured?.height ?? 80,
-      })
-    }
-    return rects
-  }, [nodeLookup])
+  // 후처리 가로지름 검사용 카드 장애물(테이블/enum/sticky). React Flow의
+  // nodeLookup Map은 참조가 안정(in-place 변경)이라 `useMemo([nodeLookup])`로는
+  // 갱신을 감지하지 못한다(첫 렌더의 빈 상태로 고정됨). 그래서 selector로 rect를
+  // 직접 뽑고, 내용 기반 equality로 비교한다 — 노드가 추가/이동/측정돼 rect가
+  // 실제로 바뀔 때만 새 배열을 내보내(=`adjusted` 재계산 유발) 후처리가 최신 카드
+  // 기준으로 가로지름을 재검사한다. rect가 그대로면 같은 참조를 유지해(equality
+  // true) pan/zoom/선택 같은 무관한 store 업데이트로는 재렌더하지 않는다.
+  const obstacles = useStore(
+    useCallback((s: ReactFlowState): Rect[] => {
+      const rects: Rect[] = []
+      for (const n of s.nodeLookup.values()) {
+        if (n.type !== 'table' && n.type !== 'enum' && n.type !== 'sticky') continue
+        const pos = n.internals.positionAbsolute
+        rects.push({
+          x: pos.x,
+          y: pos.y,
+          width: n.measured?.width ?? 240,
+          height: n.measured?.height ?? 80,
+        })
+      }
+      return rects
+    }, []),
+    (a, b) =>
+      a.length === b.length &&
+      a.every(
+        (r, i) =>
+          r.x === b[i].x &&
+          r.y === b[i].y &&
+          r.width === b[i].width &&
+          r.height === b[i].height,
+      ),
+  )
 
   const frameRef = useRef<number | null>(null)
 
@@ -116,19 +127,21 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
     if (frameRef.current != null) cancelAnimationFrame(frameRef.current)
   }, [])
 
-  // `version` is the recompute trigger; the route data is read from the ref.
-  // Two passes: (1) BUNDLE same-PK edges onto one forked trunk, then (2) SPREAD
-  // distinct bundles off any shared corridor (skipping same-bundle segments so
-  // the merged trunk survives).
+  // Recompute when EITHER edges re-register (`version`) OR the obstacle set
+  // changes (`obstacles` — nodes added/moved/measured). The latter is essential:
+  // on first paint nodeLookup may be unmeasured so `obstacles` is empty; once it
+  // populates, the post-passes must re-run to catch buses that would now cross a
+  // card. Two passes: (1) BUNDLE same-PK edges onto one forked trunk, then (2)
+  // SPREAD distinct bundles off any shared corridor (same-bundle segments share a
+  // track so the merged trunk survives).
   const adjusted = useMemo(() => {
     void version
     const keyOf = (id: string) => bundleRef.current.get(id) ?? null
     const raw = [...rawRef.current].map(([id, points]) => ({ id, points }))
-    const obstacles = obstaclesRef.current
     const merged = mergeBundleRoutes(raw, keyOf, obstacles)
     const mergedRoutes = raw.map(({ id }) => ({ id, points: merged.get(id)! }))
     return spreadEdgeRoutes(mergedRoutes, SPREAD_GAP, keyOf, obstacles)
-  }, [version])
+  }, [version, obstacles])
 
   return (
     <RegisterCtx.Provider value={register}>

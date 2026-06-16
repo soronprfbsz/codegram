@@ -192,4 +192,39 @@ describe('mergeBundleRoutes obstacle awareness', () => {
       expect(out.get('b')).toEqual(busRoutes[1].points)
     })
   })
+
+  // Regression (the real-app bug): a per-segment grazing rule, NOT a bundle-wide
+  // one. A far cluster's shared horizontal LEAVE can tunnel through a NEARER
+  // bundle member's target card (a different cluster). That card holds another
+  // member's anchor, so a bundle-wide endpoint exclusion would wrongly ignore it
+  // and let the bus cross. The crossing must be detected → the far cluster falls
+  // back to its raw routes.
+  describe('per-segment grazing: leave tunneling through a sibling member card', () => {
+    const keyL = () => 'pk|L'
+    const src = { x: 0, y: 100 }
+    // Far cluster P+R (targets at x=1000 → one cluster, trunkX=970).
+    // Near member C (target at x=400 → its own cluster).
+    const routes = [
+      { id: 'P', points: [src, { x: 30, y: 100 }, { x: 30, y: 50 }, { x: 1000, y: 50 }] },
+      { id: 'R', points: [src, { x: 30, y: 100 }, { x: 30, y: 300 }, { x: 1000, y: 300 }] },
+      { id: 'C', points: [src, { x: 30, y: 100 }, { x: 30, y: 100 }, { x: 400, y: 100 }] },
+    ]
+    // customer_note-like card holding member C's target (400,100); the P/R leave
+    // at y=100 from x=0→970 tunnels straight through it.
+    const siblingCard = { x: 380, y: 60, width: 240, height: 80 }
+
+    it("detects the leave crossing a sibling member's card and falls back", () => {
+      const out = mergeBundleRoutes(routes, keyL, [siblingCard])
+      // P and R must NOT be merged onto a bus that tunnels through the card.
+      expect(out.get('P')).toEqual(routes[0].points)
+      expect(out.get('R')).toEqual(routes[1].points)
+    })
+
+    it('merges P+R when the sibling card is out of the leave path', () => {
+      // Same bundle, but the sibling card sits BELOW the y=100 leave row → no cross.
+      const lowCard = { x: 380, y: 400, width: 240, height: 80 }
+      const out = mergeBundleRoutes(routes, keyL, [lowCard])
+      expect(out.get('P')).not.toEqual(routes[0].points) // bussed
+    })
+  })
 })
