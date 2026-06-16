@@ -199,6 +199,7 @@ function RelationEdgeImpl({
       undefined,
       laneIndex * LANE_GAP,
       sourceLaneIndex * LANE_GAP,
+      sourceLaneIndex * LANE_GAP,
     )
   }, [
     dragging,
