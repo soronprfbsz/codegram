@@ -35,6 +35,14 @@ const APPROACH_STUB = 30
  */
 const CLUSTER_GAP = 240
 
+/**
+ * How far ABOVE the topmost target table the intra-group "spine" runs. The spine
+ * is the shared horizontal avenue a same-PK bundle travels along after entering a
+ * table group; forks then drop DOWN each column gutter into the FK rows. Kept
+ * inside the group's top padding band so it never overlaps a card.
+ */
+const SPINE_RISE = 40
+
 /** Merge consecutive duplicate / collinear points so the polyline is minimal. */
 function simplify(pts: Point[]): Point[] {
   if (pts.length <= 2) return pts
@@ -55,14 +63,20 @@ function simplify(pts: Point[]): Point[] {
 }
 
 /**
- * Rewrite each same-PK bundle's members onto one shared trunk that forks per row.
- * Returns a NEW map id -> adjusted points; inputs are not mutated. Routes with a
- * null bundle key, or bundles of size < 2, are copied through unchanged.
+ * Rewrite each same-PK bundle's members onto a shared structure that forks per row.
+ * Two geometries: targets OUTSIDE any group share a cross-canvas vertical trunk;
+ * targets INSIDE a group box (`groups`) get the 2-level "spine bus" — descend the
+ * group's entry gutter, run a horizontal spine just above the target row, then
+ * fork DOWN each column gutter into the FK (so interior-column tables are entered
+ * top/bottom rather than tunnelled into horizontally). Returns a NEW map
+ * id -> adjusted points; inputs are not mutated. Null-key or <2-member bundles,
+ * and members whose candidate path would cross a card, are copied through unchanged.
  */
 export function mergeBundleRoutes(
   routes: EdgeRoute[],
   bundleKeyOf: (id: string) => string | null,
   obstacles: Rect[] = [],
+  groupBoxes: Rect[] = [],
 ): Map<string, Point[]> {
   // Deep-copy so callers' data is never mutated.
   const copies = new Map<string, Point[]>()
@@ -117,81 +131,117 @@ export function mergeBundleRoutes(
       })
     if (!ok) continue
 
-    // Split the bundle into CLUSTERS by target x-proximity: targets in one column
-    // /table-group share a trunk, but a far-away group gets its OWN trunk — else a
-    // single trunk near the leftmost target would force long branches that cross
-    // the intervening cards. Single-linkage on the sorted target x with a
-    // CLUSTER_GAP threshold (≈ one card width).
-    const byTx = [...members].sort(
-      (a, b) => a.pts[a.pts.length - 1].x - b.pts[b.pts.length - 1].x,
-    )
+    // PER-SEGMENT grazing test. A segment may legitimately pass through a card
+    // only if that card contains one of the segment's OWN endpoints (the stub
+    // leaving the source PK card / entering a target FK card — the anchor sits a
+    // few px inside the box: React Flow handle/measured geometry). It must NOT
+    // tunnel through any OTHER card (incl. a different bundle member's target). So
+    // for each segment, exclude only the cards holding its endpoints, then test.
+    const EPS = 2
+    const contains = (o: Rect, p: Point): boolean =>
+      p.x > o.x - EPS &&
+      p.x < o.x + o.width + EPS &&
+      p.y > o.y - EPS &&
+      p.y < o.y + o.height + EPS
+    const lineCrosses = (line: Point[]): boolean => {
+      for (let i = 0; i < line.length - 1; i++) {
+        const a = line[i]
+        const b = line[i + 1]
+        const others = obstacles.filter((o) => !contains(o, a) && !contains(o, b))
+        if (crossesObstacle(a, b, others)) return true
+      }
+      return false
+    }
+    const targetOf = (m: (typeof members)[number]): Point => m.pts[m.pts.length - 1]
+
+    // Partition members by whether the target sits INSIDE a table group box.
+    // Grouped targets get the 2-level "spine bus" (descend the group's entry
+    // gutter → run a horizontal spine above the target row → fork DOWN each column
+    // gutter into the FK). Targets outside any group keep the cross-canvas
+    // vertical trunk. (No groups passed ⇒ everything is loose ⇒ legacy behavior.)
+    const groupedMembers = new Map<number, typeof members>()
+    const loose: typeof members = []
+    for (const m of members) {
+      const gi = groupBoxes.findIndex((g) => contains(g, targetOf(m)))
+      if (gi >= 0) {
+        const arr = groupedMembers.get(gi)
+        if (arr) arr.push(m)
+        else groupedMembers.set(gi, [m])
+      } else loose.push(m)
+    }
+
+    // --- Ungrouped targets: cross-canvas vertical trunk (X-clustered) ---
+    const byTx = [...loose].sort((a, b) => targetOf(a).x - targetOf(b).x)
     const clusters: (typeof members)[] = []
     for (const m of byTx) {
-      const tx = m.pts[m.pts.length - 1].x
+      const tx = targetOf(m).x
       const last = clusters[clusters.length - 1]
-      const lastTx = last ? last[last.length - 1].pts[last[last.length - 1].pts.length - 1].x : 0
+      const lastTx = last ? targetOf(last[last.length - 1]).x : 0
       if (last && tx - lastTx <= CLUSTER_GAP) last.push(m)
       else clusters.push([m])
     }
-
     for (const cluster of clusters) {
       if (cluster.length < 2) continue // a lone target keeps its own A* route
-
-      // ONE shared trunk hugging this cluster: a vertical line just OUTSIDE its
-      // nearest target card, so members share the long run and only fork (a short
-      // horizontal) into each row near the targets. (APPROACH_STUB mirrors
-      // routeOrthogonal's STEP_OUT so the crow-foot keeps a visible plain stub.)
-      const txs = cluster.map((m) => m.pts[m.pts.length - 1].x)
+      const txs = cluster.map((m) => targetOf(m).x)
       const trunkX =
         side === 'left' ? Math.min(...txs) - APPROACH_STUB : Math.max(...txs) + APPROACH_STUB
-      // The trunk must sit on the target side of the source AND of every target,
-      // else a branch would double back. If not, leave this cluster alone.
       const trunkOk =
         side === 'left'
           ? trunkX > src.x && txs.every((t) => t >= trunkX) && leaveSign > 0
           : trunkX < src.x && txs.every((t) => t <= trunkX) && leaveSign < 0
       if (!trunkOk) continue
-
-      // 후보 폴리라인을 먼저 만들고, 하나라도 카드를 가로지르면 클러스터 전체를
-      // 폴백(원래 A* 경로 유지). trunk/fork가 카드를 침범하지 않을 때만 커밋.
       const candidates = cluster.map((m) => {
-        const t = m.pts[m.pts.length - 1]
+        const t = targetOf(m)
         return {
           id: m.id,
           line: simplify([
             { x: src.x, y: src.y },
-            { x: trunkX, y: src.y }, // shared: leave source along its row to the trunk
-            { x: trunkX, y: t.y }, // shared: run the trunk to this member's row
-            { x: t.x, y: t.y }, // fork: short stub into the target
+            { x: trunkX, y: src.y },
+            { x: trunkX, y: t.y },
+            { x: t.x, y: t.y },
           ]),
         }
       })
-      // PER-SEGMENT grazing rule. A segment may legitimately pass through a card
-      // only if that card contains one of the segment's OWN endpoints — i.e. the
-      // stub leaving the source PK card, or the fork entering a target FK card
-      // (the anchor sits a few px inside the card box: React Flow handle/measured
-      // geometry). It must NOT pass THROUGH any other card — including a DIFFERENT
-      // bundle member's target that happens to sit on the shared leave/trunk. So
-      // exclude only the cards containing THIS segment's endpoints, then test the
-      // rest. (A bundle-wide endpoint exclusion was too broad: the long shared
-      // leave to a far target would tunnel through a nearer member's card.)
-      const EPS = 2
-      const contains = (o: Rect, p: Point): boolean =>
-        p.x > o.x - EPS &&
-        p.x < o.x + o.width + EPS &&
-        p.y > o.y - EPS &&
-        p.y < o.y + o.height + EPS
-      const crosses = candidates.some((c) => {
-        for (let i = 0; i < c.line.length - 1; i++) {
-          const a = c.line[i]
-          const b = c.line[i + 1]
-          const others = obstacles.filter((o) => !contains(o, a) && !contains(o, b))
-          if (crossesObstacle(a, b, others)) return true
-        }
-        return false
-      })
-      if (crosses) continue // 폴백: copies에는 이미 원래 경로의 deep-copy가 있다
+      if (candidates.some((c) => lineCrosses(c.line))) continue // fallback (whole cluster)
       for (const c of candidates) copies.set(c.id, c.line)
+    }
+
+    // --- Grouped targets: 2-level spine bus, per group ---
+    for (const cluster of groupedMembers.values()) {
+      if (cluster.length < 2) continue
+      const txs = cluster.map((m) => targetOf(m).x)
+      // Descent column: just OUTSIDE the nearest target (the group's entry gutter).
+      const descentX =
+        side === 'left' ? Math.min(...txs) - APPROACH_STUB : Math.max(...txs) + APPROACH_STUB
+      const geomOk =
+        side === 'left'
+          ? descentX > src.x && txs.every((t) => t >= descentX) && leaveSign > 0
+          : descentX < src.x && txs.every((t) => t <= descentX) && leaveSign < 0
+      if (!geomOk) continue
+      // Spine row: just ABOVE the topmost target table (in the group's top padding,
+      // clear of cards), so the shared horizontal run never crosses a card.
+      const topOf = (t: Point): number => {
+        const card = obstacles.find((o) => contains(o, t))
+        return card ? card.y : t.y
+      }
+      const spineY = Math.min(...cluster.map((m) => topOf(targetOf(m)))) - SPINE_RISE
+      // Per-MEMBER commit: an outermost-column target (gx === descentX) collapses
+      // to a plain vertical approach from the entry gutter; interior columns ride
+      // the spine then fork down their own gutter. A member whose path would cross
+      // a card keeps its raw A* route, so one awkward target never breaks the bus.
+      for (const m of cluster) {
+        const t = targetOf(m)
+        const gx = side === 'left' ? t.x - APPROACH_STUB : t.x + APPROACH_STUB
+        const line = simplify([
+          { x: src.x, y: src.y },
+          { x: descentX, y: src.y }, // leave source to the group entry gutter
+          { x: descentX, y: spineY }, // descend the entry gutter up to the spine
+          { x: gx, y: spineY }, // spine: run above the row to this column's gutter
+          { x: gx, y: t.y }, // fork: drop down the column gutter to the FK row
+          { x: t.x, y: t.y }, // stub into the target
+        ])
+        if (!lineCrosses(line)) copies.set(m.id, line)
+      }
     }
   }
 

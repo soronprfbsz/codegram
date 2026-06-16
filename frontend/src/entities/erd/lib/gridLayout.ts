@@ -14,9 +14,10 @@ import { nodeSize } from './nodeSize'
 
 // 테이블 사이 코리도(공장라인 2단계) 폭. 평행선 여러 개가 카드를 스치지 않고
 // 지나갈 만큼 넉넉하게(고정). 그룹 미사용 다이어그램의 전체 배치와
-// packGroupedLayout의 그룹 내부 패킹 양쪽에 쓰인다.
+// packGroupedLayout의 그룹 내부 패킹 양쪽에 쓰인다. 세로(GAP_Y)는 행과 행 사이로
+// 지나는 가로 코리도 라인을 여러 개 담아야 하므로 가로보다 넉넉하게 둔다.
 const GAP_X = 120
-const GAP_Y = 100
+const GAP_Y = 180
 const TARGET_ASPECT = 1.6 // 16:10 (width:height)
 
 export function gridLayout(

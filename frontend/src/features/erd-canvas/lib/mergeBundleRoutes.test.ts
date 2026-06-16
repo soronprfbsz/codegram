@@ -227,4 +227,57 @@ describe('mergeBundleRoutes obstacle awareness', () => {
       expect(out.get('P')).not.toEqual(routes[0].points) // bussed
     })
   })
+
+  // The 2-level "spine bus" for targets INSIDE a group box: descend the group's
+  // entry gutter, run a horizontal spine ABOVE the target row, then fork DOWN each
+  // interior column's gutter into the FK. The OUTERMOST column connects straight
+  // from the entry gutter (no spine detour).
+  describe('intra-group spine bus', () => {
+    const keyL = () => 'pk|L'
+    const src = { x: 719, y: 376 }
+    // Two top-row tables in one group: customer (col0) and project (col1).
+    const customerCard = { x: 1012, y: 78, width: 240, height: 126 }
+    const projectCard = { x: 1372, y: 78, width: 240, height: 98 }
+    const groupBox = { x: 1000, y: 40, width: 800, height: 400 }
+    // FK anchors on each table's LEFT border (left-approach), at a mid row.
+    const routes = [
+      { id: 'customer', points: [src, { x: 749, y: 376 }, { x: 749, y: 160 }, { x: 1013, y: 160 }] },
+      { id: 'project', points: [src, { x: 749, y: 376 }, { x: 749, y: 161 }, { x: 1373, y: 161 }] },
+    ]
+    const obstacles = [customerCard, projectCard]
+
+    it('outermost column enters straight; interior column rides the spine and forks down', () => {
+      const out = mergeBundleRoutes(routes, keyL, obstacles, [groupBox])
+      const descentX = 1013 - 30 // 983 (just left of the leftmost target)
+      const spineY = 78 - 40 // 38 (above the topmost target table)
+
+      // customer (col0 == descent gutter): plain vertical approach, NO spine band.
+      expect(out.get('customer')).toEqual([
+        { x: 719, y: 376 },
+        { x: descentX, y: 376 },
+        { x: descentX, y: 160 },
+        { x: 1013, y: 160 },
+      ])
+
+      // project (interior col1): descend gutter → spine across → fork down col gutter.
+      const gx = 1373 - 30 // 1343 (project's left gutter)
+      expect(out.get('project')).toEqual([
+        { x: 719, y: 376 },
+        { x: descentX, y: 376 },
+        { x: descentX, y: spineY },
+        { x: gx, y: spineY },
+        { x: gx, y: 161 },
+        { x: 1373, y: 161 },
+      ])
+      // The two share the descent gutter prefix (one visible line entering the group).
+      expect(out.get('customer')![1]).toEqual(out.get('project')![1])
+    })
+
+    it('falls back (no groups passed) to the legacy cross-canvas trunk', () => {
+      // Without group boxes, the same targets are "loose" → single vertical trunk.
+      const out = mergeBundleRoutes(routes, keyL, obstacles)
+      // project's penultimate point is the shared trunk x (983), not a spine.
+      expect(out.get('project')!.some((p) => p.y === 38)).toBe(false)
+    })
+  })
 })

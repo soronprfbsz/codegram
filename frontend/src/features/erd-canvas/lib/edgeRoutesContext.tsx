@@ -52,6 +52,16 @@ const samePolyline = (a: Point[] | undefined, b: Point[] | null): boolean => {
   return a.every((p, i) => p.x === b[i].x && p.y === b[i].y)
 }
 
+/** Content equality for a list of rects — keeps the useStore selector output
+ * stable across unrelated store updates (pan/zoom/select), so it only changes
+ * when card/group geometry actually moves. */
+const rectsEqual = (a: Rect[], b: Rect[]): boolean =>
+  a.length === b.length &&
+  a.every(
+    (r, i) =>
+      r.x === b[i].x && r.y === b[i].y && r.width === b[i].width && r.height === b[i].height,
+  )
+
 export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
   const rawRef = useRef<Map<string, Point[]>>(new Map())
   // Per-edge bundle key (`${targetTable}|${referencedPK}`) — same key ⇒ same
@@ -81,15 +91,26 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
       }
       return rects
     }, []),
-    (a, b) =>
-      a.length === b.length &&
-      a.every(
-        (r, i) =>
-          r.x === b[i].x &&
-          r.y === b[i].y &&
-          r.width === b[i].width &&
-          r.height === b[i].height,
-      ),
+    rectsEqual,
+  )
+
+  // Group box rects — same subscribe pattern. Targets inside a group get the
+  // intra-group "spine bus" (mergeBundleRoutes 2-level routing). Group dims come
+  // from style (packGroupedLayout sets them; measured is often empty for groups).
+  const groupBoxes = useStore(
+    useCallback((s: ReactFlowState): Rect[] => {
+      const rects: Rect[] = []
+      for (const n of s.nodeLookup.values()) {
+        if (n.type !== 'group') continue
+        const pos = n.internals.positionAbsolute
+        const w = n.measured?.width ?? (n.style?.width as number | undefined)
+        const h = n.measured?.height ?? (n.style?.height as number | undefined)
+        if (w == null || h == null) continue
+        rects.push({ x: pos.x, y: pos.y, width: w, height: h })
+      }
+      return rects
+    }, []),
+    rectsEqual,
   )
 
   const frameRef = useRef<number | null>(null)
@@ -138,10 +159,10 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
     void version
     const keyOf = (id: string) => bundleRef.current.get(id) ?? null
     const raw = [...rawRef.current].map(([id, points]) => ({ id, points }))
-    const merged = mergeBundleRoutes(raw, keyOf, obstacles)
+    const merged = mergeBundleRoutes(raw, keyOf, obstacles, groupBoxes)
     const mergedRoutes = raw.map(({ id }) => ({ id, points: merged.get(id)! }))
     return spreadEdgeRoutes(mergedRoutes, SPREAD_GAP, keyOf, obstacles)
-  }, [version, obstacles])
+  }, [version, obstacles, groupBoxes])
 
   return (
     <RegisterCtx.Provider value={register}>
