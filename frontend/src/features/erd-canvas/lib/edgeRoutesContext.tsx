@@ -8,8 +8,10 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Point } from './routeOrthogonal'
+import { useStore } from '@xyflow/react'
+import type { Point, Rect } from './routeOrthogonal'
 import { spreadEdgeRoutes } from './spreadEdgeRoutes'
+import { mergeBundleRoutes } from './mergeBundleRoutes'
 
 /**
  * Shared collector that spreads coincidentally-overlapping edge routes apart.
@@ -28,7 +30,19 @@ import { spreadEdgeRoutes } from './spreadEdgeRoutes'
  * features/erd-canvas/lib — pure-fn + React context only (no upward imports).
  */
 
-type RegisterFn = (id: string, points: Point[] | null) => void
+/**
+ * Perpendicular spacing between DIFFERENT-PK lines that share a corridor. Sized
+ * for a clearly-visible gap (a bit above the 14px target-approach LANE_GAP) so
+ * distinct relationships never read as one thick line. Same-PK bundles are NOT
+ * affected — they share a track regardless of this value.
+ */
+const SPREAD_GAP = 18
+
+type RegisterFn = (
+  id: string,
+  points: Point[] | null,
+  bundleKey?: string | null,
+) => void
 
 const RegisterCtx = createContext<RegisterFn | null>(null)
 const AdjustedCtx = createContext<Map<string, Point[]>>(new Map())
@@ -40,7 +54,30 @@ const samePolyline = (a: Point[] | undefined, b: Point[] | null): boolean => {
 
 export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
   const rawRef = useRef<Map<string, Point[]>>(new Map())
+  // Per-edge bundle key (`${targetTable}|${referencedPK}`) — same key ⇒ same
+  // relationship bundle (merged onto one forked trunk; never spread apart).
+  const bundleRef = useRef<Map<string, string>>(new Map())
   const [version, setVersion] = useState(0)
+
+  // 후처리 가로지름 검사용 카드 장애물(테이블/enum/sticky). ReactFlowProvider
+  // 안이라 useStore로 노드 절대좌표를 읽을 수 있다. ref에 담아 기존 version
+  // recompute 시점에 최신값을 사용한다(노드 이동 시 엣지 재등록 → bump 발생).
+  const obstaclesRef = useRef<Rect[]>([])
+  obstaclesRef.current = useStore((s) => {
+    const rects: Rect[] = []
+    for (const n of s.nodeLookup.values()) {
+      if (n.type !== 'table' && n.type !== 'enum' && n.type !== 'sticky') continue
+      const pos = n.internals.positionAbsolute
+      rects.push({
+        x: pos.x,
+        y: pos.y,
+        width: n.measured?.width ?? 240,
+        height: n.measured?.height ?? 80,
+      })
+    }
+    return rects
+  })
+
   const frameRef = useRef<number | null>(null)
 
   // Coalesce a burst of register() calls (e.g. all edges mounting) into ONE
@@ -56,11 +93,14 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
   // Stable across renders (deps: only the stable bump) so registration effects
   // in edges don't re-run when the adjusted map changes.
   const register = useCallback<RegisterFn>(
-    (id, points) => {
+    (id, points, bundleKey) => {
       if (points == null) {
+        bundleRef.current.delete(id)
         if (rawRef.current.delete(id)) bump()
         return
       }
+      if (bundleKey != null) bundleRef.current.set(id, bundleKey)
+      else bundleRef.current.delete(id)
       if (samePolyline(rawRef.current.get(id), points)) return
       rawRef.current.set(id, points)
       bump()
@@ -74,9 +114,17 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // `version` is the recompute trigger; the route data is read from the ref.
+  // Two passes: (1) BUNDLE same-PK edges onto one forked trunk, then (2) SPREAD
+  // distinct bundles off any shared corridor (skipping same-bundle segments so
+  // the merged trunk survives).
   const adjusted = useMemo(() => {
     void version
-    return spreadEdgeRoutes([...rawRef.current].map(([id, points]) => ({ id, points })))
+    const keyOf = (id: string) => bundleRef.current.get(id) ?? null
+    const raw = [...rawRef.current].map(([id, points]) => ({ id, points }))
+    const obstacles = obstaclesRef.current
+    const merged = mergeBundleRoutes(raw, keyOf, obstacles)
+    const mergedRoutes = raw.map(({ id }) => ({ id, points: merged.get(id)! }))
+    return spreadEdgeRoutes(mergedRoutes, SPREAD_GAP, keyOf, obstacles)
   }, [version])
 
   return (
