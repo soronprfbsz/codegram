@@ -60,12 +60,15 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
   const [version, setVersion] = useState(0)
 
   // 후처리 가로지름 검사용 카드 장애물(테이블/enum/sticky). ReactFlowProvider
-  // 안이라 useStore로 노드 절대좌표를 읽을 수 있다. ref에 담아 기존 version
-  // recompute 시점에 최신값을 사용한다(노드 이동 시 엣지 재등록 → bump 발생).
+  // 안이라 nodeLookup을 구독한다 — 이 Map 참조는 pan/zoom에는 안정하고 노드가
+  // 바뀔 때만 변하므로(RelationEdge와 동일), 매 store 업데이트가 아니라 노드
+  // 변경 시에만 rect를 재파생한다. ref에 담아 기존 version recompute 시점에
+  // 최신값을 쓴다(노드 이동 시 엣지 재등록 → bump 발생).
+  const nodeLookup = useStore((s) => s.nodeLookup)
   const obstaclesRef = useRef<Rect[]>([])
-  obstaclesRef.current = useStore((s) => {
+  obstaclesRef.current = useMemo(() => {
     const rects: Rect[] = []
-    for (const n of s.nodeLookup.values()) {
+    for (const n of nodeLookup.values()) {
       if (n.type !== 'table' && n.type !== 'enum' && n.type !== 'sticky') continue
       const pos = n.internals.positionAbsolute
       rects.push({
@@ -76,7 +79,7 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
       })
     }
     return rects
-  })
+  }, [nodeLookup])
 
   const frameRef = useRef<number | null>(null)
 

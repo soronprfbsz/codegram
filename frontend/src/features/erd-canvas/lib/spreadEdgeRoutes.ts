@@ -186,6 +186,10 @@ export function spreadEdgeRoutes(
       slotTrack[slot] = center + (j - (k - 1) / 2) * gap
     })
 
+    // NOTE (accepted limitation): the obstacle check is PER-MEMBER. If one
+    // member's target track is blocked but another's is free, only the blocked
+    // one stays put, so the pair can end up < gap apart. Correct (never crosses
+    // a card) but not maximally spread — fixing would need a cluster-wide retry.
     members.forEach((m, idx) => {
       const seg = segments[m]
       const delta = slotTrack[memberSlot[idx]] - seg.fixed

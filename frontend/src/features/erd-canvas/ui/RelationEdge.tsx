@@ -273,6 +273,7 @@ function RelationEdgeImpl({
   // approach SIDE. Every edge leaving the SAME PK toward the same side forms
   // one bundle: the central pass runs them as ONE trunk across the canvas and
   // only forks to each target row near the targets — regardless of which table
+  // the targets live in (a same-PK "bus" spans tables/groups).
   const bundleKey = `${sourceHandleId ?? source}|${targetPosition === Position.Left ? 'L' : 'R'}`
 
   useEffect(() => {
