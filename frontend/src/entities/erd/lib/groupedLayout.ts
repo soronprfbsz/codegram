@@ -62,7 +62,9 @@ export function packGroupedLayout(
 
   // 2) 메타 그래프: 슈퍼노드 = 그룹(블록 크기) + 비그룹·비멤버 노드(자기 크기).
   const g = new dagre.graphlib.Graph()
-  g.setGraph({ rankdir: 'LR', nodesep: 80, ranksep: 140, marginx: 20, marginy: 20 })
+  // nodesep/ranksep = 그룹과 그룹 사이 1단계 채널 폭(고정 넉넉). 먼 그룹으로
+  // 향하는 버스/평행선이 중간 그룹을 돌아갈 수 있는 통로를 보장한다.
+  g.setGraph({ rankdir: 'LR', nodesep: 160, ranksep: 220, marginx: 20, marginy: 20 })
   g.setDefaultEdgeLabel(() => ({}))
 
   const metaIdOf = (nodeId: string): string => groupOf.get(nodeId) ?? nodeId
