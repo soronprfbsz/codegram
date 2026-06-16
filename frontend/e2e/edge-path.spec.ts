@@ -447,3 +447,62 @@ test('edges leaving the same source handle fan onto distinct vertical trunks', a
   // No two co-source edges share the same trunk X (all distinct).
   expect(new Set(trunkXs).size).toBe(trunkXs.length)
 })
+
+test('independent edges do not share an identical vertical corridor', async ({ page }) => {
+  const email = `spread-${Date.now()}@example.com`
+  await registerAndLogin(page, email, 'password123')
+  const dbml = [
+    'Table account { account_id BIGINT [pk] }',
+    'Table service {',
+    '  service_id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '}',
+    'Table publishing { publishing_id BIGINT [pk] }',
+    'Table publishing_file {',
+    '  publishing_file_id BIGINT [pk]',
+    '  publishing_id BIGINT [ref: > publishing.publishing_id]',
+    '}',
+  ].join('\n')
+  // Stack all four tables in the same x column so the two INDEPENDENT edges
+  // (account→service.created_by and publishing→publishing_file.publishing_id)
+  // exit their PK right-handles at the same stub x and route down the same
+  // vertical corridor. Pre-fix their interior verticals land on an IDENTICAL x
+  // (269) over an overlapping y-range — a real shared corridor the spread pass
+  // must separate. (publishing sits between account/service so its edge's
+  // corridor y-range overlaps account→service's.)
+  const layout = {
+    version: 1,
+    positions: {
+      'public.account': { x: 0, y: 0 },
+      'public.service': { x: 0, y: 300 },
+      'public.publishing': { x: 0, y: 150 },
+      'public.publishing_file': { x: 0, y: 600 },
+    },
+  }
+  const resp = await page.request.post('/api/projects', { data: { name: 'Spread', dbml_text: dbml, layout } })
+  const { id } = await resp.json()
+  await page.goto(`/editor/${id}`)
+  await expect.poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 }).toBeGreaterThanOrEqual(2)
+  await page.waitForTimeout(1000) // allow the spread pass (rAF) to settle
+
+  const segs = await page.evaluate(() => {
+    const out: { id: string; x: number; lo: number; hi: number }[] = []
+    for (const g of Array.from(document.querySelectorAll('.react-flow__edge'))) {
+      const eid = g.getAttribute('data-id') ?? ''
+      const d = g.querySelector('.react-flow__edge-path')?.getAttribute('d') ?? ''
+      const nums = d.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []
+      const pts: { x: number; y: number }[] = []
+      for (let i = 0; i + 1 < nums.length; i += 2) pts.push({ x: nums[i], y: nums[i + 1] })
+      for (let i = 1; i < pts.length - 2; i++) {
+        if (pts[i].x === pts[i + 1].x) {
+          out.push({ id: eid, x: pts[i].x, lo: Math.min(pts[i].y, pts[i + 1].y), hi: Math.max(pts[i].y, pts[i + 1].y) })
+        }
+      }
+    }
+    return out
+  })
+  const overlap = (a: typeof segs[number], b: typeof segs[number]) =>
+    a.id !== b.id && a.x === b.x && a.lo < b.hi && b.lo < a.hi
+  const clash = segs.some((a, i) => segs.slice(i + 1).some((b) => overlap(a, b)))
+  expect(clash).toBe(false)
+})
