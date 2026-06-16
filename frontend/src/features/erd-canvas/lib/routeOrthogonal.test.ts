@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   routeOrthogonal,
   polylineToPath,
+  crossesObstacle,
   type Rect,
   type Point,
 } from './routeOrthogonal'
@@ -198,5 +199,38 @@ describe('routeOrthogonal', () => {
       { x: 10, y: 20 },
     ])
     expect(d).toBe('M 0 0 L 10 0 L 10 20')
+  })
+})
+
+describe('crossesObstacle (exported helper)', () => {
+  const box = { x: 100, y: 100, width: 100, height: 100 } // interior (100..200)
+
+  it('returns true when a segment passes through an obstacle interior', () => {
+    expect(crossesObstacle({ x: 50, y: 150 }, { x: 250, y: 150 }, [box])).toBe(true)
+  })
+
+  it('returns false when a segment merely grazes the obstacle border', () => {
+    // y=100 is the top border — strict interior test allows grazing
+    expect(crossesObstacle({ x: 50, y: 100 }, { x: 250, y: 100 }, [box])).toBe(false)
+  })
+
+  it('returns false when a segment is clear of all obstacles', () => {
+    expect(crossesObstacle({ x: 50, y: 50 }, { x: 250, y: 50 }, [box])).toBe(false)
+  })
+})
+
+describe('routeOrthogonal avoids a large (group-box) obstacle', () => {
+  it('does not cross a big rectangle sitting between the endpoints', () => {
+    const groupBox = { x: 200, y: 0, width: 200, height: 400 }
+    const pts = routeOrthogonal(
+      { x: 100, y: 200 }, // source (left of the box)
+      { x: 500, y: 200 }, // target (right of the box)
+      'right',
+      'left',
+      [groupBox],
+    )
+    for (let i = 0; i < pts.length - 1; i++) {
+      expect(crossesObstacle(pts[i], pts[i + 1], [groupBox])).toBe(false)
+    }
   })
 })

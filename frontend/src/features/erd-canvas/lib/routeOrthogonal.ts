@@ -44,7 +44,7 @@ const TURN_PENALTY = 12
 const STEP_OUT = 30
 
 /** True if the axis-aligned segment a→b passes through any obstacle's interior. */
-function crossesObstacle(a: Point, b: Point, obstacles: Rect[]): boolean {
+export function crossesObstacle(a: Point, b: Point, obstacles: Rect[]): boolean {
   const minX = Math.min(a.x, b.x)
   const maxX = Math.max(a.x, b.x)
   const minY = Math.min(a.y, b.y)
