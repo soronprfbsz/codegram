@@ -108,6 +108,9 @@ export function spreadEdgeRoutes(routes: EdgeRoute[], gap = 12): Map<string, Poi
       const sb = segments[b]
       if (sa.id === sb.id) continue // same edge never spreads against itself
       if (sa.orient !== sb.orient) continue
+      // Exact === is safe: routes come off the integer grid (routeOrthogonal's
+      // candidate lines are integer obstacle/port coords), so collinear segments
+      // share an exact `fixed` value — no float tolerance needed.
       if (sa.fixed !== sb.fixed) continue
       // overlapping ranges: aLo < bHi && bLo < aHi (touching-only doesn't count)
       if (sa.lo < sb.hi && sb.lo < sa.hi) union(a, b)
