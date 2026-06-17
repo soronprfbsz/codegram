@@ -752,3 +752,162 @@ test('same-PK FKs of one table share a trunk; a different-PK FK stays separate',
   // publishing_id (different PK) → a DIFFERENT trunk X (its own line).
   expect(trunkByCol.publishing_id).not.toBeCloseTo(trunkByCol.created_by, 1)
 })
+
+test('cross-group same-PK members converge on one approach trunk per destination group', async ({ page }) => {
+  // Regression guard for the "account fan" bug: account.account_id is referenced
+  // by multiple tables in a REMOTE group (TARGET) that lies below/above an
+  // INTERVENING group. Before Task 1's A* approach-trunk fix the routing would
+  // produce a source fan — each member got its own vertical trunk — instead of a
+  // single shared approach trunk that forks near the destination group.
+  //
+  // Layout (3 TableGroups stacked vertically, explicit positions):
+  //   RBAC group  (account) — source, top-left
+  //   MID  group  (mid_a, mid_b) — intervening, placed between RBAC and TARGET
+  //   TARGET group (tgt_a, tgt_b) — destination, far right
+  //
+  // account.account_id is referenced by tgt_a.created_by AND tgt_b.created_by
+  // (same PK → same-PK bundle). The approach trunk from RBAC into TARGET must
+  // cross (or pass alongside) the MID group, so the A* path-finding fires.
+  //
+  // Assertions:
+  //   (a) Both same-PK FK edges share ONE approach-trunk entry x (firstTurnX)
+  //       — the fan width must be ≤ LANE_GAP*2 (≈ 28px).
+  //   (b) No .react-flow__edge-path sample point lies inside any table card
+  //       interior (2px inset) — copied from the "corridor routing" reference test.
+
+  const email = `crossgrp-${Date.now()}@example.com`
+  await registerAndLogin(page, email, 'password123')
+
+  const dbml = [
+    'Table account {',
+    '  account_id BIGINT [pk]',
+    '}',
+    'Table mid_a {',
+    '  mid_a_id BIGINT [pk]',
+    '}',
+    'Table mid_b {',
+    '  mid_b_id BIGINT [pk]',
+    '}',
+    'Table tgt_a {',
+    '  tgt_a_id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '}',
+    'Table tgt_b {',
+    '  tgt_b_id BIGINT [pk]',
+    '  created_by BIGINT [ref: > account.account_id]',
+    '}',
+    'TableGroup RBAC {',
+    '  account',
+    '}',
+    'TableGroup MID {',
+    '  mid_a',
+    '  mid_b',
+    '}',
+    'TableGroup TARGET {',
+    '  tgt_a',
+    '  tgt_b',
+    '}',
+  ].join('\n')
+
+  // Place RBAC on the left, MID in the middle column at the same row,
+  // TARGET on the far right — so edges from RBAC to TARGET pass alongside MID.
+  // account goes right→ past MID → into TARGET.
+  const layout = {
+    version: 1,
+    positions: {
+      'public.account': { x: 0,    y: 0   },
+      'public.mid_a':   { x: 400,  y: 0   },
+      'public.mid_b':   { x: 400,  y: 200 },
+      'public.tgt_a':   { x: 900,  y: 0   },
+      'public.tgt_b':   { x: 900,  y: 200 },
+    },
+  }
+
+  const resp = await page.request.post('/api/projects', {
+    data: { name: 'CrossGroup', dbml_text: dbml, layout },
+  })
+  const { id } = await resp.json()
+  await page.goto(`/editor/${id}`)
+
+  await expect
+    .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })
+    .toBeGreaterThanOrEqual(2)
+  await page.waitForTimeout(1500) // allow merge + spread + corridor rAF passes to settle
+
+  // (a) firstTurnX convergence: both edges going from account → TARGET group
+  //     must share the same approach-trunk entry x (i.e., fan width ≤ LANE_GAP*2 ≈ 28px).
+  const trunkData = await page.evaluate(() => {
+    const edges = Array.from(document.querySelectorAll('.react-flow__edge'))
+      .filter((g) => (g.getAttribute('data-id') ?? '').startsWith('public.account.(account_id)'))
+    return edges.map((g) => {
+      const eid = g.getAttribute('data-id') ?? ''
+      const d = g.querySelector('.react-flow__edge-path')?.getAttribute('d') ?? ''
+      const nums = d.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? []
+      const pts: { x: number; y: number }[] = []
+      for (let i = 0; i + 1 < nums.length; i += 2) pts.push({ x: nums[i], y: nums[i + 1] })
+
+      // firstTurnX: first point where x departs from the starting x by >1px
+      const startX = pts[0]?.x ?? NaN
+      let firstTurnX = NaN
+      for (let i = 1; i < pts.length; i++) {
+        if (Math.abs(pts[i].x - startX) > 1) { firstTurnX = pts[i].x; break }
+      }
+
+      // longestVerticalX: x of the longest vertical segment (the spine)
+      let best = { x: NaN, len: -1 }
+      for (let i = 0; i + 1 < pts.length; i++) {
+        if (pts[i].x === pts[i + 1].x) {
+          const len = Math.abs(pts[i + 1].y - pts[i].y)
+          if (len > best.len) best = { x: pts[i].x, len }
+        }
+      }
+      return { eid, firstTurnX, longestVerticalX: best.x }
+    })
+  })
+
+  // Must have found both FK edges
+  expect(trunkData.length).toBe(2)
+
+  const firstTurnXs = trunkData.map((e) => e.firstTurnX).filter((x) => !isNaN(x))
+  expect(firstTurnXs.length).toBe(2)
+
+  const LANE_GAP_2 = 28 // LANE_GAP * 2 — fan threshold
+  const fanWidth = Math.abs(firstTurnXs[1] - firstTurnXs[0])
+  // Assert convergence: both edges enter the same approach trunk (fan width ≤ 28px)
+  expect(fanWidth).toBeLessThanOrEqual(LANE_GAP_2)
+
+  // (b) No edge path crosses any table card interior (2px inset).
+  // Reference: "no edge path crosses any table card interior (corridor routing)" test.
+  const result = await page.evaluate(() => {
+    const INSET = 2
+    const STEP = 4
+    const tableRects = Array.from(document.querySelectorAll('.react-flow__node-table')).map((n) => {
+      const r = n.getBoundingClientRect()
+      return { left: r.left + INSET, right: r.right - INSET, top: r.top + INSET, bottom: r.bottom - INSET }
+    })
+    const hits: { edgeId: string; sx: number; sy: number }[] = []
+    for (const path of Array.from(document.querySelectorAll('.react-flow__edge-path'))) {
+      const p = path as SVGPathElement
+      const edgeId = p.closest('[data-id]')?.getAttribute('data-id') ?? '?'
+      const ctm = p.getScreenCTM()
+      if (!ctm) continue
+      const total = p.getTotalLength()
+      for (let dist = 0; dist <= total; dist += STEP) {
+        const pt = p.getPointAtLength(dist)
+        const sx = ctm.a * pt.x + ctm.c * pt.y + ctm.e
+        const sy = ctm.b * pt.x + ctm.d * pt.y + ctm.f
+        for (const rect of tableRects) {
+          if (sx > rect.left && sx < rect.right && sy > rect.top && sy < rect.bottom) {
+            hits.push({ edgeId, sx, sy })
+          }
+        }
+      }
+    }
+    return { hitCount: hits.length, hits: hits.slice(0, 5) }
+  })
+
+  if (result.hitCount > 0) {
+    console.error('Cross-group interior crossings found:', JSON.stringify(result.hits, null, 2))
+  }
+  expect(result.hitCount).toBe(0)
+})
