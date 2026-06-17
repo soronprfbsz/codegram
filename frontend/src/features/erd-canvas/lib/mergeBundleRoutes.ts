@@ -22,7 +22,7 @@
  * No React, no imports beyond the local `Point`/`EdgeRoute` types. Deterministic
  * and pure: inputs are deep-copied and never mutated; a NEW map is returned.
  */
-import { crossesObstacle, type Rect, type Point } from './routeOrthogonal'
+import { crossesObstacle, routeOrthogonal, type Rect, type Point } from './routeOrthogonal'
 import type { EdgeRoute } from './spreadEdgeRoutes'
 
 /** Length of the plain stub forked into each target — mirrors routeOrthogonal STEP_OUT. */
@@ -207,10 +207,23 @@ export function mergeBundleRoutes(
     }
 
     // --- Grouped targets: 2-level spine bus, per group ---
-    for (const cluster of groupedMembers.values()) {
+    // src가 속한 그룹 인덱스(없으면 -1). 진입 A*에서 src 그룹/목적지 그룹 박스는 제외.
+    const srcGroupIdx = groupBoxes.findIndex((g) => contains(g, src))
+    // 한 박스 line이 그 박스 내부를 가로지르는지(자기 끝점 든 박스는 제외 — 기존 규칙).
+    const crossesAnyGroup = (line: Point[], boxes: Rect[]): boolean => {
+      for (let i = 0; i < line.length - 1; i++) {
+        const a = line[i]
+        const b = line[i + 1]
+        const others = boxes.filter((o) => !contains(o, a) && !contains(o, b))
+        if (crossesObstacle(a, b, others)) return true
+      }
+      return false
+    }
+    const samePoint = (p: Point, q: Point): boolean => p.x === q.x && p.y === q.y
+
+    for (const [gi, cluster] of groupedMembers.entries()) {
       if (cluster.length < 2) continue
       const txs = cluster.map((m) => targetOf(m).x)
-      // Descent column: just OUTSIDE the nearest target (the group's entry gutter).
       const descentX =
         side === 'left' ? Math.min(...txs) - APPROACH_STUB : Math.max(...txs) + APPROACH_STUB
       const geomOk =
@@ -218,27 +231,50 @@ export function mergeBundleRoutes(
           ? descentX > src.x && txs.every((t) => t >= descentX) && leaveSign > 0
           : descentX < src.x && txs.every((t) => t <= descentX) && leaveSign < 0
       if (!geomOk) continue
-      // Spine row: just ABOVE the topmost target table (in the group's top padding,
-      // clear of cards), so the shared horizontal run never crosses a card.
       const topOf = (t: Point): number => {
         const card = obstacles.find((o) => contains(o, t))
         return card ? card.y : t.y
       }
       const spineY = Math.min(...cluster.map((m) => topOf(targetOf(m)))) - SPINE_RISE
-      // Per-MEMBER commit: an outermost-column target (gx === descentX) collapses
-      // to a plain vertical approach from the entry gutter; interior columns ride
-      // the spine then fork down their own gutter. A member whose path would cross
-      // a card keeps its raw A* route, so one awkward target never breaks the bus.
+
+      // 진입 구간: 기본은 직선 하강. 직선이 카드(테이블) 또는 비-끝점 그룹 박스를
+      // 가로지르면 A*로 클러스터당 1개 공유 진입 trunk를 구해 우회한다. A*가 못 찾으면
+      // 직선으로 안전 폴백(현행 동작). 깨끗하면 직선 유지 → 기존 정확점 테스트 보존.
+      const straightApproach: Point[] = [
+        { x: src.x, y: src.y },
+        { x: descentX, y: src.y },
+        { x: descentX, y: spineY },
+      ]
+      const nonEndpointGroups = groupBoxes.filter((_, i) => i !== gi && i !== srcGroupIdx)
+      let approachPath = straightApproach
+      if (lineCrosses(straightApproach) || crossesAnyGroup(straightApproach, nonEndpointGroups)) {
+        const entry = { x: descentX, y: spineY }
+        const approachObstacles = [...obstacles, ...nonEndpointGroups]
+        // A* target을 spineY-1로 설정: routeOrthogonal이 수평으로 target에 도달하므로
+        // entry 직전에 (descentX, spineY-1)→(descentX, spineY) 수직 세그먼트가 생겨
+        // member loop에서 simplify가 entry 점을 collinear로 제거하지 않는다.
+        const aTarget = { x: descentX, y: spineY - 1 }
+        const srcSide = leaveSign > 0 ? 'right' : 'left'
+        const a = routeOrthogonal(
+          { x: src.x, y: src.y },
+          aTarget,
+          srcSide,
+          side,
+          approachObstacles,
+        )
+        if (a.length >= 2 && samePoint(a[0], src) && samePoint(a[a.length - 1], aTarget)) {
+          approachPath = [...a, entry]
+        }
+      }
+
       for (const m of cluster) {
         const t = targetOf(m)
         const gx = side === 'left' ? t.x - APPROACH_STUB : t.x + APPROACH_STUB
         const line = simplify([
-          { x: src.x, y: src.y },
-          { x: descentX, y: src.y }, // leave source to the group entry gutter
-          { x: descentX, y: spineY }, // descend the entry gutter up to the spine
-          { x: gx, y: spineY }, // spine: run above the row to this column's gutter
-          { x: gx, y: t.y }, // fork: drop down the column gutter to the FK row
-          { x: t.x, y: t.y }, // stub into the target
+          ...approachPath,
+          { x: gx, y: spineY },
+          { x: gx, y: t.y },
+          { x: t.x, y: t.y },
         ])
         if (!lineCrosses(line)) copies.set(m.id, line)
       }

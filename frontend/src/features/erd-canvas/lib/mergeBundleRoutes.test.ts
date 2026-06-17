@@ -280,4 +280,71 @@ describe('mergeBundleRoutes obstacle awareness', () => {
       expect(out.get('project')!.some((p) => p.y === 38)).toBe(false)
     })
   })
+
+  // 모델 1: 직선 하강(descentX 수직)이 중간(비-끝점) 그룹을 관통하는 경우, A*로
+  // 클러스터당 1개 공유 진입 trunk를 만들어 우회한다. 깨끗하면 직선 유지(기존 동작).
+  describe('intra-group spine bus: A* 진입 trunk로 중간 그룹 우회', () => {
+    const keyL = () => 'pk|L'
+    const src = { x: 0, y: 0 } // 위쪽 소스, 오른쪽으로 leave
+    // 목적지 그룹(아래): 안에 2개 타깃(col0, 내부 col1).
+    const destGroup = { x: 1000, y: 1000, width: 600, height: 400 }
+    const colA = { x: 1012, y: 1040, width: 240, height: 120 } // 타깃 카드 a
+    const colB = { x: 1372, y: 1040, width: 240, height: 100 } // 타깃 카드 b(내부 컬럼)
+    // 중간(비-끝점) 그룹: 직선 하강 x=983(=1013-30), y 0..1000 을 가로막는다.
+    const midGroup = { x: 900, y: 400, width: 400, height: 300 } // x900..1300, y400..700
+    const routes = [
+      { id: 'a', points: [src, { x: 30, y: 0 }, { x: 30, y: 1100 }, { x: 1013, y: 1100 }] },
+      { id: 'b', points: [src, { x: 30, y: 0 }, { x: 30, y: 1100 }, { x: 1373, y: 1100 }] },
+    ]
+    const obstacles = [colA, colB]
+    const groupBoxes = [destGroup, midGroup]
+
+    const isOrtho2 = (pts: Point[]) =>
+      pts.every((p, i) => i === 0 || p.x === pts[i - 1].x || p.y === pts[i - 1].y)
+    // line의 어떤 세그먼트도 box 내부(strict)를 가로지르지 않는가.
+    const crossesBox = (line: Point[], box: { x: number; y: number; width: number; height: number }) => {
+      for (let i = 0; i + 1 < line.length; i++) {
+        const minX = Math.min(line[i].x, line[i + 1].x), maxX = Math.max(line[i].x, line[i + 1].x)
+        const minY = Math.min(line[i].y, line[i + 1].y), maxY = Math.max(line[i].y, line[i + 1].y)
+        if (maxX > box.x && minX < box.x + box.width && maxY > box.y && minY < box.y + box.height) return true
+      }
+      return false
+    }
+
+    it('중간 그룹을 가로지르는 직선 하강을 A* 진입 trunk로 우회시키고, 공유 prefix로 합류', () => {
+      const out = mergeBundleRoutes(routes, keyL, obstacles, groupBoxes)
+      const a = out.get('a')!
+      const b = out.get('b')!
+      // 1) 두 멤버 모두 raw 경로가 아니라 재작성됨(번들 형성).
+      expect(a).not.toEqual(routes[0].points)
+      expect(b).not.toEqual(routes[1].points)
+      // 2) 각자 자기 타깃에 도달.
+      expect(a[a.length - 1]).toEqual({ x: 1013, y: 1100 })
+      expect(b[b.length - 1]).toEqual({ x: 1373, y: 1100 })
+      // 3) 직교 유지.
+      expect(isOrtho2(a)).toBe(true)
+      expect(isOrtho2(b)).toBe(true)
+      // 4) 어떤 멤버도 중간 그룹·타깃 카드 내부를 가로지르지 않음(핵심).
+      expect(crossesBox(a, midGroup)).toBe(false)
+      expect(crossesBox(b, midGroup)).toBe(false)
+      expect(crossesBox(a, colB)).toBe(false) // a는 colB를 안 건드림
+      expect(crossesBox(b, colA)).toBe(false) // b는 colA를 안 건드림
+      // 5) 진입 trunk 공유(소스 부채꼴 아님): 두 멤버가 소스에서 같은 첫 세그먼트로
+      //    떠나 우회 trunk를 공유한다. outermost 컬럼(gx=descentX)은 entry 정점이
+      //    spine로 collapse되고 A*가 entry에 수평 도달하면 그 정점이 simplify로
+      //    병합될 수 있어, 정확 정점 비교 대신 공통 prefix 길이로 검증한다.
+      let lcp = 0
+      while (lcp < a.length && lcp < b.length && a[lcp].x === b[lcp].x && a[lcp].y === b[lcp].y) lcp++
+      expect(a[0]).toEqual(src)
+      expect(lcp).toBeGreaterThanOrEqual(2) // src + 공유 leave 정점 → 부채꼴이 아님
+    })
+
+    it('직선 하강이 깨끗하면(중간 그룹 없음) A* 없이 기존 spine 직선 진입 유지', () => {
+      // midGroup 제거 → 직선 하강 x=983, y0..1000 이 막히지 않음.
+      const out = mergeBundleRoutes(routes, keyL, obstacles, [destGroup])
+      const a = out.get('a')!
+      // 기존 직선 진입: src → (983,0) → (983,1000) → … 의 첫 꺾임이 (983,0).
+      expect(a[1]).toEqual({ x: 983, y: 0 })
+    })
+  })
 })
