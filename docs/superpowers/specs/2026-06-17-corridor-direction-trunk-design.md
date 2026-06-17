@@ -86,17 +86,36 @@ approachObstacles = [
 `buildObstacles`(RelationEdge)의 1단계 채널 의미와 동일: 중간 그룹은 통째로 우회,
 끝점 그룹은 박스를 제외해 진입 허용(내부 카드는 `obstacles`로 여전히 장애물).
 
-### 5.2 공유 진입 trunk (클러스터당 1회)
+### 5.2 공유 진입 trunk — **조건부 A*** (클러스터당 1회)
+
+진입 구간을 **무조건** A*로 바꾸지 않는다. 직선 하강이 이미 깨끗한 경우(version·
+service 등 정상 케이스, 기존 "intra-group spine bus" 단위 테스트)는 직선을 유지해
+**기존 동작·정확점 테스트를 byte-identical로 보존**한다. A*는 직선 하강이 카드를
+가로지르는 경우(BOARD·operation)에만 작동한다 — "never make worse".
 
 ```
-entry = { x: descentX, y: spineY }
-leaveSide = side          // 번들이 추론한 접근 방향('left'|'right')
-entrySide = side          // free waypoint이므로 동일 side 전달(스텁이 spine과 정렬)
-approachPath = routeOrthogonal(src, entry, leaveSide, entrySide, approachObstacles)
+straightApproach = [src, { x: descentX, y: src.y }, { x: descentX, y: spineY }]
+
+// 직선 하강이 장애물을 가로지르는가? (테이블 카드 + 비-끝점 그룹 박스)
+//   - 자기 끝점이 든 카드는 grazing 허용(기존 per-segment 규칙과 동일, EPS=2)
+if (lineCrosses(straightApproach) || crossesAnyGroup(straightApproach, nonEndpointGroups)) {
+  const entry = { x: descentX, y: spineY }
+  const a = routeOrthogonal(src, entry, side, side, approachObstacles)
+  //   side: 번들이 추론한 접근 방향. entry는 free waypoint이라 동일 side 전달.
+  approachPath = (a.length >= 2 && samePoint(a[0], src) && samePoint(a[a.length - 1], entry))
+    ? a
+    : straightApproach     // A*가 못 찾거나 degenerate → 직선으로 안전 폴백
+} else {
+  approachPath = straightApproach   // 깨끗 → 기존 동작 보존
+}
 ```
 
-`approachPath`는 클러스터 전 멤버가 **공유**한다. A*는 version 옆/아래의 빈 통로를
-자동으로 찾아 BOARD·operation 진입점까지 우회한다.
+`approachPath`는 클러스터 전 멤버가 **공유**한다. A*가 작동하면 version 옆/아래의 빈
+통로를 자동으로 찾아 BOARD·operation 진입점까지 우회한다.
+
+`crossesAnyGroup(line, groups)`: line의 각 세그먼트가 `groups`(비-끝점 그룹 박스) 내부를
+가로지르면 true. `crossesObstacle`을 그대로 재사용하되, 자기 끝점이 든 박스는 제외하는
+기존 `lineCrosses` 패턴과 동일하게 처리.
 
 ### 5.3 멤버별 최종 경로
 
