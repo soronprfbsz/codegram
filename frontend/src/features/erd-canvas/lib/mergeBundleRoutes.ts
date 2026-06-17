@@ -224,6 +224,8 @@ export function mergeBundleRoutes(
     for (const [gi, cluster] of groupedMembers.entries()) {
       if (cluster.length < 2) continue
       const txs = cluster.map((m) => targetOf(m).x)
+      // descentX: 가장 가까운 목적지 바깥의 진입 거터 x (그룹 진입 수직선).
+      // spineY:   그룹 내 최상단 목적지 행 위의 공유 수평 avenue y (SPINE_RISE만큼 위).
       const descentX =
         side === 'left' ? Math.min(...txs) - APPROACH_STUB : Math.max(...txs) + APPROACH_STUB
       const geomOk =
@@ -262,6 +264,10 @@ export function mergeBundleRoutes(
           side,
           approachObstacles,
         )
+        // 이 guard는 A* 결과의 유효성(시작·끝점 일치)만 확인한다.
+        // 실제 카드 교차 안전망은 아래 member loop의 lineCrosses(line) 체크다:
+        // guard를 통과해도 각 멤버 경로가 카드를 가로지르면 lineCrosses가
+        // copies 업데이트를 건너뛰어 해당 멤버는 원래 A* 경로를 유지한다.
         if (a.length >= 2 && samePoint(a[0], src) && samePoint(a[a.length - 1], aTarget)) {
           approachPath = [...a, entry]
         }

@@ -853,15 +853,7 @@ test('cross-group same-PK members converge on one approach trunk per destination
         if (Math.abs(pts[i].x - startX) > 1) { firstTurnX = pts[i].x; break }
       }
 
-      // longestVerticalX: x of the longest vertical segment (the spine)
-      let best = { x: NaN, len: -1 }
-      for (let i = 0; i + 1 < pts.length; i++) {
-        if (pts[i].x === pts[i + 1].x) {
-          const len = Math.abs(pts[i + 1].y - pts[i].y)
-          if (len > best.len) best = { x: pts[i].x, len }
-        }
-      }
-      return { eid, firstTurnX, longestVerticalX: best.x }
+      return { eid, firstTurnX }
     })
   })
 
@@ -876,6 +868,8 @@ test('cross-group same-PK members converge on one approach trunk per destination
   // Assert convergence: both edges enter the same approach trunk (fan width ≤ 28px)
   expect(fanWidth).toBeLessThanOrEqual(LANE_GAP_2)
 
+  // (b)가 회귀에 민감한 핵심 단언이다: 두 same-PK 멤버가 같은 그룹을 목적지로 하므로
+  // (a) 수렴 단언만으로는 원래 팬 회귀를 잡을 수 없고, 유닛 테스트가 true red-green guard다.
   // (b) No edge path crosses any table card interior (2px inset).
   // Reference: "no edge path crosses any table card interior (corridor routing)" test.
   const result = await page.evaluate(() => {
