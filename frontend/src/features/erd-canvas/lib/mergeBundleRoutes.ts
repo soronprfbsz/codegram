@@ -22,7 +22,14 @@
  * No React, no imports beyond the local `Point`/`EdgeRoute` types. Deterministic
  * and pure: inputs are deep-copied and never mutated; a NEW map is returned.
  */
-import { crossesObstacle, routeOrthogonal, type Rect, type Point } from './routeOrthogonal'
+import {
+  crossesObstacle,
+  routeOrthogonal,
+  inflateRect,
+  GROUP_CLEARANCE,
+  type Rect,
+  type Point,
+} from './routeOrthogonal'
 import type { EdgeRoute } from './spreadEdgeRoutes'
 
 /** Length of the plain stub forked into each target — mirrors routeOrthogonal STEP_OUT. */
@@ -187,8 +194,11 @@ export function mergeBundleRoutes(
     // --- Ungrouped targets: cross-canvas vertical trunk (X-clustered) ---
     // 트렁크가 가로질러선 안 되는 비-끝점 그룹: 목적지는 loose라 어떤 그룹에도 속하지
     // 않으므로 src 그룹만 제외한다. 트렁크가 이 중 하나라도 관통하면 번들을 포기하고
-    // 각 멤버의 (이미 그룹을 회피하는) 개별 A* 경로를 유지한다.
-    const looseNonEndpointGroups = groupBoxes.filter((_, i) => i !== srcGroupIdx)
+    // 각 멤버의 (이미 그룹을 회피하는) 개별 A* 경로를 유지한다. GROUP_CLEARANCE만큼
+    // inflate해 트렁크가 그룹에 바짝 붙지 않고 일정 간격을 두게 한다(per-edge 코리도와 동일).
+    const looseNonEndpointGroups = groupBoxes
+      .filter((_, i) => i !== srcGroupIdx)
+      .map((g) => inflateRect(g, GROUP_CLEARANCE))
     const byTx = [...loose].sort((a, b) => targetOf(a).x - targetOf(b).x)
     const clusters: (typeof members)[] = []
     for (const m of byTx) {
@@ -260,7 +270,11 @@ export function mergeBundleRoutes(
         { x: descentX, y: src.y },
         { x: descentX, y: spineY },
       ]
-      const nonEndpointGroups = groupBoxes.filter((_, i) => i !== gi && i !== srcGroupIdx)
+      // 비-끝점 그룹을 GROUP_CLEARANCE만큼 inflate: A* 진입 트렁크가 그룹을 일정
+      // 간격 두고 우회하고, 커밋 체크에서 트렁크가 그룹에 바짝 붙으면 폴백시킨다.
+      const nonEndpointGroups = groupBoxes
+        .filter((_, i) => i !== gi && i !== srcGroupIdx)
+        .map((g) => inflateRect(g, GROUP_CLEARANCE))
       let approachPath = straightApproach
       if (lineCrosses(straightApproach) || crossesAnyGroup(straightApproach, nonEndpointGroups)) {
         const entry = { x: descentX, y: spineY }

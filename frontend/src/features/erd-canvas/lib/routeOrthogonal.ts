@@ -35,6 +35,21 @@ export type Side = 'left' | 'right'
 
 const MARGIN = 16
 const TURN_PENALTY = 12
+
+/**
+ * Extra clearance kept between a corridor and a NON-endpoint TableGroup box,
+ * ON TOP of the routing MARGIN. Group obstacles are inflated by this much so
+ * routes (and bundle trunks) give a group a visible berth instead of hugging
+ * its boundary. Used by buildObstacles (per-edge A*) and mergeBundleRoutes
+ * (bundle approach trunk + crossing checks). Endpoint groups are never
+ * inflated — entry into one's own group is unaffected.
+ */
+export const GROUP_CLEARANCE = 24
+
+/** Grow a rect by `by` on every side. */
+export function inflateRect(r: Rect, by: number): Rect {
+  return { x: r.x - by, y: r.y - by, width: r.width + 2 * by, height: r.height + 2 * by }
+}
 // Distance the edge steps straight OUT of a card before it may turn — the
 // endpoint "stub". Decoupled from MARGIN (obstacle inflation) on purpose: a
 // longer stub guarantees a visible plain line between the entity and the
