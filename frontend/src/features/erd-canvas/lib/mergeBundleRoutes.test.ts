@@ -407,4 +407,37 @@ describe('mergeBundleRoutes obstacle awareness', () => {
       expect(out.get('c1')).not.toEqual(routes[1].points) // 정상 spine 버스
     })
   })
+
+  // grouped spine 기하 일반화: 중앙 소스(타깃이 소스 x를 좌우로 걸침)도 번들된다.
+  // 예전 geomOk는 `descentX > src.x`(소스가 모든 타깃 왼쪽)를 요구해, organizations
+  // 처럼 사방으로 참조되는 PK가 펼쳐졌다. 진입은 그룹 왼쪽 거터로 들어가고(model-1
+  // A* + per-member 안전망이 관통을 막음), 가드는 leave 방향 일관성만 본다.
+  describe('grouped spine: straddling source bundles (geomOk generalization)', () => {
+    const keyL = () => 'pk|L'
+    const src = { x: 1000, y: 300 } // 타깃 900(왼쪽)과 1300(오른쪽) 사이 = straddle
+    const cardA = { x: 898, y: 100, width: 100, height: 40 }
+    const cardB = { x: 1298, y: 100, width: 100, height: 40 }
+    const destGroup = { x: 850, y: 90, width: 500, height: 200 }
+    // side='left'(끝 세그먼트 오른쪽), leaveSign=+1(첫 세그먼트 오른쪽) — ok 가드 통과.
+    const routes = [
+      { id: 'a', points: [src, { x: 1030, y: 300 }, { x: 1030, y: 120 }, { x: 870, y: 120 }, { x: 900, y: 120 }] },
+      { id: 'b', points: [src, { x: 1030, y: 300 }, { x: 1030, y: 120 }, { x: 1270, y: 120 }, { x: 1300, y: 120 }] },
+    ]
+    const obstacles = [cardA, cardB]
+
+    it('bundles a straddling-source cluster (was geomOk-rejected) onto a shared approach', () => {
+      // descentX = 900 - 30 = 870 < src.x 1000 → 예전 geomOk 실패 → 펼침.
+      const out = mergeBundleRoutes(routes, keyL, obstacles, [destGroup])
+      const a = out.get('a')!
+      const b = out.get('b')!
+      expect(a).not.toEqual(routes[0].points) // 재작성(번들)됨
+      expect(b).not.toEqual(routes[1].points)
+      // 공유 진입: 두 멤버가 소스에서 같은 첫 세그먼트로 떠난다(부채꼴 아님).
+      expect(a[0]).toEqual(src)
+      expect(a[1]).toEqual(b[1])
+      // 각자 자기 타깃에 도달.
+      expect(a[a.length - 1]).toEqual({ x: 900, y: 120 })
+      expect(b[b.length - 1]).toEqual({ x: 1300, y: 120 })
+    })
+  })
 })

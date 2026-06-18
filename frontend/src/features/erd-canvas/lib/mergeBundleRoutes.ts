@@ -239,10 +239,12 @@ export function mergeBundleRoutes(
       // spineY:   그룹 내 최상단 목적지 행 위의 공유 수평 avenue y (SPINE_RISE만큼 위).
       const descentX =
         side === 'left' ? Math.min(...txs) - APPROACH_STUB : Math.max(...txs) + APPROACH_STUB
-      const geomOk =
-        side === 'left'
-          ? descentX > src.x && txs.every((t) => t >= descentX) && leaveSign > 0
-          : descentX < src.x && txs.every((t) => t <= descentX) && leaveSign < 0
+      // 가드는 leave 방향 일관성만 본다. 예전엔 `descentX > src.x`(소스가 모든 타깃의
+      // 한쪽)도 요구했으나, 그 제약은 organizations처럼 사방으로 참조되는 중앙 소스를
+      // 펼쳤다(타깃이 소스를 좌우로 걸침). 진입은 항상 그룹의 (side 기준) 진입 거터로
+      // 들어가고 — 직선 진입이 카드/그룹을 가로지르면 model-1 A*가 우회, 그래도 남는
+      // 관통은 아래 per-member lineCrosses/crossesAnyGroup가 폴백시킨다(never worse).
+      const geomOk = side === 'left' ? leaveSign > 0 : leaveSign < 0
       if (!geomOk) continue
       const topOf = (t: Point): number => {
         const card = obstacles.find((o) => contains(o, t))
