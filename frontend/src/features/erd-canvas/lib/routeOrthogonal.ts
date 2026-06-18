@@ -176,8 +176,17 @@ export function routeOrthogonal(
     }
   }
 
-  // No route found → simple L/Z fallback through the ports.
+  // No route found. The lane/trunk offsets push the step-out ports AWAY from
+  // the anchors; in a dense layout a large offset can drop a port INSIDE a
+  // neighbouring obstacle, boxing in the A* start so no route exists at all.
+  // Before giving up to the obstacle-CROSSING L/Z, retry once with the offsets
+  // zeroed — the ports then sit at the plain STEP_OUT, clear of neighbours, and
+  // a clean obstacle-avoiding route almost always exists. We trade the cosmetic
+  // lane fan for a route that doesn't tunnel through cards/groups.
   if (startKey !== goalKey && !came.has(goalKey)) {
+    if (sourceLaneOffset !== 0 || sourceTrunkOffset !== 0 || targetLaneOffset !== 0) {
+      return routeOrthogonal(source, target, sourceSide, targetSide, obstacles, margin)
+    }
     return simplify([
       source,
       { x: sPort.x, y: source.y },

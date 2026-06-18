@@ -190,6 +190,19 @@ describe('routeOrthogonal', () => {
       // The step-out / trunk X differs by the trunk offset.
       expect(lane1[1].x - lane0[1].x).toBe(14)
     })
+
+    it('a large offset that BOXES the source port retries at offset 0 (no crossing)', () => {
+      // Dense-layout failure mode: a large sourceTrunkOffset drops the step-out
+      // port (x = STEP_OUT 30 + 200 = 230, y = 0) INSIDE this obstacle, so A*
+      // can't expand the start → it used to fall back to an obstacle-CROSSING
+      // L/Z. Now it retries with the offsets zeroed and routes AROUND the box.
+      const obstacles = [{ x: 210, y: -30, width: 60, height: 60 }] // contains (230,0)
+      const pts = routeOrthogonal(
+        { x: 0, y: 0 }, { x: 400, y: 0 }, 'right', 'left', obstacles, 16, 0, 0, 200,
+      )
+      expect(pathAvoids(pts, obstacles)).toBe(true)
+      expect(isOrthogonal(pts)).toBe(true)
+    })
   })
 
   it('polylineToPath builds an M/L svg path', () => {
