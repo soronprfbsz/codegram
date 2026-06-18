@@ -28,15 +28,24 @@ export const GROUP_PADDING = 24
 export const GROUP_LABEL_BAND = 34
 
 /**
+ * Vertical room reserved INSIDE the box, above/below the members, for a
+ * relationship corridor to enter the group (the same-PK "spine bus" runs in the
+ * top band at `topCard − SPINE_RISE(40)`; forks drop through the bottom band).
+ * Without it the entering corridor hugs the group border. Sized so the spine
+ * clears the box edge with margin (SPINE_RISE 40 + ~MARGIN).
+ */
+export const GROUP_CORRIDOR_BAND = 32
+
+/**
  * Directional group-box insets (the box is intentionally asymmetric).
  * - X (left/right): roomy side gutters — 3× the base padding.
- * - TOP: base padding + the label band (label sits above the members).
- * - BOTTOM: matches TOP so there is as much room below the members as above
- *   them (symmetric vertical breathing room).
+ * - TOP: base padding + label band + corridor band (label above members; a
+ *   relationship corridor enters in this band).
+ * - BOTTOM: matches TOP so there is as much room below the members as above.
  */
 export const GROUP_PAD_X = GROUP_PADDING * 3
-export const GROUP_PAD_TOP = GROUP_PADDING + GROUP_LABEL_BAND
-export const GROUP_PAD_BOTTOM = GROUP_PADDING + GROUP_LABEL_BAND
+export const GROUP_PAD_TOP = GROUP_PADDING + GROUP_LABEL_BAND + GROUP_CORRIDOR_BAND
+export const GROUP_PAD_BOTTOM = GROUP_PADDING + GROUP_LABEL_BAND + GROUP_CORRIDOR_BAND
 
 /** Estimate a node's rendered size so layout works without DOM measurement. */
 export function nodeSize(node: ErdFlowNode): { width: number; height: number } {

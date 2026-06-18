@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { fitGroupBoxes } from './groupBox'
-import type { ErdFlowNode } from '@/entities/erd'
+import {
+  GROUP_PAD_X,
+  GROUP_PAD_TOP,
+  GROUP_PAD_BOTTOM,
+  type ErdFlowNode,
+} from '@/entities/erd'
 
 /** Empty-column table node (autoLayout nodeSize estimate: 240 x 40). */
 function memberNode(id: string, parentId: string, x: number, y: number): ErdFlowNode {
@@ -25,9 +30,6 @@ function groupNode(id: string, x: number, y: number): ErdFlowNode {
 
 describe('fitGroupBoxes', () => {
   it('expands the group box to cover a member dragged beyond the old box and re-bases members', () => {
-    const GROUP_PAD_X = 72
-    const GROUP_PAD_TOP = 58
-    const GROUP_PAD_BOTTOM = 58
     const MEMBER_W = 240
     const MEMBER_H = 40
     // Group originally at absolute (100,100), 10x10. One member sits at the
