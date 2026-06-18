@@ -347,4 +347,64 @@ describe('mergeBundleRoutes obstacle awareness', () => {
       expect(a[1]).toEqual({ x: 983, y: 0 })
     })
   })
+
+  // 비그룹(cross-canvas) 트렁크도 비-끝점 그룹 박스를 가로지르면 안 된다. 트렁크 x는
+  // 타깃 x만 보고 정해지므로, 소스와 타깃 사이에 낀 다른 TableGroup 박스를 그대로
+  // 관통할 수 있다. 관통 시 번들을 포기하고 각 멤버의 (그룹을 회피하는) 개별 A* 경로 유지.
+  describe('ungrouped trunk: non-endpoint group avoidance', () => {
+    const keyOf = () => 'pk|L'
+    // side='left', targets at x=200 → trunkX = 200 - 30 = 170, 수직 트렁크 y 0..300.
+    const routes = [
+      { id: 'a', points: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 10 }, { x: 200, y: 10 }] },
+      { id: 'b', points: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 300 }, { x: 200, y: 300 }] },
+    ]
+
+    it('falls back to raw routes when the trunk would cross a non-endpoint group box', () => {
+      // group x[150,210] y[100,220] — 트렁크 x=170 의 y 100..220 구간이 내부를 관통.
+      // 타깃(200,*)·소스(0,0)는 그룹 밖 → 그룹은 비-끝점, 타깃은 loose.
+      const group = { x: 150, y: 100, width: 60, height: 120 }
+      const out = mergeBundleRoutes(routes, keyOf, [], [group])
+      expect(out.get('a')).toEqual(routes[0].points)
+      expect(out.get('b')).toEqual(routes[1].points)
+    })
+
+    it('still merges onto the trunk when the group is clear of the corridor', () => {
+      // group x[250,310] — 트렁크 x=170 회랑과 겹치지 않음 → 번들 형성.
+      const group = { x: 250, y: 100, width: 60, height: 120 }
+      const out = mergeBundleRoutes(routes, keyOf, [], [group])
+      expect(out.get('a')).not.toEqual(routes[0].points)
+    })
+  })
+
+  // grouped(spine 버스) 경로의 커밋도 비-끝점 그룹을 가로지르면 그 멤버를 폴백시킨다.
+  // model-1의 A* 진입은 "직선 진입이 그룹을 가로지를 때"만 발동하는데, 진입은 깨끗하지만
+  // SPINE/포크가 다른 그룹을 가로지르는(또는 A*가 우회 못 해 직선으로 폴백한) 경우가
+  // 실제 스키마(account/tenants 사방 fan)에서 남는다. 커밋 단계에서 한 번 더 막는다.
+  describe('grouped spine: non-endpoint group avoidance at commit', () => {
+    const keyL = () => 'pk|L'
+    const src = { x: 0, y: 500 }
+    const col0Card = { x: 1012, y: 560, width: 240, height: 80 }
+    const col1Card = { x: 1372, y: 560, width: 240, height: 80 }
+    // 두 타깃을 모두 품는 목적지 그룹(끝점 그룹). descentX=983, spineY=560-40=520.
+    const destGroup = { x: 980, y: 500, width: 680, height: 200 }
+    const routes = [
+      { id: 'c0', points: [src, { x: 983, y: 500 }, { x: 983, y: 600 }, { x: 1013, y: 600 }] },
+      { id: 'c1', points: [src, { x: 983, y: 500 }, { x: 983, y: 601 }, { x: 1373, y: 601 }] },
+    ]
+    const obstacles = [col0Card, col1Card]
+    // 비-끝점 그룹 G: spine 행(y=520) 위, 컬럼 사이(x≈1100)에 놓여 c1의 spine
+    // (983,520)→(1343,520) 이 관통한다. 직선 진입(x=983 수직, y=500 수평)은 G를
+    // 건드리지 않아 model-1 A*가 발동하지 않는다(커밋 체크만으로 잡는 합성 최소 기하).
+    const interveningG = { x: 1100, y: 500, width: 80, height: 40 }
+
+    it('falls back when a grouped member spine crosses a non-endpoint group', () => {
+      const out = mergeBundleRoutes(routes, keyL, obstacles, [destGroup, interveningG])
+      expect(out.get('c1')).toEqual(routes[1].points) // 폴백: 원래 A* 경로 유지
+    })
+
+    it('still buses the member when no intervening group blocks the spine', () => {
+      const out = mergeBundleRoutes(routes, keyL, obstacles, [destGroup])
+      expect(out.get('c1')).not.toEqual(routes[1].points) // 정상 spine 버스
+    })
+  })
 })

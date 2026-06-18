@@ -154,6 +154,20 @@ export function mergeBundleRoutes(
     }
     const targetOf = (m: (typeof members)[number]): Point => m.pts[m.pts.length - 1]
 
+    // src가 속한 그룹 인덱스(없으면 -1). 트렁크/진입이 가로질러선 안 되는 비-끝점
+    // 그룹을 가려낼 때 src 그룹은 제외한다(소스는 그 박스 안에서 출발하므로).
+    const srcGroupIdx = groupBoxes.findIndex((g) => contains(g, src))
+    // 한 박스 line이 그 박스 내부를 가로지르는지(자기 끝점 든 박스는 제외 — 기존 규칙).
+    const crossesAnyGroup = (line: Point[], boxes: Rect[]): boolean => {
+      for (let i = 0; i < line.length - 1; i++) {
+        const a = line[i]
+        const b = line[i + 1]
+        const others = boxes.filter((o) => !contains(o, a) && !contains(o, b))
+        if (crossesObstacle(a, b, others)) return true
+      }
+      return false
+    }
+
     // Partition members by whether the target sits INSIDE a table group box.
     // Grouped targets get the 2-level "spine bus" (descend the group's entry
     // gutter → run a horizontal spine above the target row → fork DOWN each column
@@ -171,6 +185,10 @@ export function mergeBundleRoutes(
     }
 
     // --- Ungrouped targets: cross-canvas vertical trunk (X-clustered) ---
+    // 트렁크가 가로질러선 안 되는 비-끝점 그룹: 목적지는 loose라 어떤 그룹에도 속하지
+    // 않으므로 src 그룹만 제외한다. 트렁크가 이 중 하나라도 관통하면 번들을 포기하고
+    // 각 멤버의 (이미 그룹을 회피하는) 개별 A* 경로를 유지한다.
+    const looseNonEndpointGroups = groupBoxes.filter((_, i) => i !== srcGroupIdx)
     const byTx = [...loose].sort((a, b) => targetOf(a).x - targetOf(b).x)
     const clusters: (typeof members)[] = []
     for (const m of byTx) {
@@ -202,23 +220,16 @@ export function mergeBundleRoutes(
           ]),
         }
       })
-      if (candidates.some((c) => lineCrosses(c.line))) continue // fallback (whole cluster)
+      if (
+        candidates.some(
+          (c) => lineCrosses(c.line) || crossesAnyGroup(c.line, looseNonEndpointGroups),
+        )
+      )
+        continue // fallback (whole cluster): crosses a card OR a non-endpoint group box
       for (const c of candidates) copies.set(c.id, c.line)
     }
 
     // --- Grouped targets: 2-level spine bus, per group ---
-    // src가 속한 그룹 인덱스(없으면 -1). 진입 A*에서 src 그룹/목적지 그룹 박스는 제외.
-    const srcGroupIdx = groupBoxes.findIndex((g) => contains(g, src))
-    // 한 박스 line이 그 박스 내부를 가로지르는지(자기 끝점 든 박스는 제외 — 기존 규칙).
-    const crossesAnyGroup = (line: Point[], boxes: Rect[]): boolean => {
-      for (let i = 0; i < line.length - 1; i++) {
-        const a = line[i]
-        const b = line[i + 1]
-        const others = boxes.filter((o) => !contains(o, a) && !contains(o, b))
-        if (crossesObstacle(a, b, others)) return true
-      }
-      return false
-    }
     const samePoint = (p: Point, q: Point): boolean => p.x === q.x && p.y === q.y
 
     for (const [gi, cluster] of groupedMembers.entries()) {
@@ -282,7 +293,10 @@ export function mergeBundleRoutes(
           { x: gx, y: t.y },
           { x: t.x, y: t.y },
         ])
-        if (!lineCrosses(line)) copies.set(m.id, line)
+        // 카드뿐 아니라 비-끝점 그룹 박스도 가로지르면 그 멤버는 폴백(원래 A* 경로
+        // 유지). spine/포크나 A* 우회 실패로 남는 그룹 관통을 커밋 직전에 막는다.
+        if (!lineCrosses(line) && !crossesAnyGroup(line, nonEndpointGroups))
+          copies.set(m.id, line)
       }
     }
   }
