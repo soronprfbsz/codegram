@@ -8,11 +8,12 @@ import os
 import ssl as ssl_module
 from dataclasses import dataclass
 
-from sqlalchemy import MetaData, create_engine
-from sqlalchemy.engine import URL
+from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy.engine import Connection, URL
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.schema import CreateIndex, CreateTable
+from sqlalchemy.types import NullType, Text, UserDefinedType
 
 from app.schemas.introspect import IntrospectRequest
 
@@ -141,6 +142,57 @@ def build_ddl(metadata: MetaData, dialect: Dialect) -> str:
     return "\n\n".join(parts)
 
 
+class _RawType(UserDefinedType):
+    """A column type SQLAlchemy could not map (e.g. pgvector `vector`), emitted
+    back into DDL verbatim by its original DB type name so CreateTable still
+    compiles. `cache_ok` silences the SQLAlchemy caching warning."""
+
+    cache_ok = True
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def get_col_spec(self, **kw: object) -> str:
+        return self.name
+
+
+def _postgres_raw_type_names(
+    conn: Connection, schema: str | None
+) -> dict[tuple[str, str], str]:
+    """Map (table, column) -> raw DB type name (`udt_name`) for one schema.
+
+    Reflection drops the name of an unrecognized type (falls back to NullType);
+    this recovers it from the catalog so the emitted DDL keeps `vector` etc.
+    """
+    rows = conn.execute(
+        text(
+            "SELECT table_name, column_name, udt_name "
+            "FROM information_schema.columns WHERE table_schema = :schema"
+        ),
+        {"schema": schema or "public"},
+    )
+    return {(r.table_name, r.column_name): r.udt_name for r in rows}
+
+
+def _patch_unknown_types(
+    metadata: MetaData, raw_names: dict[tuple[str, str], str]
+) -> list[str]:
+    """Replace every NullType column (a DB type SQLAlchemy can't map) with a
+    type that compiles: the original DB type name when known (`raw_names`),
+    else TEXT. Without this, a single unrecognized column makes build_ddl raise
+    CompileError and 500 the whole import. Mutates `metadata` in place; returns
+    the patched `table.column` identifiers for logging.
+    """
+    patched: list[str] = []
+    for table in metadata.tables.values():
+        for column in table.columns:
+            if isinstance(column.type, NullType):
+                raw = raw_names.get((table.name, column.name))
+                column.type = _RawType(raw) if raw else Text()
+                patched.append(f"{table.name}.{column.name}")
+    return patched
+
+
 class IntrospectError(Exception):
     """Base for introspection failures surfaced to the user."""
 
@@ -167,9 +219,12 @@ def introspect_to_ddl(req: IntrospectRequest) -> IntrospectResult:
     engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
     try:
         metadata = MetaData()
+        raw_names: dict[tuple[str, str], str] = {}
         try:
             with engine.connect() as conn:
                 metadata.reflect(bind=conn, schema=effective_schema(req))
+                if req.dialect == "postgresql":
+                    raw_names = _postgres_raw_type_names(conn, effective_schema(req))
         except OperationalError as exc:
             raise ConnectionFailedError(
                 "데이터베이스에 접속할 수 없습니다. 접속 정보를 확인하세요."
@@ -180,6 +235,13 @@ def introspect_to_ddl(req: IntrospectRequest) -> IntrospectResult:
             ) from exc
         if not metadata.tables:
             raise NoTablesFoundError("대상 schema에서 테이블을 찾지 못했습니다.")
+        patched = _patch_unknown_types(metadata, raw_names)
+        if patched:
+            logger.info(
+                "introspect: patched %d unrecognized column type(s): %s",
+                len(patched),
+                ", ".join(patched),
+            )
         return IntrospectResult(
             import_dialect=import_dialect,
             ddl=build_ddl(metadata, engine.dialect),

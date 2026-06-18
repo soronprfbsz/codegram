@@ -192,3 +192,56 @@ def test_build_connection_url_keeps_host_outside_container(monkeypatch):
     monkeypatch.setattr(svc, "_default_gateway", lambda: "172.24.0.1")
     url, _args, _i = _build_url(_req(host="localhost"))
     assert url.host == "localhost"
+
+
+# --- unrecognized column types (pgvector 'vector', etc.) -------------------
+# SQLAlchemy reflects a column whose DB type it can't map as NullType, which
+# has no DDL → CreateTable raises CompileError → the whole import 500s. We
+# patch NullType columns to the original DB type name (recovered from
+# information_schema) so one exotic column never breaks the import.
+from sqlalchemy import Table, Column, Integer
+from sqlalchemy.types import NullType
+from sqlalchemy.dialects import postgresql as _pg
+from app.services.introspect import _RawType, _patch_unknown_types
+
+
+def test_raw_type_compiles_to_its_name():
+    md = MetaData()
+    Table("t", md, Column("id", Integer, primary_key=True), Column("emb", _RawType("vector")))
+    ddl = build_ddl(md, _pg.dialect())
+    assert "emb vector" in ddl.lower() or "emb\tvector" in ddl.lower() or "vector" in ddl
+
+
+def test_patch_unknown_types_restores_raw_name():
+    md = MetaData()
+    Table(
+        "rag_chunks", md,
+        Column("id", Integer, primary_key=True),
+        Column("embedding", NullType()),
+    )
+    patched = _patch_unknown_types(md, {("rag_chunks", "embedding"): "vector"})
+    assert "rag_chunks.embedding" in patched
+    # build_ddl must NOT raise now, and the original type name is preserved.
+    ddl = build_ddl(md, _pg.dialect())
+    assert "vector" in ddl
+
+
+def test_patch_unknown_types_generic_fallback_when_name_missing():
+    md = MetaData()
+    Table(
+        "t", md,
+        Column("id", Integer, primary_key=True),
+        Column("mystery", NullType()),
+    )
+    _patch_unknown_types(md, {})  # no raw name available
+    ddl = build_ddl(md, _pg.dialect())  # must not raise
+    assert "TEXT" in ddl.upper()
+
+
+def test_patch_unknown_types_leaves_known_columns_untouched():
+    md = MetaData()
+    Table("t", md, Column("id", Integer, primary_key=True), Column("name", Integer))
+    patched = _patch_unknown_types(md, {})
+    assert patched == []
+    ddl = build_ddl(md, _pg.dialect())
+    assert "INTEGER" in ddl.upper()
