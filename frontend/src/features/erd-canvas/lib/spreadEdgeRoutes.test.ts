@@ -198,4 +198,23 @@ describe('spreadEdgeRoutes obstacle awareness', () => {
     expect(b.get('a')).toEqual(a.get('a'))
     expect(b.get('b')).toEqual(a.get('b'))
   })
+
+  // 그룹 인식: 이동이 세그먼트를 '새로' 비-끝점 그룹 박스 안으로 밀어넣으면 취소한다
+  // (카드뿐 아니라 TableGroup 박스도 가로지르면 안 됨). 이미 지나던 그룹 내에서의
+  // 이동(예: 끝점 그룹 안의 spine)은 새 위반이 아니므로 허용.
+  it('cancels a shift that would push a segment into a non-endpoint group box', () => {
+    // tracks at x=91 and x=109. group covers x=109 (105..135) but NOT x=100.
+    const group = { x: 105, y: 50, width: 30, height: 100 }
+    const out = spreadEdgeRoutes(routes, 18, undefined, [], [group])
+    // b's shift to x=109 would enter the group → cancelled, stays at x=100.
+    expect(out.get('b')![1].x).toBe(100)
+    // a's shift to x=91 is clear of the group → allowed.
+    expect(out.get('a')![1].x).toBe(91)
+  })
+
+  it('still spreads when no group blocks the new track', () => {
+    const group = { x: 200, y: 50, width: 30, height: 100 } // far from both tracks
+    const out = spreadEdgeRoutes(routes, 18, undefined, [], [group])
+    expect(out.get('a')![1].x).not.toEqual(out.get('b')![1].x)
+  })
 })

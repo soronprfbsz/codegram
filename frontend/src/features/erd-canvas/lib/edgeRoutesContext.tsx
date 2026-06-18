@@ -161,7 +161,7 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
     const raw = [...rawRef.current].map(([id, points]) => ({ id, points }))
     const merged = mergeBundleRoutes(raw, keyOf, obstacles, groupBoxes)
     const mergedRoutes = raw.map(({ id }) => ({ id, points: merged.get(id)! }))
-    return spreadEdgeRoutes(mergedRoutes, SPREAD_GAP, keyOf, obstacles)
+    return spreadEdgeRoutes(mergedRoutes, SPREAD_GAP, keyOf, obstacles, groupBoxes)
   }, [version, obstacles, groupBoxes])
 
   return (

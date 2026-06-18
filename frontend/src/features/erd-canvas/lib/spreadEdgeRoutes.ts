@@ -40,6 +40,7 @@ export function spreadEdgeRoutes(
   gap = 12,
   bundleKeyOf?: (id: string) => string | null,
   obstacles: Rect[] = [],
+  groupBoxes: Rect[] = [],
 ): Map<string, Point[]> {
   // 1. Deep-copy each route's points so we never mutate the caller's data.
   const copies = new Map<string, Point[]>()
@@ -197,8 +198,10 @@ export function spreadEdgeRoutes(
       const pts = copies.get(seg.id)!
       // 이동 후보 좌표 계산 (pt0/pt1 = 세그먼트 양 끝점; a/b는 위 그룹화 루프의
       // 인덱스라 이름 충돌을 피한다).
-      const pt0 = { x: pts[seg.i].x, y: pts[seg.i].y }
-      const pt1 = { x: pts[seg.i + 1].x, y: pts[seg.i + 1].y }
+      const orig0 = { x: pts[seg.i].x, y: pts[seg.i].y }
+      const orig1 = { x: pts[seg.i + 1].x, y: pts[seg.i + 1].y }
+      const pt0 = { x: orig0.x, y: orig0.y }
+      const pt1 = { x: orig1.x, y: orig1.y }
       if (seg.orient === 'v') {
         pt0.x += delta
         pt1.x += delta
@@ -208,6 +211,15 @@ export function spreadEdgeRoutes(
       }
       // 이동한 세그먼트가 카드를 가로지르면 이동 취소(원좌표 유지).
       if (crossesObstacle(pt0, pt1, obstacles)) return
+      // 이동이 세그먼트를 '새로' 그룹 박스 안으로 밀어넣으면 취소한다. 원래도
+      // 지나던 그룹(예: 끝점 그룹 안의 spine) 내 이동은 새 위반이 아니므로 허용.
+      for (const gbox of groupBoxes) {
+        if (
+          crossesObstacle(pt0, pt1, [gbox]) &&
+          !crossesObstacle(orig0, orig1, [gbox])
+        )
+          return
+      }
       pts[seg.i] = pt0
       pts[seg.i + 1] = pt1
     })
