@@ -46,6 +46,18 @@ export interface ObstacleNode {
  *   → 무관한 그룹을 통째로 우회(공장라인 1단계 채널). 끝점이 속한 그룹은 제외해
  *   진입을 허용하되, 그 내부 테이블은 위 규칙으로 여전히 장애물(2단계 위빙).
  */
+/**
+ * Extra clearance kept between a corridor and a NON-endpoint TableGroup box,
+ * ON TOP of the A* routing MARGIN. The group obstacle is inflated by this much
+ * so routes give the group a visible berth instead of hugging its boundary.
+ * (Endpoint groups are excluded entirely, so entry is unaffected.)
+ */
+export const GROUP_CLEARANCE = 24
+
+function inflate(r: Rect, by: number): Rect {
+  return { x: r.x - by, y: r.y - by, width: r.width + 2 * by, height: r.height + 2 * by }
+}
+
 export function buildObstacles(
   nodes: ObstacleNode[],
   sourceId: string,
@@ -60,7 +72,8 @@ export function buildObstacles(
     if (n.type === 'table' || n.type === 'enum' || n.type === 'sticky') {
       out.push(n.rect)
     } else if (n.type === 'group') {
-      if (n.id !== srcGroup && n.id !== tgtGroup) out.push(n.rect)
+      // Non-endpoint group: inflate so corridors keep a clear gap from the box.
+      if (n.id !== srcGroup && n.id !== tgtGroup) out.push(inflate(n.rect, GROUP_CLEARANCE))
     }
   }
   return out
