@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
+import { Database } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import {
@@ -9,13 +10,26 @@ import {
   useUpdateProject,
   type Project,
 } from '@/entities/project'
+import { ProjectGlyphPicker } from './ProjectGlyphPicker'
+
+/** Count `Table ...` blocks in the DBML for a light table-count meta. */
+function countTables(dbml: string): number {
+  return (dbml.match(/^\s*Table\s/gim) ?? []).length
+}
+
+function formatUpdated(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString()
+  } catch {
+    return ''
+  }
+}
 
 /**
- * A single project row with open / rename (inline) / delete controls.
- * Split into its own component so useUpdateProject(project.id) is a per-row
- * hook call (hooks cannot be called inside a map callback).
+ * A single project card with open / rename (inline) / delete controls.
+ * Kept as a list item (role=listitem) so the inline rename input is reachable.
  */
-function ProjectRow({
+function ProjectCard({
   project,
   onDelete,
   deletePending,
@@ -39,26 +53,48 @@ function ProjectRow({
     setEditing(false)
   }
 
+  const tableCount = countTables(project.dbml_text)
+
   return (
-    <li className="flex items-center justify-between rounded border p-4">
-      {editing ? (
-        <Input
-          value={draftName}
-          onChange={(e) => setDraftName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleSave()
-            }
-          }}
-          className="mr-2"
-        />
-      ) : (
-        <span className="font-medium">{project.name}</span>
-      )}
-      <div className="flex gap-2">
+    <li className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/25">
+      <div className="flex min-w-0 items-start gap-2.5">
+        <div className="mt-0.5">
+          <ProjectGlyphPicker project={project} />
+        </div>
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <Input
+              value={draftName}
+              autoFocus
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSave()
+                else if (e.key === 'Escape') setEditing(false)
+              }}
+              className="h-8"
+            />
+          ) : (
+            <>
+              <Link
+                to={`/editor/${project.id}`}
+                className="block w-full truncate font-medium hover:text-primary"
+              >
+                {project.name}
+              </Link>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {tableCount} {tableCount === 1 ? 'table' : 'tables'} ·{' '}
+                {formatUpdated(project.updated_at)}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1">
         {editing ? (
           <Button
             variant="outline"
+            size="sm"
             onClick={handleSave}
             disabled={updateProject.isPending}
           >
@@ -66,7 +102,8 @@ function ProjectRow({
           </Button>
         ) : (
           <Button
-            variant="outline"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setDraftName(project.name)
               setEditing(true)
@@ -75,13 +112,20 @@ function ProjectRow({
             Rename
           </Button>
         )}
-        <Button variant="outline" onClick={() => navigate(`/editor/${project.id}`)}>
-          Open
-        </Button>
         <Button
           variant="outline"
+          size="sm"
+          onClick={() => navigate(`/editor/${project.id}`)}
+        >
+          Open
+        </Button>
+        <div className="flex-1" />
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => onDelete(project.id)}
           disabled={deletePending}
+          className="text-muted-foreground hover:text-destructive"
         >
           Delete
         </Button>
@@ -91,10 +135,9 @@ function ProjectRow({
 }
 
 /**
- * Project dashboard list: shows the user's projects with create / rename /
- * delete / open actions. features layer: composes project entity hooks +
- * shared UI (FSD downward imports). On create it navigates straight into the
- * editor.
+ * Projects dashboard: create bar + card gallery (complements the sidebar's
+ * compact quick-switch list). features layer: composes project entity hooks +
+ * shared UI. On create it navigates straight into the editor.
  */
 export function ProjectList() {
   const navigate = useNavigate()
@@ -105,9 +148,7 @@ export function ProjectList() {
 
   async function handleCreate() {
     const trimmed = name.trim()
-    if (!trimmed) {
-      return
-    }
+    if (!trimmed) return
     const created = await createProject.mutateAsync({ name: trimmed })
     setName('')
     navigate(`/editor/${created.id}`)
@@ -117,19 +158,18 @@ export function ProjectList() {
     await deleteProject.mutateAsync(id)
   }
 
+  const isEmpty = !isLoading && (projects?.length ?? 0) === 0
+
   return (
     <section>
-      <h2 className="mb-4 text-xl font-semibold">Your projects</h2>
-
-      <div className="mb-6 flex gap-2">
+      {/* Create bar */}
+      <div className="mb-8 flex max-w-xl gap-2">
         <Input
           placeholder="Project name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleCreate()
-            }
+            if (e.key === 'Enter') handleCreate()
           }}
         />
         <Button
@@ -141,13 +181,20 @@ export function ProjectList() {
       </div>
 
       {isLoading ? (
-        <p className="text-gray-600">Loading projects…</p>
-      ) : (projects?.length ?? 0) === 0 ? (
-        <p className="text-gray-600">No projects yet. Create one above.</p>
+        <p className="text-sm text-muted-foreground">Loading projects…</p>
+      ) : isEmpty ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border py-16 text-center">
+          <span className="grid size-11 place-items-center rounded-full bg-secondary text-muted-foreground">
+            <Database size={20} />
+          </span>
+          <p className="text-sm text-muted-foreground">
+            No projects yet. Create one above.
+          </p>
+        </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {projects?.map((project) => (
-            <ProjectRow
+            <ProjectCard
               key={project.id}
               project={project}
               onDelete={handleDelete}
