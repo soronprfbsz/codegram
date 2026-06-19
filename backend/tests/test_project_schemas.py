@@ -51,6 +51,8 @@ def test_project_read_from_attributes() -> None:
         layout = {"nodes": []}
         created_at = datetime.now(timezone.utc)
         updated_at = datetime.now(timezone.utc)
+        glyph = "🗄️"
+        color = "blue"
 
     dto = ProjectRead.model_validate(FakeORM())
     assert dto.name == "My ERD"
@@ -58,3 +60,5 @@ def test_project_read_from_attributes() -> None:
     assert dto.layout == {"nodes": []}
     assert isinstance(dto.id, uuid.UUID)
     assert isinstance(dto.user_id, uuid.UUID)
+    assert dto.glyph == "🗄️"
+    assert dto.color == "blue"
