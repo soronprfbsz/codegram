@@ -173,10 +173,10 @@ test('table groups: full CRUD scenario', async ({ page }) => {
   // Panel is open by default — schema-summary-grid is visible.
   await expect(page.getByTestId('schema-summary-grid')).toBeInViewport()
 
-  // Click Info to close the panel (grid column collapses to 0px, overflow hidden).
-  await page.getByRole('button', { name: /^info$/i }).click()
+  // Collapse the panel via its own header toggle (grid column → 40px rail).
+  await page.getByRole('button', { name: 'Collapse info panel' }).click()
 
-  // Poll the info-panel-column width until it reaches 0 (CSS transition 200ms).
+  // Poll the info-panel-column width until it reaches the 40px rail (CSS 200ms).
   await expect
     .poll(
       async () => {
@@ -186,10 +186,10 @@ test('table groups: full CRUD scenario', async ({ page }) => {
       },
       { timeout: 5_000 },
     )
-    .toBe(0)
+    .toBe(40)
 
-  // Click Info again to re-open.
-  await page.getByRole('button', { name: /^info$/i }).click()
+  // Expand again from the rail.
+  await page.getByRole('button', { name: 'Expand info panel' }).click()
   await expect(page.getByTestId('schema-summary-grid')).toBeInViewport({ timeout: 5_000 })
 })
 

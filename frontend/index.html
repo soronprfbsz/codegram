@@ -7,7 +7,7 @@
     <script>
       try {
         var t = localStorage.getItem('erd-theme');
-        if (t !== 'light') document.documentElement.classList.add('dark');
+        if (t === 'dark') document.documentElement.classList.add('dark');
       } catch (e) {}
     </script>
   </head>

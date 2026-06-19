@@ -20,7 +20,8 @@ describe('ThemeToggle', () => {
     return render(<ThemeToggle />)
   }
 
-  it('renders Sun icon when theme is dark (default)', async () => {
+  it('renders Sun icon when theme is dark', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue('dark')
     await renderToggle()
     // Sun icon should be present; Moon should not
     const btn = screen.getByRole('button', { name: '테마 전환' })
@@ -30,14 +31,14 @@ describe('ThemeToggle', () => {
     expect(screen.queryByTitle('moon')).toBeNull()
   })
 
-  it('renders Moon icon when theme is light', async () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue('light')
+  it('renders Moon icon when theme is light (default)', async () => {
     await renderToggle()
     const btn = screen.getByRole('button', { name: '테마 전환' })
     expect(btn.title).toBe('다크 모드로 전환')
   })
 
   it('clicking calls toggle: dark → light, button title flips', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockReturnValue('dark')
     const user = userEvent.setup()
     await renderToggle()
 

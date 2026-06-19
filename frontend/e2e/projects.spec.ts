@@ -87,8 +87,10 @@ test.describe('Project CRUD & autosave', () => {
     const projectId = created.id as string
     await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
 
-    // Back to the dashboard and rename the project inline.
-    await page.getByRole('button', { name: 'Back' }).click()
+    // Back to the dashboard via the sidebar. The editor opens with the sidebar
+    // collapsed to a rail (logo hidden), so expand it first, then click the logo.
+    await page.getByRole('button', { name: 'Expand sidebar' }).click()
+    await page.getByRole('link', { name: 'Codegram' }).click()
     await page.waitForURL((url) => url.pathname === '/')
 
     const renameResponse = page.waitForResponse(
@@ -104,10 +106,11 @@ test.describe('Project CRUD & autosave', () => {
     await page.getByRole('button', { name: 'Save' }).click()
     await renameResponse
 
-    // The new name shows in the list and survives a reload.
-    await expect(page.getByText('After Rename')).toBeVisible()
+    // The new name shows in the dashboard list and survives a reload.
+    // (Scope to <main>: the project also appears in the global sidebar list.)
+    await expect(page.locator('main').getByText('After Rename')).toBeVisible()
     await page.reload()
-    await expect(page.getByText('After Rename')).toBeVisible()
+    await expect(page.locator('main').getByText('After Rename')).toBeVisible()
   })
 
   test("cannot open another user's project (404 -> not found)", async ({

@@ -1,11 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router'
 import { PanelLeft, Plus, LogOut } from 'lucide-react'
-import { useProjectList, ProjectGlyph } from '@/entities/project'
+import { useProjectList } from '@/entities/project'
 import { useCurrentUser } from '@/entities/session'
 import { useLogout } from '@/features/auth'
 import { ThemeToggle } from '@/shared/ui/ThemeToggle'
 import { cn } from '@/shared/lib/utils'
 import logomarkUrl from '@/shared/assets/logomark.svg'
+import { ProjectRow } from './ProjectRow'
 
 export interface AppSidebarProps {
   /** Collapsed = icon rail (~56px); expanded = ~260px with labels. */
@@ -99,34 +100,14 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
           </div>
         )}
         <ul className="flex flex-col gap-0.5">
-          {(projects ?? []).map((p) => {
-            const active = pathname === `/editor/${p.id}`
-            return (
-              <li key={p.id}>
-                <Link
-                  to={`/editor/${p.id}`}
-                  title={p.name}
-                  data-testid={`sidebar-project-${p.id}`}
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'flex h-9 items-center gap-2.5 rounded-lg px-2 text-sm transition',
-                    active
-                      ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60',
-                    collapsed && 'justify-center px-0',
-                  )}
-                >
-                  <ProjectGlyph
-                    glyph={p.glyph}
-                    color={p.color}
-                    size={20}
-                    className="opacity-90"
-                  />
-                  {!collapsed && <span className="truncate">{p.name}</span>}
-                </Link>
-              </li>
-            )
-          })}
+          {(projects ?? []).map((p) => (
+            <ProjectRow
+              key={p.id}
+              project={p}
+              active={pathname === `/editor/${p.id}`}
+              collapsed={collapsed}
+            />
+          ))}
         </ul>
       </nav>
 

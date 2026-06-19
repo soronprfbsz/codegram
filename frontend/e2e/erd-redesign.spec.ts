@@ -54,7 +54,7 @@ test.describe('ERD redesign — 3-zone layout', () => {
     await context.clearCookies()
   })
 
-  test('dark mode by default, theme toggle switches to light + updates localStorage', async ({
+  test('light mode by default (Wise), theme toggle switches to dark + updates localStorage', async ({
     page,
   }) => {
     const email = `redesign-theme-${Date.now()}@example.com`
@@ -71,26 +71,26 @@ test.describe('ERD redesign — 3-zone layout', () => {
     await page.goto(`/editor/${id}`)
     await page.waitForSelector('[data-testid="erd-canvas"]')
 
-    // Dark class must be on <html> by default
-    await expect(page.locator('html')).toHaveClass(/dark/)
+    // Wise light is the default — no `dark` class on <html>
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
 
-    // localStorage erd-theme is either 'dark' or absent (defaults to dark)
+    // localStorage erd-theme is either 'light' or absent (defaults to light)
     const storedBefore = await page.evaluate(() =>
       localStorage.getItem('erd-theme'),
     )
-    expect(storedBefore === null || storedBefore === 'dark').toBe(true)
+    expect(storedBefore === null || storedBefore === 'light').toBe(true)
 
     // Click the theme toggle (aria-label="테마 전환")
     await page.click('button[aria-label="테마 전환"]')
 
-    // Dark class should be gone
-    await expect(page.locator('html')).not.toHaveClass(/dark/)
+    // Dark class should now be present
+    await expect(page.locator('html')).toHaveClass(/dark/)
 
-    // localStorage should now say 'light'
+    // localStorage should now say 'dark'
     const storedAfter = await page.evaluate(() =>
       localStorage.getItem('erd-theme'),
     )
-    expect(storedAfter).toBe('light')
+    expect(storedAfter).toBe('dark')
   })
 
   test('clicking a table list row highlights it, highlights the editor block, and activates its edges', async ({

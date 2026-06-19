@@ -1,26 +1,11 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { ErdTopBar } from './ErdTopBar'
-
-// Minimal stub for ThemeToggle used inside ErdTopBar
-vi.mock('@/shared/ui/ThemeToggle', () => ({
-  ThemeToggle: () => <button aria-label="테마 전환">ThemeToggle</button>,
-}))
-
-// Stub the logomark import (Vite SVG URL, jsdom doesn't resolve it)
-vi.mock('@/shared/assets/logomark.svg', () => ({
-  default: 'logomark.svg',
-}))
 
 function renderTopBar(overrides: Partial<Parameters<typeof ErdTopBar>[0]> = {}) {
   const defaults: Parameters<typeof ErdTopBar>[0] = {
     projectName: 'Test Project',
     autosaveStatus: 'idle',
-    onImportSql: vi.fn(),
-    onBack: vi.fn(),
-    onSync: vi.fn(),
-    exportMenu: <button>Export</button>,
     ...overrides,
   }
   return { ...render(<ErdTopBar {...defaults} />), defaults }
@@ -62,51 +47,20 @@ describe('ErdTopBar', () => {
     expect(screen.getByText('Save failed')).toBeInTheDocument()
   })
 
-  it('calls onBack when Back button is clicked', async () => {
-    const onBack = vi.fn()
-    renderTopBar({ onBack })
-    await userEvent.click(screen.getByRole('button', { name: /back/i }))
-    expect(onBack).toHaveBeenCalledTimes(1)
-  })
-
-  it('calls onImportSql when Import SQL button is clicked', async () => {
-    const onImportSql = vi.fn()
-    renderTopBar({ onImportSql })
-    await userEvent.click(screen.getByRole('button', { name: 'Import SQL' }))
-    expect(onImportSql).toHaveBeenCalledTimes(1)
-  })
-
-  it('calls onInfo when Info button is clicked', async () => {
-    const onInfo = vi.fn()
-    renderTopBar({ onInfo })
-    await userEvent.click(screen.getByRole('button', { name: /^info$/i }))
-    expect(onInfo).toHaveBeenCalledTimes(1)
-  })
-
-  it('renders the exportMenu slot', () => {
-    renderTopBar({ exportMenu: <button>Export Menu</button> })
-    expect(screen.getByText('Export Menu')).toBeInTheDocument()
-  })
-
-  it('renders ThemeToggle', () => {
+  it('is slim: no Actions dropdown, no Import/panel-toggle (those moved out)', () => {
     renderTopBar()
-    expect(screen.getByRole('button', { name: '테마 전환' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Actions' })).toBeNull()
+    expect(screen.queryByText('Import SQL')).toBeNull()
+    expect(screen.queryByText(/정보 패널/)).toBeNull()
   })
 
-  it('renders a Sync from DB button and fires onSync', async () => {
-    const user = userEvent.setup()
-    const onSync = vi.fn()
-    render(
-      <ErdTopBar
-        projectName="P"
-        autosaveStatus="idle"
-        onImportSql={vi.fn()}
-        onBack={vi.fn()}
-        onSync={onSync}
-        exportMenu={<div />}
-      />,
-    )
-    await user.click(screen.getByRole('button', { name: 'Sync from DB' }))
-    expect(onSync).toHaveBeenCalledTimes(1)
+  it('renders the diagramExport slot on the right', () => {
+    renderTopBar({ diagramExport: <button>DIAGRAM_SLOT</button> })
+    expect(screen.getByRole('button', { name: 'DIAGRAM_SLOT' })).toBeInTheDocument()
+  })
+
+  it('does not render the theme toggle (it lives in the sidebar now)', () => {
+    renderTopBar()
+    expect(screen.queryByRole('button', { name: '테마 전환' })).toBeNull()
   })
 })

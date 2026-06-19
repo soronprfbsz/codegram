@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { EditorPage } from './index'
@@ -9,11 +9,8 @@ import * as canvas from '@/features/erd-canvas'
 import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event'
 import * as dbmlEditor from '@/features/dbml-editor'
 import * as exportDiagramLib from '@/features/export-diagram/lib/exportDiagram'
-import * as exportTableDoc from '@/features/export-table-doc'
-import * as download from '@/shared/lib/download'
 import type { DbmlSchema } from '@/entities/dbml'
 import * as sqlImport from '@/features/sql-import'
-import * as sqlExport from '@/features/sql-export'
 import * as dbImport from '@/features/db-import'
 
 function renderEditor() {
@@ -29,6 +26,26 @@ function renderEditor() {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+}
+
+type User = ReturnType<typeof userEvent.setup>
+
+/** Open the TopBar "Diagram ▾" export dropdown. */
+async function openDiagramMenu(user: User) {
+  await user.click(screen.getByRole('button', { name: 'Diagram' }))
+}
+
+/** Open the DBML pane header's "가져오기" (Import) dropdown. */
+async function openImportMenu(user: User) {
+  await user.click(screen.getByRole('button', { name: '가져오기' }))
+}
+
+/**
+ * Select a menu item by name. Uses fireEvent for the click: radix Item onSelect
+ * races userEvent's pointer sequence in jsdom, so a direct click is deterministic.
+ */
+async function chooseItem(name: string) {
+  fireEvent.click(await screen.findByRole('menuitem', { name }))
 }
 
 describe('EditorPage', () => {
@@ -58,13 +75,10 @@ describe('EditorPage', () => {
 
     renderEditor()
 
-    // TopBar renders the project name as an aria-level=1 heading (div)
     expect(
       screen.getByRole('heading', { name: 'My Project' }),
     ).toBeInTheDocument()
 
-    // CodeMirror replaces the textarea: assert on the editor wrapper and
-    // that it seeded the document text into the DOM.
     const editor = screen.getByTestId('dbml-editor')
     expect(editor).not.toBeEmptyDOMElement()
     expect(editor.textContent).toContain('Table users')
@@ -87,8 +101,6 @@ describe('EditorPage', () => {
 
     renderEditor()
 
-    // The seed effect runs after first render; the latest autosave call must
-    // carry the exact Plan 2 contract with the seeded text + baseline.
     const lastCall = autosaveSpy.mock.calls.at(-1)?.[0] as {
       projectId: string
       dbmlText: string
@@ -99,7 +111,7 @@ describe('EditorPage', () => {
     expect(lastCall.baseline).toBe('Table users {\n  id int [pk]\n}')
   })
 
-  it('renders the TopBar Info button and ErdInfoPanel always visible in the right column', async () => {
+  it('collapses the info panel via its header toggle and re-expands from the rail', async () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -114,7 +126,6 @@ describe('EditorPage', () => {
       isError: false,
     } as ReturnType<typeof project.useProject>)
 
-    // Make parse synchronous so ErdInfoPanel has a schema to show.
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
       status: 'success',
       schema: {
@@ -138,23 +149,20 @@ describe('EditorPage', () => {
 
     renderEditor()
 
-    // The right column's ErdInfoPanel renders a "Schema summary" panel header.
     expect(screen.getAllByText(/schema summary/i).length).toBeGreaterThanOrEqual(1)
-
-    // The stat grid shows the table count from the mocked schema.
     expect(screen.getByTestId('stat-tables').textContent).toBe('1')
-
-    // The tablelist row for the 'users' table is rendered.
     expect(screen.getByTestId('tablelist-row-users')).toBeInTheDocument()
 
-    // The Info button is present in the TopBar as a styled affordance.
-    const info = screen.getByRole('button', { name: /^info$/i })
-    expect(info).toBeInTheDocument()
-
-    // Clicking Info is a no-op (right column is always shown).
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
-    await user.click(info)
-    // ErdInfoPanel still visible after click
+
+    // The collapse toggle lives in the info panel's own header now.
+    await user.click(screen.getByRole('button', { name: 'Collapse info panel' }))
+    // Collapsed → the rail shows an expand button; panel content is gone.
+    const expand = await screen.findByRole('button', { name: 'Expand info panel' })
+    expect(screen.queryByText(/schema summary/i)).toBeNull()
+
+    // Re-expanding restores the panel content.
+    await user.click(expand)
     expect(screen.getAllByText(/schema summary/i).length).toBeGreaterThanOrEqual(1)
   })
 
@@ -175,9 +183,6 @@ describe('EditorPage', () => {
 
     renderEditor()
 
-    // The canvas is always mounted; before the debounced parse settles it
-    // shows the empty-state placeholder. Either testid proves the center zone
-    // includes the ERD canvas region.
     const cnv =
       screen.queryByTestId('erd-canvas') ??
       screen.queryByTestId('erd-canvas-empty')
@@ -232,7 +237,6 @@ describe('EditorPage', () => {
   })
 
   it('passes savedPositions + onLayoutChange to the ERD canvas', () => {
-    // Spy the ErdCanvas to capture the props EditorPage threads to it.
     const erdSpy = vi
       .spyOn(canvas, 'ErdCanvas')
       .mockReturnValue(<div data-testid="erd-canvas-stub" />)
@@ -262,9 +266,7 @@ describe('EditorPage', () => {
   })
 })
 
-describe('EditorPage — Export menu wiring', () => {
-  // A minimal normalized schema with a single `users` table carrying an
-  // `email` column, so the derived TableDocModel is non-empty and identifiable.
+describe('EditorPage — Diagram export wiring (TopBar)', () => {
   const usersSchema: DbmlSchema = {
     tables: [
       {
@@ -272,26 +274,7 @@ describe('EditorPage — Export menu wiring', () => {
         name: 'users',
         schema: 'public',
         columns: [
-          {
-            id: 'public.users.id',
-            name: 'id',
-            type: 'integer',
-            pk: true,
-            notNull: true,
-            unique: false,
-            increment: false,
-            isFk: false,
-          },
-          {
-            id: 'public.users.email',
-            name: 'email',
-            type: 'varchar',
-            pk: false,
-            notNull: true,
-            unique: true,
-            increment: false,
-            isFk: false,
-          },
+          { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
         ],
       },
     ],
@@ -307,8 +290,7 @@ describe('EditorPage — Export menu wiring', () => {
         id: 'p-1',
         user_id: 'u-1',
         name: 'My Project',
-        dbml_text:
-          'Table users {\n  id integer [pk]\n  email varchar [unique, not null]\n}',
+        dbml_text: 'Table users {\n  id integer [pk]\n}',
         layout: {},
         created_at: '2026-06-05T00:00:00Z',
         updated_at: '2026-06-05T00:00:00Z',
@@ -318,26 +300,22 @@ describe('EditorPage — Export menu wiring', () => {
     } as ReturnType<typeof project.useProject>)
   }
 
-  // Open the radix dropdown despite JSDOM's missing layout/pointer support.
   const setup = () =>
     userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
 
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
-    // Make the parse SYNCHRONOUS + successful so `schema` is ready at first
-    // render: the Export trigger is enabled (not gated by the 300ms debounce)
-    // and the derived tableDoc is non-empty before any click.
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
       status: 'success',
       schema: usersSchema,
       lastValidSchema: usersSchema,
     })
-    // Fire onCaptureReady immediately so the page mounts without a live canvas.
     vi.spyOn(canvas, 'ErdCanvas').mockImplementation(
       (props: { onCaptureReady?: (h: canvas.ErdCaptureHandle) => void }) => {
         props.onCaptureReady?.({
           fitView: () => {},
+          centerOnNode: () => {},
           getInstance: () => null as never,
           setNodePositionAbs: () => {},
           setEdgeWaypoint: () => {},
@@ -348,104 +326,45 @@ describe('EditorPage — Export menu wiring', () => {
     )
   })
 
-  it('renders an Export trigger with all six items', async () => {
+  it('renders a Diagram trigger with PNG/SVG/PDF only (Table Doc/SQL moved to the sidebar)', async () => {
     mockLoadedProject()
     const user = setup()
     renderEditor()
-    await user.click(screen.getByRole('button', { name: /export/i }))
-    expect(
-      await screen.findByRole('menuitem', { name: 'Diagram PNG' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('menuitem', { name: 'Diagram SVG' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('menuitem', { name: 'Diagram PDF' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('menuitem', { name: 'Table Doc HTML' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('menuitem', { name: 'Table Doc Excel' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('menuitem', { name: 'Table Doc PDF' }),
-    ).toBeInTheDocument()
+    await openDiagramMenu(user)
+    expect(await screen.findByRole('menuitem', { name: 'Diagram PNG' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Diagram SVG' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Diagram PDF' })).toBeInTheDocument()
+    // Table Doc / SQL are no longer in the editor.
+    expect(screen.queryByRole('menuitem', { name: 'Table Doc HTML' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'SQL · PostgreSQL' })).toBeNull()
   })
 
   it('Diagram PNG/SVG/PDF call the matching diagram exporter', async () => {
     mockLoadedProject()
-    // Spy on the lib module that ExportMenu imports from (same namespace reference).
     const png = vi.spyOn(exportDiagramLib, 'exportDiagramPng').mockResolvedValue()
     const svg = vi.spyOn(exportDiagramLib, 'exportDiagramSvg').mockResolvedValue()
     const pdf = vi.spyOn(exportDiagramLib, 'exportDiagramPdf').mockResolvedValue()
     const user = setup()
     renderEditor()
 
-    await user.click(screen.getByRole('button', { name: /export/i }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Diagram PNG' }))
+    await openDiagramMenu(user)
+    await chooseItem('Diagram PNG')
     expect(png).toHaveBeenCalledTimes(1)
 
-    await user.click(screen.getByRole('button', { name: /export/i }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Diagram SVG' }))
+    await openDiagramMenu(user)
+    await chooseItem('Diagram SVG')
     expect(svg).toHaveBeenCalledTimes(1)
 
-    await user.click(screen.getByRole('button', { name: /export/i }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Diagram PDF' }))
+    await openDiagramMenu(user)
+    await chooseItem('Diagram PDF')
     expect(pdf).toHaveBeenCalledTimes(1)
   })
 
-  it('Table Doc Excel/PDF build from the derived model and download', async () => {
+  it('disables the Diagram trigger when there is no parsed schema', () => {
     mockLoadedProject()
-    const xlsx = vi
-      .spyOn(exportTableDoc, 'buildTableDocXlsxBlob')
-      .mockReturnValue(new Blob(['xlsx']))
-    const pdf = vi
-      .spyOn(exportTableDoc, 'buildTableDocPdfBlob')
-      .mockReturnValue(new Blob(['pdf']))
-    const dl = vi.spyOn(download, 'downloadBlob').mockImplementation(() => {})
-    const user = setup()
-    renderEditor()
-
-    await user.click(screen.getByRole('button', { name: /export/i }))
-    await user.click(
-      await screen.findByRole('menuitem', { name: 'Table Doc Excel' }),
-    )
-    expect(xlsx).toHaveBeenCalledTimes(1)
-    // useDbmlParse is mocked to a ready `users` schema, so the derived model
-    // is non-empty at click time (no debounce race).
-    const xlsxModel = xlsx.mock.calls[0][0]
-    expect(xlsxModel.tables.map((t) => t.name)).toContain('users')
-    expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.xlsx')
-
-    await user.click(screen.getByRole('button', { name: /export/i }))
-    await user.click(
-      await screen.findByRole('menuitem', { name: 'Table Doc PDF' }),
-    )
-    expect(pdf).toHaveBeenCalledTimes(1)
-    expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.pdf')
-  })
-
-  it('Table Doc HTML opens the in-app table-doc view', async () => {
-    mockLoadedProject()
-    const user = setup()
-    renderEditor()
-    expect(screen.queryByTestId('table-doc-view')).toBeNull()
-    await user.click(screen.getByRole('button', { name: /export/i }))
-    await user.click(
-      await screen.findByRole('menuitem', { name: 'Table Doc HTML' }),
-    )
-    expect(screen.getByTestId('table-doc-view')).toBeInTheDocument()
-  })
-
-  it('disables the Export trigger when there is no parsed schema', () => {
-    mockLoadedProject()
-    // Override the ready-schema mock from beforeEach: nothing parsed yet, so
-    // `schema` is undefined and the disabled gate (!schema || no tables) holds.
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({ status: 'idle' })
     renderEditor()
-    expect(screen.getByRole('button', { name: /export/i })).toBeDisabled()
-    expect(screen.queryByRole('menuitem')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Diagram' })).toBeDisabled()
   })
 })
 
@@ -457,16 +376,7 @@ describe('EditorPage — Phase 5 selection wiring', () => {
         name: 'users',
         schema: 'public',
         columns: [
-          {
-            id: 'public.users.id',
-            name: 'id',
-            type: 'integer',
-            pk: true,
-            notNull: true,
-            unique: false,
-            increment: false,
-            isFk: false,
-          },
+          { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
         ],
       },
     ],
@@ -510,15 +420,11 @@ describe('EditorPage — Phase 5 selection wiring', () => {
       selection?: unknown
       onSelect?: unknown
     }
-    // Initial state: nothing selected
     expect(props.selection).toBeNull()
     expect(typeof props.onSelect).toBe('function')
   })
 
   it('passes selectedTable to DbmlEditor', () => {
-    // We cannot intercept DbmlEditor props easily without a spy; instead we
-    // verify that the component tree renders correctly with no selectedTable
-    // (initial null) — the dbml-editor testid must still be present.
     vi.spyOn(canvas, 'ErdCanvas').mockReturnValue(
       <div data-testid="erd-canvas-stub" />,
     )
@@ -529,9 +435,6 @@ describe('EditorPage — Phase 5 selection wiring', () => {
   })
 
   it('ErdInfoPanel row click propagates selection (onSelect → selected)', async () => {
-    // ErdInfoPanel fires onSelect(tableName) on row click.
-    // The page passes selected→ErdCanvas (spy-intercepted) so we can observe
-    // the round-trip: onSelect fires → selected state updates → ErdCanvas re-renders.
     const erdSpy = vi
       .spyOn(canvas, 'ErdCanvas')
       .mockReturnValue(<div data-testid="erd-canvas-stub" />)
@@ -541,11 +444,9 @@ describe('EditorPage — Phase 5 selection wiring', () => {
     })
     renderEditor()
 
-    // Click the 'users' row in the table list
     const row = screen.getByTestId('tablelist-row-users')
     await user.click(row)
 
-    // The last ErdCanvas render should receive a node selection for 'users'.
     const lastProps = erdSpy.mock.calls.at(-1)?.[0] as {
       selection?: { kind: string; nodeType?: string; tableName?: string }
     }
@@ -558,7 +459,7 @@ describe('EditorPage — Phase 5 selection wiring', () => {
   })
 })
 
-describe('EditorPage — SQL import/export wiring', () => {
+describe('EditorPage — SQL import wiring (DBML header)', () => {
   const usersSchema: DbmlSchema = {
     tables: [
       {
@@ -566,16 +467,7 @@ describe('EditorPage — SQL import/export wiring', () => {
         name: 'users',
         schema: 'public',
         columns: [
-          {
-            id: 'public.users.id',
-            name: 'id',
-            type: 'integer',
-            pk: true,
-            notNull: true,
-            unique: false,
-            increment: false,
-            isFk: false,
-          },
+          { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
         ],
       },
     ],
@@ -616,6 +508,7 @@ describe('EditorPage — SQL import/export wiring', () => {
       (props: { onCaptureReady?: (h: canvas.ErdCaptureHandle) => void }) => {
         props.onCaptureReady?.({
           fitView: () => {},
+          centerOnNode: () => {},
           getInstance: () => null as never,
           setNodePositionAbs: () => {},
           setEdgeWaypoint: () => {},
@@ -624,9 +517,6 @@ describe('EditorPage — SQL import/export wiring', () => {
         return <div data-testid="erd-canvas-stub" />
       },
     )
-    // Stub the import dialog: render its trigger surface only when `open`,
-    // and expose a button that drives onImport so we can assert the page
-    // threads it into setDbmlText.
     vi.spyOn(sqlImport, 'SqlImportDialog').mockImplementation(
       (props: sqlImport.SqlImportDialogProps) =>
         props.open ? (
@@ -646,13 +536,14 @@ describe('EditorPage — SQL import/export wiring', () => {
     )
   })
 
-  it('opens the SqlImportDialog when the Import SQL button is clicked', async () => {
+  it('opens the SqlImportDialog from 가져오기 ▸ Import SQL', async () => {
     mockLoadedProject('Table users {\n  id integer [pk]\n}')
     const user = setup()
     renderEditor()
 
     expect(screen.queryByTestId('sql-import-dialog-stub')).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Import SQL' }))
+    await openImportMenu(user)
+    await user.click(await screen.findByRole('menuitem', { name: 'Import SQL' }))
     expect(screen.getByTestId('sql-import-dialog-stub')).toBeInTheDocument()
   })
 
@@ -661,7 +552,8 @@ describe('EditorPage — SQL import/export wiring', () => {
     const user = setup()
     renderEditor()
 
-    await user.click(screen.getByRole('button', { name: 'Import SQL' }))
+    await openImportMenu(user)
+    await user.click(await screen.findByRole('menuitem', { name: 'Import SQL' }))
     expect(screen.getByTestId('has-existing')).toHaveTextContent('true')
   })
 
@@ -670,58 +562,15 @@ describe('EditorPage — SQL import/export wiring', () => {
     const user = setup()
     renderEditor()
 
-    await user.click(screen.getByRole('button', { name: 'Import SQL' }))
+    await openImportMenu(user)
+    await user.click(await screen.findByRole('menuitem', { name: 'Import SQL' }))
     await user.click(screen.getByRole('button', { name: 'fire-import' }))
 
-    // setDbmlText replaced the document: the CodeMirror editor now shows the
-    // imported table name. Poll because @uiw/react-codemirror applies an
-    // external `value` change via an async reconfigure/dispatch effect.
     await waitFor(() =>
       expect(screen.getByTestId('dbml-editor').textContent).toContain(
         'Table imported',
       ),
     )
-  })
-
-  it('exports SQL via downloadSql for the chosen dialect', async () => {
-    mockLoadedProject('Table users {\n  id integer [pk]\n}')
-    const dl = vi.spyOn(sqlExport, 'downloadSql').mockReturnValue(true)
-    const user = setup()
-    renderEditor()
-
-    await user.click(screen.getByRole('button', { name: /export/i }))
-    await user.click(
-      await screen.findByRole('menuitem', { name: 'SQL · PostgreSQL' }),
-    )
-    expect(dl).toHaveBeenCalledWith(
-      'Table users {\n  id integer [pk]\n}',
-      'postgres',
-    )
-  })
-
-  it('SQL export passes the CURRENT (invalid) text while the trigger stays enabled via lastValidSchema', async () => {
-    // The current text is invalid, but a prior valid parse is retained. pages
-    // gates the Export trigger on `schema ?? lastValidSchema`, so the trigger
-    // is ENABLED even though `exportDbmlToSql(currentText)` would fail. This
-    // pins that the SQL export item passes the CURRENT dbmlText (not the last
-    // valid one) — downloadSql then warns + returns false in real usage.
-    const invalidText = 'Table users {\n  id integer [pk'
-    mockLoadedProject(invalidText)
-    vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
-      status: 'error',
-      schema: undefined,
-      lastValidSchema: usersSchema,
-      errors: [{ message: 'x' }],
-    })
-    const dl = vi.spyOn(sqlExport, 'downloadSql').mockReturnValue(false)
-    const user = setup()
-    renderEditor()
-
-    await user.click(screen.getByRole('button', { name: /export/i }))
-    await user.click(
-      await screen.findByRole('menuitem', { name: 'SQL · PostgreSQL' }),
-    )
-    expect(dl).toHaveBeenCalledWith(invalidText, 'postgres')
   })
 })
 
@@ -752,6 +601,7 @@ describe('EditorPage — DB Sync wiring', () => {
       (props: { onCaptureReady?: (h: canvas.ErdCaptureHandle) => void }) => {
         props.onCaptureReady?.({
           fitView: () => {},
+          centerOnNode: () => {},
           getInstance: () => null as never,
           setNodePositionAbs: () => {},
           setEdgeWaypoint: () => {},
@@ -760,8 +610,6 @@ describe('EditorPage — DB Sync wiring', () => {
         return <div data-testid="erd-canvas-stub" />
       },
     )
-    // Stub DbConnectDialog: renders a trigger button when open that fires
-    // onIntrospected with a simple synced DBML + db name
     vi.spyOn(dbImport, 'DbConnectDialog').mockImplementation(
       (props: { open: boolean; onIntrospected: (d: string, n: string) => void }) =>
         props.open ? (
@@ -784,24 +632,17 @@ describe('EditorPage — DB Sync wiring', () => {
     const user = setup()
     renderEditor()
 
-    // Sync button opens DbConnectDialog
-    await user.click(screen.getByRole('button', { name: /sync/i }))
-    // The stub fires onIntrospected which should show the overwrite confirm
+    await openImportMenu(user)
+    await user.click(await screen.findByRole('menuitem', { name: 'DB에서 동기화' }))
     await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
 
-    // Overwrite confirm dialog should be visible
-    expect(
-      screen.getByText(/sync from database\?/i),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/sync from database\?/i)).toBeInTheDocument()
 
-    // Click Replace to confirm
     await user.click(screen.getByRole('button', { name: /replace/i }))
 
-    // The synced table should now be visible in the info panel
     await waitFor(() =>
       expect(screen.getByTestId('tablelist-row-synced')).toBeInTheDocument(),
     )
-    // Old table should be gone
     expect(screen.queryByTestId('tablelist-row-old')).toBeNull()
   })
 
@@ -810,20 +651,16 @@ describe('EditorPage — DB Sync wiring', () => {
     const user = setup()
     renderEditor()
 
-    // Open sync and fire introspection
-    await user.click(screen.getByRole('button', { name: /sync/i }))
+    await openImportMenu(user)
+    await user.click(await screen.findByRole('menuitem', { name: 'DB에서 동기화' }))
     await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
 
-    // Confirm dialog visible
     expect(screen.getByText(/sync from database\?/i)).toBeInTheDocument()
 
-    // Click Cancel
     await user.click(screen.getByRole('button', { name: /^cancel$/i }))
 
-    // Confirm dialog should close
     expect(screen.queryByText(/sync from database\?/i)).toBeNull()
 
-    // Old table must still be shown — DBML was NOT replaced
     await waitFor(() =>
       expect(screen.getByTestId('tablelist-row-old')).toBeInTheDocument(),
     )

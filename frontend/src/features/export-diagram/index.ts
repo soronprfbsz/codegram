@@ -5,5 +5,5 @@ export {
 } from './lib/exportDiagram'
 export type { DiagramExportContext } from './lib/exportDiagram'
 export type { CaptureOptions } from './lib/captureViewport'
-export { ExportMenu } from './ui/ExportMenu'
-export type { ExportMenuProps } from './ui/ExportMenu'
+export { DiagramExportMenu } from './ui/DiagramExportMenu'
+export type { DiagramExportMenuProps } from './ui/DiagramExportMenu'

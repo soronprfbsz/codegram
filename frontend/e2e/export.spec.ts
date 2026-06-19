@@ -48,9 +48,34 @@ async function typeDbml(page: Page, dbml: string) {
   await page.keyboard.type(dbml)
 }
 
-/** Open the Export dropdown in the editor header. */
-async function openExportMenu(page: Page) {
-  await page.getByRole('button', { name: /export/i }).click()
+/** Open the TopBar "Diagram ▾" dropdown (diagram capture stays in the editor). */
+async function openDiagramMenu(page: Page) {
+  await page.getByRole('button', { name: 'Diagram' }).click()
+  await page.getByRole('menuitem', { name: 'Diagram PNG' }).waitFor()
+}
+
+/** Open a project's sidebar "⋯" menu (Table Doc / SQL export live here). */
+async function openProjectMenu(page: Page, name: string) {
+  await page.getByRole('button', { name: `${name} 메뉴` }).click()
+  await page.getByRole('menuitem', { name: 'Table Doc HTML' }).waitFor()
+}
+
+/** Wait for autosave to PATCH and the project list (which the sidebar reads) to
+ *  refetch — the sidebar's Export items parse the LIST copy of dbml_text. */
+async function waitForProjectSaved(page: Page, projectId: string) {
+  const patched = page.waitForResponse(
+    (r) =>
+      r.url().includes(`/api/projects/${projectId}`) &&
+      r.request().method() === 'PATCH' &&
+      r.ok(),
+  )
+  const listed = page.waitForResponse(
+    (r) =>
+      r.url().endsWith('/api/projects') &&
+      r.request().method() === 'GET' &&
+      r.ok(),
+  )
+  await Promise.all([patched, listed])
 }
 
 /** Wait for the canvas to render both nodes (capture needs a measured
@@ -87,19 +112,19 @@ test.describe('Editor export', () => {
     await waitForTwoNodes(page)
 
     // Diagram PNG → a download fires. ARM the listener BEFORE the click.
-    await openExportMenu(page)
+    await openDiagramMenu(page)
     const pngDownload = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'Diagram PNG' }).click()
     expect((await pngDownload).suggestedFilename()).toBe('diagram.png')
 
     // Diagram SVG → a download fires.
-    await openExportMenu(page)
+    await openDiagramMenu(page)
     const svgDownload = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'Diagram SVG' }).click()
     expect((await svgDownload).suggestedFilename()).toBe('diagram.svg')
 
     // Diagram PDF → a download fires.
-    await openExportMenu(page)
+    await openDiagramMenu(page)
     const pdfDownload = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'Diagram PDF' }).click()
     expect((await pdfDownload).suggestedFilename()).toBe('diagram.pdf')
@@ -109,12 +134,16 @@ test.describe('Editor export', () => {
     page,
   }) => {
     await registerAndLogin(page, `export-tabledoc-${Date.now()}@example.com`)
-    await createProjectAndOpen(page, 'Export TableDoc')
+    const projectId = await createProjectAndOpen(page, 'Export TableDoc')
+    const saved = waitForProjectSaved(page, projectId)
     await typeDbml(page, SAMPLE_DBML)
     await waitForTwoNodes(page)
+    // Table Doc/SQL export lives in the sidebar, which reads the LIST copy of
+    // dbml_text — wait for autosave + list refetch before opening the menu.
+    await saved
 
     // Table Doc Excel → a download fires. ARM before the click.
-    await openExportMenu(page)
+    await openProjectMenu(page, 'Export TableDoc')
     const xlsxDownload = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'Table Doc Excel' }).click()
     expect((await xlsxDownload).suggestedFilename()).toBe(
@@ -122,7 +151,7 @@ test.describe('Editor export', () => {
     )
 
     // Table Doc PDF → a download fires.
-    await openExportMenu(page)
+    await openProjectMenu(page, 'Export TableDoc')
     const pdfDownload = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'Table Doc PDF' }).click()
     expect((await pdfDownload).suggestedFilename()).toBe(
@@ -134,12 +163,14 @@ test.describe('Editor export', () => {
     page,
   }) => {
     await registerAndLogin(page, `export-htmlview-${Date.now()}@example.com`)
-    await createProjectAndOpen(page, 'Export HTML View')
+    const projectId = await createProjectAndOpen(page, 'Export HTML View')
+    const saved = waitForProjectSaved(page, projectId)
     await typeDbml(page, SAMPLE_DBML)
     await waitForTwoNodes(page)
+    await saved
 
     // Table Doc HTML → the in-app view renders (asset produced, no download).
-    await openExportMenu(page)
+    await openProjectMenu(page, 'Export HTML View')
     await page.getByRole('menuitem', { name: 'Table Doc HTML' }).click()
 
     const view = page.getByTestId('table-doc-view')

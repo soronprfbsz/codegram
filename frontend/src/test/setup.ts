@@ -42,6 +42,10 @@ if (!window.matchMedia) {
   })
 }
 
+// jsdom does not implement scrollIntoView; the search list scrolls its active
+// row into view, so provide a no-op (scroll position is not asserted in jsdom).
+Element.prototype.scrollIntoView = function scrollIntoView() {}
+
 // jsdom returns a zero-size rect; give nodes a non-zero box so React Flow's
 // measurement step produces dimensions instead of NaN.
 Element.prototype.getBoundingClientRect = function getBoundingClientRect() {

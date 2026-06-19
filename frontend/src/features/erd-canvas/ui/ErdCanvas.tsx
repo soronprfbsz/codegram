@@ -74,10 +74,17 @@ export interface ErdCanvasProps {
   onSelect?: (selection: CanvasSelection) => void
   /** Fired (guarded by value-equality) with coordinate info for the selection. */
   onSelectionInfo?: (info: SelectionInfo | null) => void
+  /**
+   * Extra column ids to highlight on top of the selection-derived set — used by
+   * table search to mark the column(s) that matched the query.
+   */
+  searchHighlightColIds?: string[]
 }
 
 export interface ErdCaptureHandle {
   fitView: () => void
+  /** Pan/zoom the viewport to center on a node (table search "go to table"). */
+  centerOnNode: (nodeId: string) => void
   getInstance: () => Pick<ReactFlowInstance, 'getNodes' | 'getNodesBounds'>
   /** Info 패널 좌표 편집: 절대좌표를 받아 노드를 이동하고 레이아웃을 커밋한다. */
   setNodePositionAbs: (nodeId: string, pos: XYPosition) => void
@@ -111,6 +118,10 @@ const nodeTypes: NodeTypes = {
 const edgeTypes: EdgeTypes = {
   relation: RelationEdge,
 }
+
+/** Floor zoom when centering on a searched table — bump up if zoomed far out,
+ *  but never zoom further out than the user already is. */
+const SEARCH_CENTER_MIN_ZOOM = 0.85
 
 interface ErdCanvasInnerProps extends ErdCanvasProps {
   // RefObject<T | null> matches useRef<T>(null)'s type under @types/react 19.
@@ -271,7 +282,7 @@ function ZoomBar() {
   )
 }
 
-function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, containerRef, selection, onSelect, onSelectionInfo }: ErdCanvasInnerProps) {
+function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, containerRef, selection, onSelect, onSelectionInfo, searchHighlightColIds }: ErdCanvasInnerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [helperLines, setHelperLines] = useState<{ vertical?: number; horizontal?: number }>({})
   useEffect(() => {
@@ -460,6 +471,27 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     // 자동 경로 엣지를 편집하면 이 커밋으로 수동 경로가 된다 (Q3 결정).
     edgePathCtx.commitWaypoints(edgeId, editVertexAxis(rp.points, vertexIndex, axis, value))
   }
+  function centerOnNodeImpl(nodeId: string) {
+    const node = rf.getNode(nodeId)
+    if (!node) return
+    // Grouped members store relative positions — add the parent origin (mirrors
+    // the nodeAbsX computation used for edge routing).
+    let x = node.position.x
+    let y = node.position.y
+    if (node.parentId) {
+      const parent = rf.getNode(node.parentId)
+      if (parent) {
+        x += parent.position.x
+        y += parent.position.y
+      }
+    }
+    const w = node.measured?.width ?? node.width ?? 0
+    const h = node.measured?.height ?? node.height ?? 0
+    const zoom = Math.max(rf.getZoom(), SEARCH_CENTER_MIN_ZOOM)
+    rf.setCenter(x + w / 2, y + h / 2, { zoom, duration: 400 })
+  }
+  const centerOnNodeRef = useRef(centerOnNodeImpl)
+  centerOnNodeRef.current = centerOnNodeImpl
   const setNodePositionAbsRef = useRef(setNodePositionAbsImpl)
   setNodePositionAbsRef.current = setNodePositionAbsImpl
   const setEdgeWaypointRef = useRef(setEdgeWaypointImpl)
@@ -475,6 +507,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     captureReadyFiredRef.current = true
     onCaptureReady?.({
       fitView,
+      centerOnNode: (nodeId) => centerOnNodeRef.current(nodeId),
       getInstance: () => rf,
       setNodePositionAbs: (nodeId, pos) => setNodePositionAbsRef.current(nodeId, pos),
       setEdgeWaypoint: (edgeId, i, axis, v) => setEdgeWaypointRef.current(edgeId, i, axis, v),
@@ -502,10 +535,12 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   const selectedEdgeId = selection?.kind === 'edge' ? selection.edgeId : null
 
   // Computed from schema (NOT from nodes state) so positions are never touched.
-  const highlightColIds = useMemo(
-    () => computeHighlightColIds(schema, selectedTableName),
-    [schema, selectedTableName],
-  )
+  // Search-matched columns are unioned on top of the selection-derived FK set.
+  const highlightColIds = useMemo(() => {
+    const ids = computeHighlightColIds(schema, selectedTableName)
+    for (const id of searchHighlightColIds ?? []) ids.add(id)
+    return ids
+  }, [schema, selectedTableName, searchHighlightColIds])
   const activeEdgeIds = useMemo(
     () => computeActiveEdgeIds(schema, selectedTableName),
     [schema, selectedTableName],
@@ -770,7 +805,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect, onSelectionInfo }: ErdCanvasProps) {
+function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect, onSelectionInfo, searchHighlightColIds }: ErdCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
@@ -817,6 +852,7 @@ function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChan
           selection={selection}
           onSelect={onSelect}
           onSelectionInfo={onSelectionInfo}
+          searchHighlightColIds={searchHighlightColIds}
         />
       </ReactFlowProvider>
     </div>

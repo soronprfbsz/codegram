@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightOpen,
+  Download,
+  RefreshCw,
+  ChevronDown,
+} from 'lucide-react'
 import { Button } from '@/shared/ui/button'
-import { downloadBlob } from '@/shared/lib/download'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/shared/ui/dropdown-menu'
 import { useProject } from '@/entities/project'
-import { deriveTableDoc, type TableDocModel } from '@/entities/table-doc'
 import {
   useProjectAutosave,
 } from '@/features/project-autosave'
@@ -16,16 +28,10 @@ import { ErdCanvas, type ErdCaptureHandle } from '@/features/erd-canvas'
 import type { CanvasSelection, SelectionInfo } from '@/entities/erd'
 import { useLayoutPersistence } from '@/features/layout-persistence'
 import {
-  ExportMenu,
+  DiagramExportMenu,
   type DiagramExportContext,
 } from '@/features/export-diagram'
-import {
-  buildTableDocXlsxBlob,
-  buildTableDocPdfBlob,
-} from '@/features/export-table-doc'
-import { downloadSql } from '@/features/sql-export'
 import { SqlImportDialog } from '@/features/sql-import'
-import { TableDocView } from '@/widgets/table-doc-view'
 import { ErdTopBar } from '@/widgets/erd-topbar'
 import { DbConnectDialog } from '@/features/db-import'
 import {
@@ -47,7 +53,19 @@ import {
   DialogDescription,
 } from '@/shared/ui/dialog'
 
-const EMPTY_TABLE_DOC: TableDocModel = { tables: [], enums: [] }
+/** Icon-button style for the DBML editor collapse/expand toggle. */
+const DBML_TOGGLE_BTN: React.CSSProperties = {
+  display: 'grid',
+  placeItems: 'center',
+  width: 28,
+  height: 28,
+  flexShrink: 0,
+  borderRadius: 6,
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--erd-text-3)',
+  cursor: 'pointer',
+}
 
 /**
  * Extract the `Project` block name from raw DBML text via a simple regex.
@@ -144,16 +162,9 @@ export function EditorPage() {
     captureHandleRef.current = handle
   }, [])
   const canvasWrapperRef = useRef<HTMLDivElement>(null)
-  const [tableDocViewOpen, setTableDocViewOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
   const [pendingSyncDbml, setPendingSyncDbml] = useState<string | null>(null)
-
-  // Derive the 테이블 정의서 model once per schema change.
-  const tableDoc = useMemo<TableDocModel>(
-    () => (schema ? deriveTableDoc(schema) : EMPTY_TABLE_DOC),
-    [schema],
-  )
 
   // The diagram capture context.
   const diagramCtx = useMemo<DiagramExportContext>(
@@ -188,15 +199,39 @@ export function EditorPage() {
       ? selection.tableName ?? null
       : null
 
+  // 테이블 검색 매칭 컬럼 하이라이트 — 검색 결과로 이동했을 때만 설정되고,
+  // 다른 경로의 선택(캔버스 클릭/리스트 클릭)이 일어나면 비운다.
+  const [searchHighlightColIds, setSearchHighlightColIds] = useState<string[]>([])
+
   // 패널의 Table names 리스트는 schema-qualified table id로 선택한다 → 노드 선택으로 변환.
   function selectTableById(tableId: string) {
+    setSearchHighlightColIds([])
     const t = schema?.tables.find((tb) => tb.id === tableId)
     setSelection(
       t ? { kind: 'node', nodeId: t.id, nodeType: 'table', tableName: t.name } : null,
     )
   }
+
+  // 캔버스 클릭 등 일반 선택 — 검색 하이라이트를 비우고 선택만 갱신.
+  function handleCanvasSelect(next: CanvasSelection) {
+    setSearchHighlightColIds([])
+    setSelection(next)
+  }
+
+  // 검색 결과 선택 → 선택 설정(= DBML 스크롤 + 패널 행 + 노드 링) + 캔버스 중앙 이동
+  // + 매칭 컬럼 하이라이트.
+  function navigateToTable(tableId: string, matchedColumnIds: string[]) {
+    const t = schema?.tables.find((tb) => tb.id === tableId)
+    setSelection(
+      t ? { kind: 'node', nodeId: t.id, nodeType: 'table', tableName: t.name } : null,
+    )
+    setSearchHighlightColIds(matchedColumnIds)
+    captureHandleRef.current?.centerOnNode(tableId)
+  }
   // Info 버튼이 토글하는 우측 패널 표시 상태 (세션 메모리만, 기본 보임).
   const [panelOpen, setPanelOpen] = useState(true)
+  // 좌측 DBML 에디터 패널 접힘 상태 (DBML 패널 헤더의 토글로 제어, 기본 펼침).
+  const [dbmlOpen, setDbmlOpen] = useState(true)
 
   // Seed the editor (and the autosave baseline) once the project loads.
   useEffect(() => {
@@ -217,7 +252,7 @@ export function EditorPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         Loading…
       </div>
     )
@@ -225,7 +260,7 @@ export function EditorPage() {
 
   if (isError || !project) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+      <div className="flex h-full flex-col items-center justify-center gap-4">
         <p className="text-lg">Project not found</p>
         <Button onClick={() => navigate('/')}>Back to projects</Button>
       </div>
@@ -234,7 +269,7 @@ export function EditorPage() {
 
   return (
     <div
-      className="flex h-screen flex-col overflow-hidden"
+      className="flex h-full flex-col overflow-hidden"
       style={{ background: 'var(--erd-bg)', color: 'var(--erd-text)' }}
     >
       {/* 56px TopBar */}
@@ -242,30 +277,8 @@ export function EditorPage() {
         projectName={project.name}
         projectMeta={projectMeta}
         autosaveStatus={status}
-        onImportSql={() => setImportOpen(true)}
-        onBack={() => navigate('/')}
-        onSync={() => setSyncOpen(true)}
-        onInfo={() => setPanelOpen((o) => !o)}
-        exportMenu={
-          <ExportMenu
-            diagram={diagramCtx}
-            disabled={exportDisabled}
-            triggerClassName="erd-btn-secondary"
-            onOpenTableDocView={() => setTableDocViewOpen(true)}
-            onExportTableDocExcel={() =>
-              downloadBlob(
-                buildTableDocXlsxBlob(tableDoc),
-                'table-definition.xlsx',
-              )
-            }
-            onExportTableDocPdf={() =>
-              downloadBlob(
-                buildTableDocPdfBlob(tableDoc),
-                'table-definition.pdf',
-              )
-            }
-            onExportSql={(dialect) => downloadSql(dbmlText, dialect)}
-          />
+        diagramExport={
+          <DiagramExportMenu diagram={diagramCtx} disabled={exportDisabled} />
         }
       />
 
@@ -273,13 +286,13 @@ export function EditorPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `340px 1fr ${panelOpen ? '316px' : '0px'}`,
+          gridTemplateColumns: `${dbmlOpen ? '340px' : '40px'} 1fr ${panelOpen ? '316px' : '40px'}`,
           transition: 'grid-template-columns 200ms ease',
           flex: 1,
           minHeight: 0,
         }}
       >
-        {/* Left (340px): DBML editor */}
+        {/* Left: DBML editor — collapsible to a 40px rail via its own header toggle. */}
         <div
           style={{
             background: 'var(--erd-surface-2)',
@@ -287,80 +300,173 @@ export function EditorPage() {
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
+            overflow: 'hidden',
           }}
         >
-          {/* Panel header — 44px */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              height: 44,
-              padding: '0 14px',
-              flexShrink: 0,
-              borderBottom: '1px solid var(--erd-border)',
-            }}
-          >
-            <span
-              style={{ fontSize: 15, color: 'var(--erd-text-2)', fontFamily: 'var(--font-mono, ui-monospace)' }}
-              aria-hidden
-            >
-              {'</>'}
-            </span>
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                letterSpacing: '.04em',
-                textTransform: 'uppercase',
-                color: 'var(--erd-text-2)',
-                flex: 1,
-              }}
-            >
-              DBML 에디터
-            </span>
-            {/* Valid/Invalid badge driven by parse.status */}
-            {(parse.status === 'success' || parse.status === 'error') && (
-              <span
+          {dbmlOpen ? (
+            <>
+              {/* Panel header — 44px */}
+              <div
                 style={{
-                  display: 'inline-flex',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: 5,
-                  padding: '2px 8px',
-                  borderRadius: 9999,
-                  fontSize: 11,
-                  fontWeight: 500,
-                  lineHeight: '18px',
-                  background:
-                    parse.status === 'success'
-                      ? 'color-mix(in srgb, var(--erd-success) 14%, transparent)'
-                      : 'color-mix(in srgb, var(--erd-error) 14%, transparent)',
-                  color:
-                    parse.status === 'success' ? 'var(--erd-success)' : 'var(--erd-error)',
+                  gap: 8,
+                  height: 44,
+                  padding: '0 8px 0 14px',
+                  flexShrink: 0,
+                  borderBottom: '1px solid var(--erd-border)',
                 }}
               >
                 <span
+                  style={{ fontSize: 15, color: 'var(--erd-text-2)', fontFamily: 'var(--font-mono, ui-monospace)' }}
+                  aria-hidden
+                >
+                  {'</>'}
+                </span>
+                <span
                   style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: 'currentColor',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    letterSpacing: '.04em',
+                    textTransform: 'uppercase',
+                    color: 'var(--erd-text-2)',
+                    flex: 1,
                   }}
-                />
-                {parse.status === 'success' ? 'Valid' : 'Invalid'}
-              </span>
-            )}
-          </div>
+                >
+                  DBML 에디터
+                </span>
+                {/* Valid/Invalid badge driven by parse.status */}
+                {(parse.status === 'success' || parse.status === 'error') && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '2px 8px',
+                      borderRadius: 9999,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      lineHeight: '18px',
+                      background:
+                        parse.status === 'success'
+                          ? 'color-mix(in srgb, var(--erd-success) 14%, transparent)'
+                          : 'color-mix(in srgb, var(--erd-error) 14%, transparent)',
+                      color:
+                        parse.status === 'success' ? 'var(--erd-success)' : 'var(--erd-error)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: 'currentColor',
+                      }}
+                    />
+                    {parse.status === 'success' ? 'Valid' : 'Invalid'}
+                  </span>
+                )}
+                {/* Import source menu: SQL paste / DB sync both replace the
+                    DBML being edited, so they live with the DBML source. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="erd-topbar-btn"
+                      aria-label="가져오기"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        height: 28,
+                        padding: '0 8px',
+                        fontSize: 12,
+                        fontWeight: 500,
+                        borderRadius: 6,
+                        border: '1px solid var(--erd-border-2)',
+                        background: 'var(--erd-surface)',
+                        color: 'var(--erd-text-2)',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      <Download size={14} strokeWidth={2} />
+                      가져오기
+                      <ChevronDown size={13} strokeWidth={2} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setImportOpen(true)}>
+                      <Download size={15} strokeWidth={2} />
+                      Import SQL
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setSyncOpen(true)}>
+                      <RefreshCw size={15} strokeWidth={2} />
+                      DB에서 동기화
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-          {/* CodeMirror editor fills the rest */}
-          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            <DbmlEditor
-              value={dbmlText}
-              onChange={setDbmlText}
-              height="100%"
-              selectedTable={selected}
-            />
-          </div>
+                {/* Collapse the DBML editor itself */}
+                <button
+                  type="button"
+                  className="erd-topbar-btn"
+                  onClick={() => setDbmlOpen(false)}
+                  aria-label="Collapse DBML editor"
+                  title="DBML 에디터 접기"
+                  style={DBML_TOGGLE_BTN}
+                >
+                  <PanelLeftClose size={16} strokeWidth={2} />
+                </button>
+              </div>
+
+              {/* CodeMirror editor fills the rest */}
+              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                <DbmlEditor
+                  value={dbmlText}
+                  onChange={setDbmlText}
+                  height="100%"
+                  selectedTable={selected}
+                />
+              </div>
+            </>
+          ) : (
+            /* Collapsed rail: expand button + vertical label */
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 10,
+                paddingTop: 8,
+                height: '100%',
+              }}
+            >
+              <button
+                type="button"
+                className="erd-topbar-btn"
+                onClick={() => setDbmlOpen(true)}
+                aria-label="Expand DBML editor"
+                title="DBML 에디터 펼치기"
+                style={DBML_TOGGLE_BTN}
+              >
+                <PanelLeftOpen size={16} strokeWidth={2} />
+              </button>
+              <span
+                style={{
+                  writingMode: 'vertical-rl',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: '.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--erd-text-3)',
+                  fontFamily: 'var(--font-mono, ui-monospace)',
+                }}
+              >
+                DBML
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Center (1fr): ERD canvas */}
@@ -376,56 +482,94 @@ export function EditorPage() {
             onEdgePathsChange={setEdgePaths}
             onCaptureReady={handleCaptureReady}
             selection={selection}
-            onSelect={setSelection}
+            onSelect={handleCanvasSelect}
             onSelectionInfo={setSelectionInfo}
+            searchHighlightColIds={searchHighlightColIds}
           />
         </div>
 
-        {/* Right (316px): ErdInfoPanel — schema summary + table names list */}
+        {/* Right: ErdInfoPanel (316px) — collapsible to a 40px rail via its own
+            header toggle (mirrors the DBML editor's left rail). */}
         <div
           data-testid="info-panel-column"
           style={{
             background: 'var(--erd-surface)',
-            borderLeft: panelOpen ? '1px solid var(--erd-border)' : 'none',
+            borderLeft: '1px solid var(--erd-border)',
             overflow: 'hidden',
             minHeight: 0,
           }}
         >
-          <div style={{ width: 316, height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            {groupOpError && (
-              <div role="alert" data-testid="group-op-error" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', fontSize: 12, color: 'var(--erd-error)', borderBottom: '1px solid var(--erd-border)' }}>
-                <span style={{ flex: 1 }}>{groupOpError}</span>
-                <button aria-label="dismiss" onClick={() => setGroupOpError(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>✕</button>
-              </div>
-            )}
-            <ErdInfoPanel
-              schema={schema}
-              selected={selected}
-              onSelect={selectTableById}
-              dialect={dialect}
-              groupOps={groupOps}
-              mutationsEnabled={mutationsEnabled}
-              selectionInfo={selectionInfo}
-              onEditNodePosition={(nodeId, pos) =>
-                captureHandleRef.current?.setNodePositionAbs(nodeId, pos)
-              }
-              onEditEdgeWaypoint={(edgeId, i, axis, v) =>
-                captureHandleRef.current?.setEdgeWaypoint(edgeId, i, axis, v)
-              }
-              onResetEdgePath={(edgeId) =>
-                captureHandleRef.current?.resetEdgePath(edgeId)
-              }
-            />
-          </div>
+          {panelOpen ? (
+            <div style={{ width: 316, height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              {groupOpError && (
+                <div role="alert" data-testid="group-op-error" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', fontSize: 12, color: 'var(--erd-error)', borderBottom: '1px solid var(--erd-border)' }}>
+                  <span style={{ flex: 1 }}>{groupOpError}</span>
+                  <button aria-label="dismiss" onClick={() => setGroupOpError(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>✕</button>
+                </div>
+              )}
+              <ErdInfoPanel
+                schema={schema}
+                selected={selected}
+                onSelect={selectTableById}
+                onNavigateToTable={navigateToTable}
+                dialect={dialect}
+                groupOps={groupOps}
+                mutationsEnabled={mutationsEnabled}
+                selectionInfo={selectionInfo}
+                onEditNodePosition={(nodeId, pos) =>
+                  captureHandleRef.current?.setNodePositionAbs(nodeId, pos)
+                }
+                onEditEdgeWaypoint={(edgeId, i, axis, v) =>
+                  captureHandleRef.current?.setEdgeWaypoint(edgeId, i, axis, v)
+                }
+                onResetEdgePath={(edgeId) =>
+                  captureHandleRef.current?.resetEdgePath(edgeId)
+                }
+                onCollapse={() => setPanelOpen(false)}
+              />
+            </div>
+          ) : (
+            /* Collapsed rail: expand button + vertical label */
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 10,
+                paddingTop: 8,
+                height: '100%',
+              }}
+            >
+              <button
+                type="button"
+                className="erd-topbar-btn"
+                onClick={() => setPanelOpen(true)}
+                aria-label="Expand info panel"
+                title="정보 패널 펼치기"
+                style={DBML_TOGGLE_BTN}
+              >
+                <PanelRightOpen size={16} strokeWidth={2} />
+              </button>
+              <span
+                style={{
+                  writingMode: 'vertical-rl',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: '.08em',
+                  textTransform: 'uppercase',
+                  color: 'var(--erd-text-3)',
+                  fontFamily: 'var(--font-mono, ui-monospace)',
+                }}
+              >
+                정보
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Dialogs / overlays — mounted unconditionally (same as before) */}
-      <TableDocView
-        model={tableDoc}
-        open={tableDocViewOpen}
-        onClose={() => setTableDocViewOpen(false)}
-      />
+      {/* Dialogs / overlays — the 테이블 정의서 HTML overlay is now mounted
+          once in AppLayout (opened from the sidebar's "⋯" menu). */}
       <SqlImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}

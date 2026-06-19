@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react'
+import type { TableSearchMatch } from '@/entities/dbml'
 import type { DisplayGroup } from '@/entities/erd'
 import type { GroupOpHandlers } from '../model/types'
 import {
@@ -26,6 +27,10 @@ export interface GroupSectionProps {
   onToggleCollapse: () => void
   groupOps?: GroupOpHandlers
   mutationsEnabled: boolean
+  /** When searching: per-table match info, used to render a "why it matched" hint. */
+  matches?: Map<string, TableSearchMatch>
+  /** Table id under the keyboard cursor (↑/↓ in the search box), highlighted. */
+  activeTableId?: string | null
 }
 
 export function GroupSection({
@@ -37,6 +42,8 @@ export function GroupSection({
   onToggleCollapse,
   groupOps,
   mutationsEnabled,
+  matches,
+  activeTableId,
 }: GroupSectionProps) {
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(group.label)
@@ -226,6 +233,8 @@ export function GroupSection({
       {/* Table rows */}
       {!collapsed && group.tables.map((table) => {
         const isSelected = selected === table.name
+        const isActive = activeTableId === table.id
+        const hint = matches?.get(table.id)?.hint ?? null
         // Move-to targets: all named groups except the current one, plus Ungrouped if not already ungrouped
         const currentGroup = isUngrouped ? null : group.label
         const moveTargets = groupNames.filter((n) => n !== currentGroup)
@@ -252,7 +261,12 @@ export function GroupSection({
               cursor: 'pointer',
               borderRadius: 8,
               transition: 'background 80ms ease',
-              background: isSelected ? 'var(--erd-accent-soft)' : undefined,
+              background: isSelected
+                ? 'var(--erd-accent-soft)'
+                : isActive
+                  ? 'var(--erd-hover)'
+                  : undefined,
+              boxShadow: isActive ? 'inset 2px 0 0 var(--erd-accent)' : undefined,
               fontSize: 13,
             }}
             className={isSelected ? 'tlist-item-selected' : 'tlist-item'}
@@ -264,22 +278,39 @@ export function GroupSection({
             onMouseLeave={(e) => {
               ;(e.currentTarget as HTMLDivElement).style.background = isSelected
                 ? 'var(--erd-accent-soft)'
-                : ''
+                : isActive
+                  ? 'var(--erd-hover)'
+                  : ''
             }}
           >
-            {/* Table name mono 12.5px */}
-            <span
-              style={{
-                fontFamily: 'var(--font-mono, ui-monospace)',
-                fontSize: 12.5,
-                flex: 1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap' as const,
-              }}
-            >
-              {table.name}
-            </span>
+            {/* Table name (+ search match hint) */}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono, ui-monospace)',
+                  fontSize: 12.5,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap' as const,
+                }}
+              >
+                {table.name}
+              </span>
+              {hint && (
+                <span
+                  data-testid={`tablelist-hint-${table.name}`}
+                  style={{
+                    fontSize: 10.5,
+                    color: 'var(--erd-text-3)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap' as const,
+                  }}
+                >
+                  {hint}
+                </span>
+              )}
+            </div>
 
             {/* Field count */}
             <span

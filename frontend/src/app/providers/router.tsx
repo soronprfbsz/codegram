@@ -4,6 +4,7 @@ import { HomePage } from '@/pages/home'
 import { LoginPage } from '@/pages/login'
 import { RegisterPage } from '@/pages/register'
 import { RequireAuth, RequireGuest } from '@/app/providers/RequireAuth'
+import { AppLayout } from '@/widgets/app-layout'
 
 // Lazy-load the editor route so @dbml/core, CodeMirror and React Flow are
 // code-split onto the editor chunk only — NOT shipped to login/home (Plan 3b
@@ -15,28 +16,32 @@ const EditorPage = lazy(() =>
 
 const router = createBrowserRouter([
   {
-    path: '/',
+    // Authenticated shell: persistent sidebar + main outlet.
     element: (
       <RequireAuth>
-        <HomePage />
+        <AppLayout />
       </RequireAuth>
     ),
-  },
-  {
-    path: '/editor/:id',
-    element: (
-      <RequireAuth>
-        <Suspense
-          fallback={
-            <div className="flex min-h-screen items-center justify-center">
-              Loading editor…
-            </div>
-          }
-        >
-          <EditorPage />
-        </Suspense>
-      </RequireAuth>
-    ),
+    children: [
+      {
+        path: '/',
+        element: <HomePage />,
+      },
+      {
+        path: '/editor/:id',
+        element: (
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                Loading editor…
+              </div>
+            }
+          >
+            <EditorPage />
+          </Suspense>
+        ),
+      },
+    ],
   },
   {
     path: '/login',

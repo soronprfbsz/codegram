@@ -72,8 +72,9 @@ test('db-sync: introspect replaces schema, preserves positions, removes dropped 
     })
     .toBeGreaterThanOrEqual(2)
 
-  // ── Step 1: open the Sync dialog ──────────────────────────────────────────
-  await page.getByRole('button', { name: 'Sync from DB' }).click()
+  // ── Step 1: open the Sync dialog (DBML pane header → 가져오기 → DB 동기화) ──
+  await page.getByRole('button', { name: '가져오기' }).click()
+  await page.getByRole('menuitem', { name: 'DB에서 동기화' }).click()
 
   // ── Step 2: fill the connection form ─────────────────────────────────────
   await page.getByTestId('db-connect-dialect').selectOption('postgresql')

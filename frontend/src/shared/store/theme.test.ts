@@ -32,20 +32,20 @@ describe('useThemeStore', () => {
     return useThemeStore
   }
 
-  it('defaults to dark when localStorage is empty', async () => {
-    const store = await getStore()
-    expect(store.getState().theme).toBe('dark')
-  })
-
-  it('restores light from localStorage', async () => {
-    localStorageMock['erd-theme'] = 'light'
+  it('defaults to light when localStorage is empty (Wise light default)', async () => {
     const store = await getStore()
     expect(store.getState().theme).toBe('light')
   })
 
-  it('toggle flips dark → light, updates localStorage, and toggles .dark class', async () => {
+  it('restores dark from localStorage', async () => {
+    localStorageMock['erd-theme'] = 'dark'
     const store = await getStore()
-    // initial: dark — class should be applied by the store init
+    expect(store.getState().theme).toBe('dark')
+  })
+
+  it('toggle flips dark → light, updates localStorage, and toggles .dark class', async () => {
+    localStorageMock['erd-theme'] = 'dark'
+    const store = await getStore()
     store.getState().toggle()
 
     expect(store.getState().theme).toBe('light')
@@ -53,8 +53,7 @@ describe('useThemeStore', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(false)
   })
 
-  it('toggle flips light → dark', async () => {
-    localStorageMock['erd-theme'] = 'light'
+  it('toggle flips light → dark (default light)', async () => {
     const store = await getStore()
     store.getState().toggle()
 
@@ -94,17 +93,16 @@ describe('applyStoredTheme', () => {
     vi.restoreAllMocks()
   })
 
-  it('adds .dark when no storage key', async () => {
-    const { applyStoredTheme } = await import('./theme')
-    applyStoredTheme()
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
-  })
-
-  it('removes .dark when storage is light', async () => {
-    localStorageMock['erd-theme'] = 'light'
-    document.documentElement.classList.add('dark')
+  it('does NOT add .dark when no storage key (default light)', async () => {
     const { applyStoredTheme } = await import('./theme')
     applyStoredTheme()
     expect(document.documentElement.classList.contains('dark')).toBe(false)
+  })
+
+  it('adds .dark when storage is dark', async () => {
+    localStorageMock['erd-theme'] = 'dark'
+    const { applyStoredTheme } = await import('./theme')
+    applyStoredTheme()
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 })

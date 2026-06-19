@@ -60,22 +60,12 @@ describe('HomePage', () => {
     } as unknown as ReturnType<typeof project.useDeleteProject>)
   })
 
-  it('renders the app heading', () => {
+  // Brand / account / logout moved to the global sidebar (AppLayout); the home
+  // page is now the projects dashboard, headed "프로젝트".
+  it('renders the dashboard heading', () => {
     renderHome()
     expect(
-      screen.getByRole('heading', { name: 'Codegram' }),
-    ).toBeInTheDocument()
-  })
-
-  it('shows the current user email', () => {
-    renderHome()
-    expect(screen.getByText('me@example.com')).toBeInTheDocument()
-  })
-
-  it('renders a logout button', () => {
-    renderHome()
-    expect(
-      screen.getByRole('button', { name: /log out/i }),
+      screen.getByRole('heading', { name: '프로젝트' }),
     ).toBeInTheDocument()
   })
 

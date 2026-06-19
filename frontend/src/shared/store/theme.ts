@@ -23,11 +23,12 @@ function persist(theme: Theme) {
 function readStored(): Theme {
   try {
     const stored = localStorage.getItem('erd-theme')
-    if (stored === 'light') return 'light'
+    if (stored === 'dark') return 'dark'
   } catch {
     // ignore
   }
-  return 'dark'
+  // Wise light is the default theme.
+  return 'light'
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({

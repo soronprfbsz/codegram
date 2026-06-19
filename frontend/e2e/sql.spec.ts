@@ -47,9 +47,35 @@ async function typeDbml(page: Page, dbml: string) {
   await page.keyboard.type(dbml)
 }
 
-/** Open the Export dropdown in the editor header. */
-async function openExportMenu(page: Page) {
-  await page.getByRole('button', { name: /export/i }).click()
+/** Open the DBML pane header's "가져오기" (Import) dropdown. */
+async function openImportMenu(page: Page) {
+  await page.getByRole('button', { name: '가져오기' }).click()
+  await page.getByRole('menuitem', { name: 'Import SQL' }).waitFor()
+}
+
+/** Open a project's sidebar "⋯" menu (Table Doc / SQL export live here). */
+async function openProjectMenu(page: Page, name: string) {
+  await page.getByRole('button', { name: `${name} 메뉴` }).click()
+  await page.getByRole('menuitem', { name: 'SQL · PostgreSQL' }).waitFor()
+}
+
+/** Wait for autosave to PATCH and the project list (the sidebar source) to
+ *  refetch — sidebar Export items parse the LIST copy of dbml_text. */
+async function waitForProjectSaved(page: Page, projectId: string) {
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes(`/api/projects/${projectId}`) &&
+        r.request().method() === 'PATCH' &&
+        r.ok(),
+    ),
+    page.waitForResponse(
+      (r) =>
+        r.url().endsWith('/api/projects') &&
+        r.request().method() === 'GET' &&
+        r.ok(),
+    ),
+  ])
 }
 
 /** Wait for the canvas to render both nodes. */
@@ -84,8 +110,9 @@ test.describe('SQL import/export', () => {
     await registerAndLogin(page, `sql-import-${Date.now()}@example.com`)
     await createProjectAndOpen(page, 'SQL Import')
 
-    // Open the import modal from the editor header.
-    await page.getByRole('button', { name: 'Import SQL' }).click()
+    // Open the import modal from the DBML pane header's 가져오기 menu.
+    await openImportMenu(page)
+    await page.getByRole('menuitem', { name: 'Import SQL' }).click()
 
     // Paste the SQL into the modal textarea (dialect defaults to PostgreSQL).
     await page.getByTestId('sql-import-textarea').fill(SAMPLE_SQL)
@@ -111,7 +138,8 @@ test.describe('SQL import/export', () => {
     await registerAndLogin(page, `sql-import-file-${Date.now()}@example.com`)
     await createProjectAndOpen(page, 'SQL Import File')
 
-    await page.getByRole('button', { name: 'Import SQL' }).click()
+    await openImportMenu(page)
+    await page.getByRole('menuitem', { name: 'Import SQL' }).click()
 
     // Upload a .sql file via the hidden file input (bypasses the OS picker).
     await page.getByTestId('sql-file-input').setInputFiles({
@@ -132,21 +160,23 @@ test.describe('SQL import/export', () => {
     page,
   }) => {
     await registerAndLogin(page, `sql-export-${Date.now()}@example.com`)
-    await createProjectAndOpen(page, 'SQL Export')
+    const projectId = await createProjectAndOpen(page, 'SQL Export')
+    const saved = waitForProjectSaved(page, projectId)
     await typeDbml(
       page,
       ['Table users {', '  id int [pk]', '  email varchar', '}'].join('\n'),
     )
-    // Wait for the node so the Export trigger is enabled (gated on a parsed,
-    // non-empty schema).
+    // Wait for the node so the schema parsed, then for autosave + list refetch:
+    // SQL export now lives in the sidebar "⋯" menu, which reads the list copy.
     await expect
       .poll(async () => page.locator('.react-flow__node').count(), {
         timeout: 5000,
       })
       .toBeGreaterThanOrEqual(1)
+    await saved
 
-    // Open the Export menu, then ARM the download listener BEFORE the click.
-    await openExportMenu(page)
+    // Open the project's sidebar menu, then ARM the download BEFORE the click.
+    await openProjectMenu(page, 'SQL Export')
     const sqlDownload = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'SQL · PostgreSQL' }).click()
     expect((await sqlDownload).suggestedFilename()).toBe('schema.postgres.sql')

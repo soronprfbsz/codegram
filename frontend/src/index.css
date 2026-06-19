@@ -2,16 +2,22 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
+@import "@fontsource-variable/manrope";
 @import "@fontsource/pretendard/400.css";
 @import "@fontsource/pretendard/500.css";
 @import "@fontsource/pretendard/600.css";
 @import "@fontsource/pretendard/700.css";
+@import "@fontsource/pretendard/800.css";
+@import "@fontsource/pretendard/900.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
     --font-sans: 'Pretendard', 'Inter Variable', sans-serif;
+    /* Wise display voice — Manrope (geometric, heavy) for Latin/numerals;
+       Pretendard heavy carries Korean headings as fallback. */
+    --font-display: 'Manrope Variable', 'Pretendard', 'Inter Variable', sans-serif;
+    --font-heading: var(--font-display);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -53,67 +59,71 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.148 0.004 228.8);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.148 0.004 228.8);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.148 0.004 228.8);
-    --primary: oklch(0.511 0.096 186.391);
-    --primary-foreground: oklch(0.984 0.014 180.72);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
-    --muted: oklch(0.963 0.002 197.1);
-    --muted-foreground: oklch(0.56 0.021 213.5);
-    --accent: oklch(0.963 0.002 197.1);
-    --accent-foreground: oklch(0.218 0.008 223.9);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.925 0.005 214.3);
-    --input: oklch(0.925 0.005 214.3);
-    --ring: oklch(0.723 0.014 214.4);
-    --chart-1: oklch(0.879 0.169 91.605);
-    --chart-2: oklch(0.769 0.188 70.08);
-    --chart-3: oklch(0.666 0.179 58.318);
-    --chart-4: oklch(0.555 0.163 48.998);
-    --chart-5: oklch(0.473 0.137 46.201);
-    --radius: 0.45rem;
-    --sidebar: oklch(0.987 0.002 197.1);
-    --sidebar-foreground: oklch(0.148 0.004 228.8);
-    --sidebar-primary: oklch(0.6 0.118 184.704);
-    --sidebar-primary-foreground: oklch(0.984 0.014 180.72);
-    --sidebar-accent: oklch(0.963 0.002 197.1);
-    --sidebar-accent-foreground: oklch(0.218 0.008 223.9);
-    --sidebar-border: oklch(0.925 0.005 214.3);
-    --sidebar-ring: oklch(0.723 0.014 214.4);
+    /* ── Tesla tokens — Light ────────────────────────────────────────────
+       Radical minimalism: white canvas, single Electric-Blue accent, Carbon
+       Dark ink, 4px radius, near-zero decoration. Separation via spacing +
+       hairline dividers, not shadows. */
+    --background: #ffffff;          /* pure white canvas */
+    --foreground: #171a20;          /* Carbon Dark */
+    --card: #ffffff;
+    --card-foreground: #171a20;
+    --popover: #ffffff;
+    --popover-foreground: #171a20;
+    --primary: #3e6ae1;             /* Electric Blue — the sole accent */
+    --primary-foreground: #ffffff;
+    --secondary: #f4f4f4;           /* Light Ash */
+    --secondary-foreground: #393c41;/* Graphite */
+    --muted: #f4f4f4;
+    --muted-foreground: #5c5e62;    /* Pewter */
+    --accent: #f4f4f4;              /* subtle hover surface */
+    --accent-foreground: #171a20;
+    --destructive: #d83a34;
+    --border: #eeeeee;              /* Cloud Gray hairline */
+    --input: #d0d1d2;               /* Pale Silver */
+    --ring: #3e6ae1;
+    --chart-1: #3e6ae1;
+    --chart-2: #5c5e62;
+    --chart-3: #8e8e8e;
+    --chart-4: #393c41;
+    --chart-5: #171a20;
+    --radius: 0.25rem;              /* Tesla 4px — sharp, technical */
+    --sidebar: #ffffff;
+    --sidebar-foreground: #171a20;
+    --sidebar-primary: #3e6ae1;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #f4f4f4;
+    --sidebar-accent-foreground: #171a20;
+    --sidebar-border: #eeeeee;
+    --sidebar-ring: #3e6ae1;
 
-    /* ERD design tokens — Light */
-    --erd-bg: #F6F7F8;
-    --erd-surface: #FFFFFF;
-    --erd-surface-2: #FFFFFF;
-    --erd-canvas: #F1F2F4;
-    --erd-node: #FFFFFF;
-    --erd-node-head: #FAFAFA;
-    --erd-border: #E7E8EA;
-    --erd-border-2: #D7D9DC;
-    --erd-text: #1A1D21;
-    --erd-text-2: #5B5F66;
-    --erd-text-3: #8A8F97;
-    --erd-edge: #B8BDC4;
-    --erd-hover: #F4F5F6;
-    --erd-sel: rgba(14,147,132,.55);
-    --erd-shadow: 0 12px 28px -10px rgba(16,24,40,.16);
-    --erd-shadow-sm: 0 1px 3px 0 rgba(16,24,40,.08);
+    /* ERD design tokens — Light (derived from Tesla) */
+    --erd-bg: #ffffff;
+    --erd-surface: #ffffff;
+    --erd-surface-2: #ffffff;
+    --erd-canvas: #f4f4f4;
+    --erd-node: #ffffff;
+    --erd-node-head: #f4f4f4;
+    --erd-border: #eeeeee;
+    --erd-border-2: #d0d1d2;
+    --erd-text: #171a20;
+    --erd-text-2: #393c41;
+    --erd-text-3: #5c5e62;
+    --erd-edge: #c8cacc;
+    --erd-hover: #f4f4f4;
+    --erd-sel: rgba(62,106,225,.5);
+    --erd-shadow: 0 2px 6px -2px rgba(23,26,32,.10);
+    --erd-shadow-sm: 0 1px 2px 0 rgba(23,26,32,.06);
 
     /* ERD semantic colors — Light */
-    --erd-success: #079455;
-    --erd-error: #D92D20;
+    --erd-success: #2e7d46;
+    --erd-error: #d83a34;
 
-    /* ERD accent — Light */
-    --erd-accent: #0E9384;
-    --erd-accent-soft: color-mix(in srgb, #0E9384 15%, transparent);
-    --erd-accent-text: #0E9384;
+    /* ERD accent — Light (Electric Blue) */
+    --erd-accent: #3e6ae1;
+    --erd-accent-soft: color-mix(in srgb, #3e6ae1 14%, transparent);
+    --erd-accent-text: #3e6ae1;
 
-    /* ERD group colors */
+    /* ERD group colors (categorical identity — kept) */
     --erd-group-common: #6938EF;
     --erd-group-account: #1570EF;
     --erd-group-customer: #0E9384;
@@ -122,39 +132,40 @@
 }
 
 .dark {
-    --background: oklch(0.148 0.004 228.8);
-    --foreground: oklch(0.987 0.002 197.1);
-    --card: oklch(0.218 0.008 223.9);
-    --card-foreground: oklch(0.987 0.002 197.1);
-    --popover: oklch(0.218 0.008 223.9);
-    --popover-foreground: oklch(0.987 0.002 197.1);
-    --primary: oklch(0.437 0.078 188.216);
-    --primary-foreground: oklch(0.984 0.014 180.72);
-    --secondary: oklch(0.274 0.006 286.033);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.275 0.011 216.9);
-    --muted-foreground: oklch(0.723 0.014 214.4);
-    --accent: oklch(0.275 0.011 216.9);
-    --accent-foreground: oklch(0.987 0.002 197.1);
-    --destructive: oklch(0.704 0.191 22.216);
+    /* ── Tesla tokens — Dark (Carbon Dark surfaces + Electric-Blue accent) ── */
+    --background: #171a20;          /* Carbon Dark */
+    --foreground: #f4f4f5;
+    --card: #1f232b;
+    --card-foreground: #f4f4f5;
+    --popover: #1f232b;
+    --popover-foreground: #f4f4f5;
+    --primary: #3e6ae1;
+    --primary-foreground: #ffffff;
+    --secondary: #2a2e36;
+    --secondary-foreground: #e4e5e7;
+    --muted: #2a2e36;
+    --muted-foreground: #9b9ea3;
+    --accent: #262b33;
+    --accent-foreground: #f4f4f5;
+    --destructive: #e5564f;
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.56 0.021 213.5);
-    --chart-1: oklch(0.879 0.169 91.605);
-    --chart-2: oklch(0.769 0.188 70.08);
-    --chart-3: oklch(0.666 0.179 58.318);
-    --chart-4: oklch(0.555 0.163 48.998);
-    --chart-5: oklch(0.473 0.137 46.201);
-    --sidebar: oklch(0.218 0.008 223.9);
-    --sidebar-foreground: oklch(0.987 0.002 197.1);
-    --sidebar-primary: oklch(0.704 0.14 182.503);
-    --sidebar-primary-foreground: oklch(0.277 0.046 192.524);
-    --sidebar-accent: oklch(0.275 0.011 216.9);
-    --sidebar-accent-foreground: oklch(0.987 0.002 197.1);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.56 0.021 213.5);
+    --ring: #3e6ae1;
+    --chart-1: #3e6ae1;
+    --chart-2: #9b9ea3;
+    --chart-3: #8e8e8e;
+    --chart-4: #c8cacc;
+    --chart-5: #f4f4f5;
+    --sidebar: #171a20;
+    --sidebar-foreground: #f4f4f5;
+    --sidebar-primary: #3e6ae1;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #262b33;
+    --sidebar-accent-foreground: #f4f4f5;
+    --sidebar-border: oklch(1 0 0 / 8%);
+    --sidebar-ring: #3e6ae1;
 
-    /* ERD design tokens — Dark */
+    /* ERD design tokens — Dark (neutral editor scale kept; blue accent) */
     --erd-bg: #131313;
     --erd-surface: #171717;
     --erd-surface-2: #0F0F0F;
@@ -168,18 +179,18 @@
     --erd-text-3: #6F6F6F;
     --erd-edge: #4A4A4A;
     --erd-hover: #232323;
-    --erd-sel: rgba(14,147,132,.5);
+    --erd-sel: rgba(62,106,225,.5);
     --erd-shadow: 0 10px 30px -8px rgba(0,0,0,.6);
     --erd-shadow-sm: 0 2px 8px -2px rgba(0,0,0,.5);
 
     /* ERD semantic colors — Dark */
-    --erd-success: #17B26A;
+    --erd-success: #2ead4b;
     --erd-error: #F04438;
 
-    /* ERD accent — Dark */
-    --erd-accent: #0E9384;
-    --erd-accent-soft: color-mix(in srgb, #0E9384 15%, transparent);
-    --erd-accent-text: color-mix(in srgb, #0E9384 55%, white);
+    /* ERD accent — Dark (Electric Blue, lifted for contrast) */
+    --erd-accent: #5b86f0;
+    --erd-accent-soft: color-mix(in srgb, #3e6ae1 24%, transparent);
+    --erd-accent-text: #8fb0ff;
 
     /* ERD group colors */
     --erd-group-common: #6938EF;
@@ -198,6 +209,11 @@
     }
   html {
     @apply font-sans;
+    }
+  /* Brand/display moments use the heavy Manrope voice (Korean falls back to
+     Pretendard heavy). Body + dense UI stay on Pretendard/Inter. */
+  h1, h2 {
+    font-family: var(--font-display);
     }
 }
 

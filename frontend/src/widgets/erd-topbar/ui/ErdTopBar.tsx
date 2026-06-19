@@ -1,7 +1,4 @@
 import type { ReactNode } from 'react'
-import { Info, Upload, ArrowLeft, RefreshCw } from 'lucide-react'
-import logomarkUrl from '@/shared/assets/logomark.svg'
-import { ThemeToggle } from '@/shared/ui/ThemeToggle'
 import type { AutosaveStatus } from '@/features/project-autosave'
 
 export interface ErdTopBarProps {
@@ -14,20 +11,12 @@ export interface ErdTopBarProps {
   projectMeta?: string
   /** Autosave lifecycle state (drives the Save pill). */
   autosaveStatus: AutosaveStatus
-  /** Opens the SQL import dialog. */
-  onImportSql: () => void
-  /** Navigates back (e.g. to the home page). */
-  onBack: () => void
   /**
-   * Called when the Info button is clicked.
-   * In Phase 2 the right column always shows SchemaSummary, so this is a
-   * no-op affordance — wired for future use (Phase 3+).
+   * The Diagram export control (a `<DiagramExportMenu/>`) rendered on the right.
+   * Diagram capture needs the live canvas, so it stays in the editor; Table Doc
+   * /SQL export and Import live elsewhere now (ADR-0013).
    */
-  onInfo?: () => void
-  /** Triggers a DB → DBML sync (wired to the sync dialog in Task 3). */
-  onSync: () => void
-  /** The Export menu rendered in the actions group (passed as a child slot). */
-  exportMenu: ReactNode
+  diagramExport?: ReactNode
 }
 
 /** Dot + label for the save pill. */
@@ -65,66 +54,26 @@ function SavePill({ status }: { status: AutosaveStatus }) {
 }
 
 /**
- * TopBar widget for the ERD editor (Phase 2).
+ * TopBar widget for the ERD editor.
  *
- * Presentational: receives all data + handlers from the page. Renders the
- * 56px bar per the Backstage 시안 1 spec:
- *   Logo · Title block · DBML badge · [spacer] · Save pill · ThemeToggle ·
- *   [separator] · Info · Import SQL · Export · Back
+ * Presentational: receives all data + slots from the page. Renders the 56px
+ * bar. The global sidebar owns brand / navigation / account / theme; the DBML
+ * pane header owns Import (SQL / DB sync) and the info panel owns its own
+ * collapse, so the bar is slim: the project identity, the Save pill, and the
+ * Diagram export control.
  */
 export function ErdTopBar({
   projectName,
   projectMeta,
   autosaveStatus,
-  onImportSql,
-  onBack,
-  onInfo,
-  onSync,
-  exportMenu,
+  diagramExport,
 }: ErdTopBarProps) {
-  // Shared secondary button styles (README §Buttons)
-  const btnSecondary: React.CSSProperties = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 7,
-    padding: '8px 12px',
-    fontSize: 13,
-    fontWeight: 500,
-    lineHeight: 1,
-    background: 'var(--erd-surface)',
-    border: '1px solid var(--erd-border-2)',
-    color: 'var(--erd-text)',
-    borderRadius: 8,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-    fontFamily: 'inherit',
-    transition: 'background 80ms ease, border-color 80ms ease',
-  }
-
-  const btnGhost: React.CSSProperties = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 7,
-    padding: '8px 12px',
-    fontSize: 13,
-    fontWeight: 500,
-    lineHeight: 1,
-    background: 'transparent',
-    border: '1px solid transparent',
-    color: 'var(--erd-text-2)',
-    borderRadius: 8,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap' as const,
-    fontFamily: 'inherit',
-    transition: 'background 80ms ease, color 80ms ease',
-  }
-
   return (
     <header
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 14,
+        gap: 12,
         height: 56,
         padding: '0 18px',
         flexShrink: 0,
@@ -133,14 +82,8 @@ export function ErdTopBar({
         zIndex: 6,
       }}
     >
-      {/* Logo */}
-      <img
-        src={logomarkUrl}
-        alt=""
-        style={{ width: 26, height: 26, borderRadius: 6, display: 'block' }}
-      />
-
-      {/* Title block */}
+      {/* Title block (sidebar toggle lives in the sidebar; DBML toggle in the
+          DBML pane — the bar carries only project identity + diagram export). */}
       <div>
         <div
           style={{
@@ -190,75 +133,10 @@ export function ErdTopBar({
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Actions group */}
+      {/* Right group: Save pill + Diagram export */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* Save pill */}
         <SavePill status={autosaveStatus} />
-
-        {/* Theme toggle */}
-        <ThemeToggle />
-
-        {/* Separator */}
-        <span
-          style={{
-            width: 1,
-            height: 24,
-            background: 'var(--erd-border)',
-            flexShrink: 0,
-          }}
-          aria-hidden
-        />
-
-        {/* Info button */}
-        <button
-          type="button"
-          className="erd-topbar-btn"
-          style={btnSecondary}
-          onClick={onInfo}
-          aria-label="Info"
-        >
-          <Info size={15} strokeWidth={2} />
-          Info
-        </button>
-
-        {/* Import SQL button */}
-        <button
-          type="button"
-          className="erd-topbar-btn"
-          style={btnSecondary}
-          onClick={onImportSql}
-          aria-label="Import SQL"
-        >
-          <Upload size={15} strokeWidth={2} />
-          Import SQL
-        </button>
-
-        {/* Sync from DB button */}
-        <button
-          type="button"
-          className="erd-topbar-btn"
-          style={btnSecondary}
-          onClick={onSync}
-          aria-label="Sync from DB"
-        >
-          <RefreshCw size={15} strokeWidth={2} />
-          Sync from DB
-        </button>
-
-        {/* Export menu (rendered by page) */}
-        {exportMenu}
-
-        {/* Back button */}
-        <button
-          type="button"
-          className="erd-topbar-btn"
-          style={btnGhost}
-          onClick={onBack}
-          aria-label="Back"
-        >
-          <ArrowLeft size={15} strokeWidth={2} />
-          Back
-        </button>
+        {diagramExport}
       </div>
     </header>
   )

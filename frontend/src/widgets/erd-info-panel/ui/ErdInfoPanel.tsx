@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Plus, Search, PanelRightClose } from 'lucide-react'
 import type { DbmlSchema } from '@/entities/dbml'
+import { searchTables } from '@/entities/dbml'
 import { deriveDisplayGroups } from '@/entities/erd'
 import type { SelectionInfo } from '@/entities/erd'
 import type { GroupOpHandlers } from '../model/types'
@@ -13,6 +14,12 @@ export interface ErdInfoPanelProps {
   selected: string | null
   /** Called when a table row is clicked, with the schema-qualified table id. */
   onSelect: (tableId: string) => void
+  /**
+   * Called when a table is chosen via search (row click or Enter) — navigates
+   * the canvas to that table and highlights the matched column(s). Falls back to
+   * onSelect when omitted.
+   */
+  onNavigateToTable?: (tableId: string, matchedColumnIds: string[]) => void
   /** DBML Project database_type value, when available. */
   dialect?: string
   /** Group mutation callbacks. When omitted, renders in read-only mode. */
@@ -24,6 +31,8 @@ export interface ErdInfoPanelProps {
   onEditNodePosition?: (nodeId: string, pos: { x: number; y: number }) => void
   onEditEdgeWaypoint?: (edgeId: string, vertexIndex: number, axis: 'x' | 'y', value: number) => void
   onResetEdgePath?: (edgeId: string) => void
+  /** Collapse the panel to the rail. When omitted, the header toggle is hidden. */
+  onCollapse?: () => void
 }
 
 /** Shared `panel-head` header row (44px, `--erd-border` bottom). */
@@ -74,6 +83,7 @@ export function ErdInfoPanel({
   schema,
   selected,
   onSelect,
+  onNavigateToTable,
   dialect,
   groupOps,
   mutationsEnabled = true,
@@ -81,6 +91,7 @@ export function ErdInfoPanel({
   onEditNodePosition,
   onEditEdgeWaypoint,
   onResetEdgePath,
+  onCollapse,
 }: ErdInfoPanelProps) {
   // Stat cells — safe to 0 when schema is undefined.
   const tables = schema?.tables.length ?? 0
@@ -100,6 +111,83 @@ export function ErdInfoPanel({
   ]
 
   const displayGroups = schema ? deriveDisplayGroups(schema) : []
+
+  // ── Table search (name/column/note, case-insensitive substring) ──────────
+  const [query, setQuery] = useState('')
+  const searchActive = query.trim().length > 0
+  const matches = searchActive ? searchTables(schema, query) : new Map()
+  // While searching: keep only matching tables, drop empty groups, force-expand.
+  const visibleGroups = searchActive
+    ? displayGroups
+        .map((g) => ({ ...g, tables: g.tables.filter((t) => matches.has(t.id)) }))
+        .filter((g) => g.tables.length > 0)
+    : displayGroups
+  const flatMatched = searchActive ? visibleGroups.flatMap((g) => g.tables) : []
+
+  // Keyboard cursor over the flat match list (↑/↓ move, Enter navigates).
+  const [activeIndex, setActiveIndex] = useState(0)
+  useEffect(() => setActiveIndex(0), [query])
+  const activeTableId = searchActive ? flatMatched[activeIndex]?.id ?? null : null
+
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  // "/" focuses the search box — unless focus is already in a text field/editor.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      const el = document.activeElement as HTMLElement | null
+      const tag = el?.tagName
+      if (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        el?.isContentEditable ||
+        el?.closest('.cm-editor')
+      ) {
+        return
+      }
+      e.preventDefault()
+      searchInputRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Keep the keyboard-active row scrolled into view.
+  useEffect(() => {
+    if (!searchActive) return
+    const t = flatMatched[activeIndex]
+    if (!t) return
+    listRef.current
+      ?.querySelector(`[data-testid="tablelist-row-${CSS.escape(t.name)}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex, searchActive, flatMatched])
+
+  function commitNavigate(tableId: string) {
+    if (onNavigateToTable) {
+      onNavigateToTable(tableId, matches.get(tableId)?.matchedColumnIds ?? [])
+    } else {
+      onSelect(tableId)
+    }
+  }
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.min(i + 1, Math.max(flatMatched.length - 1, 0)))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIndex((i) => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const t = flatMatched[activeIndex] ?? flatMatched[0]
+      if (t) commitNavigate(t.id)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      if (query) setQuery('')
+      else searchInputRef.current?.blur()
+    }
+  }
 
   // Collapse state: set of group keys that are collapsed
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -149,6 +237,109 @@ export function ErdInfoPanel({
         height: '100%',
       }}
     >
+      {/* ── Panel header (44px) — label + collapse to rail ───────── */}
+      {onCollapse && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            height: 44,
+            padding: '0 8px 0 14px',
+            flexShrink: 0,
+            borderBottom: '1px solid var(--erd-border)',
+          }}
+        >
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              letterSpacing: '.04em',
+              textTransform: 'uppercase',
+              color: 'var(--erd-text-2)',
+              flex: 1,
+            }}
+          >
+            정보
+          </span>
+          <button
+            type="button"
+            className="erd-topbar-btn"
+            onClick={onCollapse}
+            aria-label="Collapse info panel"
+            title="정보 패널 접기"
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              width: 28,
+              height: 28,
+              flexShrink: 0,
+              borderRadius: 6,
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--erd-text-3)',
+              cursor: 'pointer',
+            }}
+          >
+            <PanelRightClose size={16} strokeWidth={2} />
+          </button>
+        </div>
+      )}
+
+      {/* ── Table search (상시, 최상단) ─────────────────────────── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 14px',
+          flexShrink: 0,
+          borderBottom: '1px solid var(--erd-border)',
+        }}
+      >
+        <Search size={14} style={{ color: 'var(--erd-text-3)', flexShrink: 0 }} aria-hidden />
+        <input
+          ref={searchInputRef}
+          data-testid="table-search-input"
+          value={query}
+          placeholder="테이블 · 컬럼 · 주석 검색  (/)"
+          aria-label="Search tables"
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontSize: 12.5,
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            color: 'inherit',
+          }}
+        />
+        {searchActive && (
+          <button
+            data-testid="table-search-clear"
+            aria-label="Clear search"
+            onClick={() => {
+              setQuery('')
+              searchInputRef.current?.focus()
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 2,
+              cursor: 'pointer',
+              color: 'var(--erd-text-3)',
+              fontSize: 13,
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       {/* ── Selection (Q4 #3: 최상단, 선택 시에만) ─────────────── */}
       {selectionInfo && onEditNodePosition && onEditEdgeWaypoint && onResetEdgePath && (
         <>
@@ -244,7 +435,7 @@ export function ErdInfoPanel({
       />
 
       {/* Scrollable list */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      <div ref={listRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {/* Inline create input row */}
         {creating && (
           <div style={{ padding: '8px 14px' }}>
@@ -290,25 +481,27 @@ export function ErdInfoPanel({
           </div>
         )}
 
-        {displayGroups.length === 0 && !creating && (
+        {visibleGroups.length === 0 && !creating && (
           <div
             style={{ padding: '16px 14px', fontSize: 12, color: 'var(--erd-text-3)' }}
           >
-            No tables
+            {searchActive ? '검색 결과 없음' : 'No tables'}
           </div>
         )}
 
-        {displayGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <GroupSection
             key={group.key}
             group={group}
             groupNames={groupNames}
             selected={selected}
-            onSelect={onSelect}
-            collapsed={collapsed.has(group.key)}
+            onSelect={searchActive ? commitNavigate : onSelect}
+            collapsed={searchActive ? false : collapsed.has(group.key)}
             onToggleCollapse={() => toggleCollapse(group.key)}
             groupOps={groupOps}
             mutationsEnabled={mutationsEnabled}
+            matches={searchActive ? matches : undefined}
+            activeTableId={activeTableId}
           />
         ))}
       </div>

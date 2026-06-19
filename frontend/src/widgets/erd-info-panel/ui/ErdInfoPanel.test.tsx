@@ -224,3 +224,73 @@ describe('ErdInfoPanel — create group', () => {
     expect(screen.queryByTestId('group-create-button')).toBeNull()
   })
 })
+
+describe('ErdInfoPanel — table search', () => {
+  it('filters the list to tables matching the query', () => {
+    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
+    const input = screen.getByTestId('table-search-input')
+    fireEvent.change(input, { target: { value: 'post' } })
+    expect(screen.getByTestId('tablelist-row-posts')).toBeTruthy()
+    expect(screen.queryByTestId('tablelist-row-users')).toBeNull()
+  })
+
+  it('matches by column name and shows a hint on the row', () => {
+    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
+    fireEvent.change(screen.getByTestId('table-search-input'), { target: { value: 'email' } })
+    expect(screen.getByTestId('tablelist-row-users')).toBeTruthy()
+    expect(screen.queryByTestId('tablelist-row-posts')).toBeNull()
+    expect(screen.getByTestId('tablelist-hint-users').textContent).toBe('컬럼: email')
+  })
+
+  it('Enter navigates to the top match with its matched column ids', () => {
+    const onNavigate = vi.fn()
+    render(
+      <ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} onNavigateToTable={onNavigate} />,
+    )
+    const input = screen.getByTestId('table-search-input')
+    fireEvent.change(input, { target: { value: 'email' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(onNavigate).toHaveBeenCalledWith('public.users', ['public.users.email'])
+  })
+
+  it('clicking a filtered row navigates (center) instead of plain select', () => {
+    const onNavigate = vi.fn()
+    const onSelect = vi.fn()
+    render(
+      <ErdInfoPanel schema={baseSchema} selected={null} onSelect={onSelect} onNavigateToTable={onNavigate} />,
+    )
+    fireEvent.change(screen.getByTestId('table-search-input'), { target: { value: 'post' } })
+    fireEvent.click(screen.getByTestId('tablelist-row-posts'))
+    expect(onNavigate).toHaveBeenCalledWith('public.posts', [])
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('ArrowDown moves the cursor so Enter picks the next match', () => {
+    const onNavigate = vi.fn()
+    render(
+      <ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} onNavigateToTable={onNavigate} />,
+    )
+    const input = screen.getByTestId('table-search-input')
+    // "id" matches both users and posts (both have an id column).
+    fireEvent.change(input, { target: { value: 'id' } })
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    // Display order: users (group core) first, posts (ungrouped) second.
+    expect(onNavigate).toHaveBeenCalledWith('public.posts', ['public.posts.id'])
+  })
+
+  it('the clear button restores the full list', () => {
+    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
+    fireEvent.change(screen.getByTestId('table-search-input'), { target: { value: 'post' } })
+    expect(screen.queryByTestId('tablelist-row-users')).toBeNull()
+    fireEvent.click(screen.getByTestId('table-search-clear'))
+    expect(screen.getByTestId('tablelist-row-users')).toBeTruthy()
+    expect(screen.getByTestId('tablelist-row-posts')).toBeTruthy()
+  })
+
+  it('shows a no-results message when nothing matches', () => {
+    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
+    fireEvent.change(screen.getByTestId('table-search-input'), { target: { value: 'zzz_nope' } })
+    expect(screen.getByText('검색 결과 없음')).toBeTruthy()
+  })
+})
