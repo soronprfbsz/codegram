@@ -9,3 +9,4 @@ export type {
   ProjectCreatePayload,
   ProjectUpdatePayload,
 } from './model/types'
+export { ProjectGlyph } from './ui/ProjectGlyph'
