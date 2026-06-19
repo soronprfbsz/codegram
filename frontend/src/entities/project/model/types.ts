@@ -10,6 +10,8 @@ export interface Project {
   name: string
   dbml_text: string
   layout: Record<string, unknown>
+  glyph: string | null
+  color: string | null
   created_at: string
   updated_at: string
 }
@@ -26,4 +28,6 @@ export interface ProjectUpdatePayload {
   name?: string
   dbml_text?: string
   layout?: Record<string, unknown>
+  glyph?: string
+  color?: string
 }

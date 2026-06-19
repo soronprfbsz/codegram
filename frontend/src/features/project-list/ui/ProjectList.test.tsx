@@ -59,6 +59,8 @@ const sampleProject: entities.Project = {
   name: 'My Project',
   dbml_text: '',
   layout: {},
+  glyph: null,
+  color: null,
   created_at: '2026-06-05T00:00:00Z',
   updated_at: '2026-06-05T00:00:00Z',
 }
