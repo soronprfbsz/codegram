@@ -68,6 +68,8 @@ class ProjectRepository:
         name: str | None = None,
         dbml_text: str | None = None,
         layout: dict[str, Any] | None = None,
+        glyph: str | None = None,
+        color: str | None = None,
     ) -> Project:
         """Apply a partial update; only non-None fields are changed."""
         if name is not None:
@@ -76,6 +78,10 @@ class ProjectRepository:
             project.dbml_text = dbml_text
         if layout is not None:
             project.layout = layout
+        if glyph is not None:
+            project.glyph = glyph
+        if color is not None:
+            project.color = color
         await self.session.flush()
         return project
 

@@ -87,6 +87,8 @@ async def update_project(
             name=payload.name,
             dbml_text=payload.dbml_text,
             layout=payload.layout,
+            glyph=payload.glyph,
+            color=payload.color,
         )
     except ProjectNotFoundError:
         raise HTTPException(

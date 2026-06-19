@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, func
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
@@ -47,6 +47,12 @@ class Project(Base):
     )
     name: Mapped[str] = mapped_column(nullable=False)
     dbml_text: Mapped[str] = mapped_column(default="", nullable=False)
+    glyph: Mapped[str | None] = mapped_column(
+        String(8), nullable=True, default=None
+    )
+    color: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, default=None
+    )
     layout: Mapped[dict[str, Any]] = mapped_column(
         JSON().with_variant(JSONB, "postgresql"),
         default=dict,

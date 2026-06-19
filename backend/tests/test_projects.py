@@ -224,6 +224,62 @@ async def test_delete_missing_project_returns_404(
     assert missing.status_code == 404
 
 
+async def test_create_defaults_glyph_and_color_null(
+    authenticated_client: AsyncClient,
+) -> None:
+    response = await authenticated_client.post(
+        "/api/projects", json={"name": "P"}
+    )
+    body = response.json()
+    assert body["glyph"] is None
+    assert body["color"] is None
+
+
+async def test_patch_persists_glyph_and_color(
+    authenticated_client: AsyncClient,
+) -> None:
+    created = await authenticated_client.post(
+        "/api/projects", json={"name": "P1"}
+    )
+    pid = created.json()["id"]
+    patched = await authenticated_client.patch(
+        f"/api/projects/{pid}", json={"glyph": "🗄️", "color": "blue"}
+    )
+    assert patched.status_code == 200
+    assert patched.json()["glyph"] == "🗄️"
+    assert patched.json()["color"] == "blue"
+
+
+async def test_patch_glyph_only_preserves_color(
+    authenticated_client: AsyncClient,
+) -> None:
+    created = await authenticated_client.post(
+        "/api/projects", json={"name": "P1"}
+    )
+    pid = created.json()["id"]
+    await authenticated_client.patch(
+        f"/api/projects/{pid}", json={"color": "teal"}
+    )
+    patched = await authenticated_client.patch(
+        f"/api/projects/{pid}", json={"glyph": "📊"}
+    )
+    assert patched.json()["glyph"] == "📊"
+    assert patched.json()["color"] == "teal"  # preserved
+
+
+async def test_patch_rejects_too_long_glyph(
+    authenticated_client: AsyncClient,
+) -> None:
+    created = await authenticated_client.post(
+        "/api/projects", json={"name": "P1"}
+    )
+    pid = created.json()["id"]
+    patched = await authenticated_client.patch(
+        f"/api/projects/{pid}", json={"glyph": "123456789"}
+    )
+    assert patched.status_code == 422
+
+
 # --- 401 unauthenticated ----------------------------------------------------
 
 

@@ -62,6 +62,8 @@ class ProjectService:
         name: str | None = None,
         dbml_text: str | None = None,
         layout: dict[str, Any] | None = None,
+        glyph: str | None = None,
+        color: str | None = None,
     ) -> Project:
         """Partially update an owned project; raise NotFound otherwise."""
         project = await self.get_project(project_id, user_id)
@@ -70,6 +72,8 @@ class ProjectService:
             name=name,
             dbml_text=dbml_text,
             layout=layout,
+            glyph=glyph,
+            color=color,
         )
 
     async def delete_project(

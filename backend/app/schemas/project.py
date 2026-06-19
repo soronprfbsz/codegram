@@ -30,6 +30,8 @@ class ProjectUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     dbml_text: str | None = Field(default=None)
     layout: dict[str, Any] | None = Field(default=None)
+    glyph: str | None = Field(default=None, max_length=8)
+    color: str | None = Field(default=None, max_length=16)
 
 
 class ProjectRead(BaseModel):
@@ -41,6 +43,8 @@ class ProjectRead(BaseModel):
     user_id: uuid.UUID
     name: str
     dbml_text: str
+    glyph: str | None
+    color: str | None
     layout: dict[str, Any]
     created_at: datetime
     updated_at: datetime
