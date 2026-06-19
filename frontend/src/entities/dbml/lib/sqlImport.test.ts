@@ -13,7 +13,9 @@ describe('importSqlToDbml', () => {
     expect(result.dbml).toContain('Table "posts"')
     expect(result.dbml).toContain('[pk, increment]')
     expect(result.dbml).toContain('[not null]')
-    expect(result.dbml).toContain('Ref:"users"."id" < "posts"."user_id"')
+    // Single-column FK is folded inline onto its column (not a top-level Ref).
+    expect(result.dbml).toContain('ref: > "users"."id"')
+    expect(result.dbml).not.toContain('Ref:"users"."id" < "posts"."user_id"')
   })
 
   it('imports a MySQL CREATE TABLE to DBML', () => {
