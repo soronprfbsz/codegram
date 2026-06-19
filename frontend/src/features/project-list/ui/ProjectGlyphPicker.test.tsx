@@ -53,6 +53,16 @@ describe('ProjectGlyphPicker', () => {
     })
   })
 
+  it('shows ring on the currently selected color swatch', async () => {
+    const user = setup()
+    render(<ProjectGlyphPicker project={{ ...project, color: 'blue' }} />, { wrapper })
+
+    await user.click(screen.getByLabelText('프로젝트 아이콘 변경'))
+
+    expect(screen.getByLabelText('색상 blue')).toHaveClass('ring-2')
+    expect(screen.getByLabelText('색상 red')).not.toHaveClass('ring-2')
+  })
+
   it('PATCHes glyph when an emoji is clicked', async () => {
     const spy = vi
       .spyOn(client, 'apiFetch')

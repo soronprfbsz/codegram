@@ -9,6 +9,7 @@ import {
   PROJECT_GLYPH_PALETTE,
   GLYPH_MAX_LENGTH,
 } from '@/entities/project/model/glyph'
+import { cn } from '@/shared/lib/utils'
 
 /**
  * Editable glyph badge: the project's ProjectGlyph as a popover trigger. The
@@ -35,7 +36,12 @@ export function ProjectGlyphPicker({ project }: { project: Project }) {
               type="button"
               aria-label={`색상 ${key}`}
               onClick={() => update.mutate({ color: key })}
-              className="size-6 rounded-full border border-border"
+              className={cn(
+                'size-6 rounded-full border',
+                project.color === key
+                  ? 'border-border ring-2 ring-ring ring-offset-1 ring-offset-background'
+                  : 'border-border',
+              )}
               style={{ backgroundColor: PROJECT_COLORS[key] }}
             />
           ))}
