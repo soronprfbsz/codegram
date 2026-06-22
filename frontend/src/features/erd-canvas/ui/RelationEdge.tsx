@@ -231,7 +231,12 @@ function RelationEdgeImpl({
   // the card keeps the whole line visible. Edges whose endpoints face each
   // other are unaffected — their L/Z path never enters either card interior.
   const orthoPoints = useMemo(() => {
-    if (dragging || isEnumLink || manualWaypoints) return null
+    // NOTE: manual-waypoint edges still compute their AUTO route here. It is not
+    // rendered (manualPoints wins below), but it stays REGISTERED with the
+    // bundle/corridor post-passes as a "phantom occupant": its corridor slot is
+    // preserved, so pulling one edge out to a manual path no longer makes its
+    // siblings re-center/re-spread. (Only `dragging` and enum links opt out.)
+    if (dragging || isEnumLink) return null
     const obsNodes: ObstacleNode[] = []
     for (const n of nodeLookup.values()) {
       if (

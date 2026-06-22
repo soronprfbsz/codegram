@@ -36,6 +36,30 @@ describe('spreadEdgeRoutes', () => {
     expect(out.get('a')![3]).toEqual({ x: 300, y: 200 })
   })
 
+  it('removing one corridor member re-centers the remaining siblings', () => {
+    // Why RelationEdge keeps a manual edge REGISTERED (phantom occupant): tracks
+    // are centred on the cluster mean, so dropping a member shifts the rest.
+    const mk = (id: string, y0: number) => ({
+      id,
+      points: [
+        { x: 0, y: y0 },
+        { x: 100, y: y0 },
+        { x: 100, y: y0 + 200 },
+        { x: 300, y: y0 + 200 },
+      ],
+    })
+    const a = mk('a', 0)
+    const b = mk('b', 20)
+    const c = mk('c', 40)
+    const all = spreadEdgeRoutes([a, b, c], 18)
+    const b3 = all.get('b')![1].x
+    const c3 = all.get('c')![1].x
+    // Same siblings WITHOUT 'a' (as if it left the corridor) → they re-center.
+    const without = spreadEdgeRoutes([b, c], 18)
+    expect(without.get('b')![1].x).not.toBe(b3)
+    expect(without.get('c')![1].x).not.toBe(c3)
+  })
+
   it('leaves a single edge untouched even if its own segments are collinear', () => {
     const a: Point[] = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 200 }, { x: 300, y: 200 }]
     const out = spreadEdgeRoutes([{ id: 'a', points: a }])
