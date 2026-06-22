@@ -54,9 +54,9 @@ describe('GroupSection — group menu', () => {
     const user = setup()
     render(<GroupSection {...base} />)
     await user.click(screen.getByTestId('group-menu-auth'))
-    const swatch = await screen.findByTestId('swatch-#EA4A8B')
+    const swatch = await screen.findByTestId('swatch-#EC4899')
     await user.click(swatch)
-    expect(handlers.onSetGroupColor).toHaveBeenCalledWith('auth', '#EA4A8B')
+    expect(handlers.onSetGroupColor).toHaveBeenCalledWith('auth', '#EC4899')
   })
 
   it('Default color calls onSetGroupColor(name, null)', async () => {

@@ -54,9 +54,9 @@ describe('ErdTopBar', () => {
     expect(screen.queryByText(/정보 패널/)).toBeNull()
   })
 
-  it('renders the diagramExport slot on the right', () => {
-    renderTopBar({ diagramExport: <button>DIAGRAM_SLOT</button> })
-    expect(screen.getByRole('button', { name: 'DIAGRAM_SLOT' })).toBeInTheDocument()
+  it('renders the exportMenu slot on the right', () => {
+    renderTopBar({ exportMenu: <button>EXPORT_SLOT</button> })
+    expect(screen.getByRole('button', { name: 'EXPORT_SLOT' })).toBeInTheDocument()
   })
 
   it('does not render the theme toggle (it lives in the sidebar now)', () => {

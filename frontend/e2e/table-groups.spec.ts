@@ -109,11 +109,11 @@ test('table groups: full CRUD scenario', async ({ page }) => {
     )
     .toMatch(/TableGroup auth \{[\s\S]*users[\s\S]*\}/)
 
-  // ── Step 3: Set color #EA4A8B on 'auth' ───────────────────────────────
+  // ── Step 3: Set color #EC4899 on 'auth' ───────────────────────────────
   await expect(page.getByText('Valid')).toBeVisible({ timeout: 10_000 })
 
   await page.getByTestId('group-menu-auth').click()
-  await page.getByTestId('swatch-#EA4A8B').click()
+  await page.getByTestId('swatch-#EC4899').click()
   // Swatch is a plain button (not DropdownMenuItem), so Radix won't auto-close
   // the menu. Dismiss it with Escape.
   await page.keyboard.press('Escape')
@@ -124,7 +124,7 @@ test('table groups: full CRUD scenario', async ({ page }) => {
         page.getByTestId('dbml-editor').locator('.cm-content').textContent(),
       { timeout: 10_000 },
     )
-    .toContain('[color: #EA4A8B]')
+    .toContain('[color: #EC4899]')
 
   // Wait for any Radix dropdown portal to close before clicking toggle.
   await expect(page.locator('[role="menu"]')).toHaveCount(0, { timeout: 5_000 })

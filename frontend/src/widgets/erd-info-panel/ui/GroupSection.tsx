@@ -12,9 +12,12 @@ import {
   DropdownMenuSeparator,
 } from '@/shared/ui/dropdown-menu'
 
+// Mid-tone, saturated hues (≈Tailwind 500) chosen to stay clearly visible on
+// BOTH the light canvas (#f4f4f4 / #fff) and the dark canvas (#12151b) — the
+// previous darker presets (e.g. #B42318, #475467) sank into the dark theme.
 export const GROUP_COLOR_PRESETS = [
-  '#6938EF', '#1570EF', '#0E9384', '#DC6803', '#B42318',
-  '#EA4A8B', '#099250', '#E04F16', '#7839EE', '#475467',
+  '#EF4444', '#F97316', '#F59E0B', '#22C55E', '#14B8A6',
+  '#06B6D4', '#3B82F6', '#8B5CF6', '#EC4899', '#64748B',
 ] as const
 
 export interface GroupSectionProps {
@@ -208,6 +211,44 @@ export function GroupSection({
                     }}
                   />
                 ))}
+                {/* Custom color picker — a rainbow swatch hosting a native color input. */}
+                <label
+                  data-testid="swatch-custom"
+                  title="Custom color"
+                  style={{
+                    position: 'relative',
+                    width: 18,
+                    height: 18,
+                    borderRadius: '50%',
+                    background:
+                      'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)',
+                    border: '1px solid var(--erd-border)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    display: 'inline-block',
+                  }}
+                >
+                  <input
+                    type="color"
+                    aria-label="Custom color"
+                    // Uncontrolled: the DBML is the source of truth, so we don't
+                    // bind `value` (a controlled color input would revert the
+                    // user's pick before onChange commits). The Radix menu
+                    // remounts on each open, re-seeding from the current color.
+                    defaultValue={/^#[0-9a-fA-F]{6}$/.test(group.color) ? group.color : '#000000'}
+                    onChange={(e) => groupOps.onSetGroupColor(group.label, e.target.value)}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      padding: 0,
+                      border: 'none',
+                      opacity: 0,
+                      cursor: 'pointer',
+                    }}
+                  />
+                </label>
               </div>
               <DropdownMenuItem onSelect={() => groupOps.onSetGroupColor(group.label, null)}>
                 Default color

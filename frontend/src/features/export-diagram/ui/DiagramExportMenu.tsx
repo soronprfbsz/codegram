@@ -31,7 +31,7 @@ export function DiagramExportMenu({ diagram, disabled = false }: DiagramExportMe
           type="button"
           className="erd-topbar-btn"
           disabled={disabled}
-          aria-label="Diagram"
+          aria-label="Export"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -51,7 +51,7 @@ export function DiagramExportMenu({ diagram, disabled = false }: DiagramExportMe
           }}
         >
           <Image size={15} strokeWidth={2} />
-          Diagram
+          Export..
           <ChevronDown size={15} strokeWidth={2} />
         </button>
       </DropdownMenuTrigger>

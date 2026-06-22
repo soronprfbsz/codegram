@@ -7,19 +7,11 @@ import {
   useUpdateProject,
   type Project,
 } from '@/entities/project'
-import { parseDbml, SQL_DIALECTS, SQL_DIALECT_VALUES, type DbmlSchema } from '@/entities/dbml'
-import { deriveTableDoc } from '@/entities/table-doc'
-import { downloadBlob } from '@/shared/lib/download'
-import { buildTableDocXlsxBlob, buildTableDocPdfBlob } from '@/features/export-table-doc'
-import { downloadSql } from '@/features/sql-export'
-import { useTableDocViewStore } from '@/widgets/table-doc-view'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
 } from '@/shared/ui/dropdown-menu'
 import {
   Dialog,
@@ -41,44 +33,20 @@ export interface ProjectRowProps {
 
 /**
  * A sidebar project list row: glyph + name link, inline rename, and a hover/
- * focus "⋯" menu carrying the project-level Export artifacts (Table Doc · SQL)
- * plus Rename / Delete. Export items derive from the row project's own
- * `dbml_text` — parsed on menu open — so they work for any project, not just
- * the one open in the editor (ADR-0013). Diagram export stays in the editor.
+ * focus "⋯" menu with Rename / Delete. Preview + all export (Diagram · Table
+ * Doc · SQL) now live in the editor TopBar's Export menu for the open project,
+ * so the sidebar row is purely project management.
  *
- * widgets layer: composes entities (project/dbml/table-doc) + features
- * (export-table-doc/sql-export) + the table-doc-view overlay store.
+ * widgets layer: composes the project entity + shared UI only.
  */
 export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
   const navigate = useNavigate()
   const updateProject = useUpdateProject(project.id)
   const deleteProject = useDeleteProject()
-  const openTableDoc = useTableDocViewStore((s) => s.openWith)
 
   const [editing, setEditing] = useState(false)
   const [draftName, setDraftName] = useState(project.name)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  // Parsed lazily on menu open; null = empty/invalid → export items disabled.
-  const [schema, setSchema] = useState<DbmlSchema | null>(null)
-
-  const exportDisabled = (schema?.tables.length ?? 0) === 0
-
-  function handleMenuOpenChange(open: boolean) {
-    if (open) {
-      const parsed = parseDbml(project.dbml_text)
-      setSchema(parsed.ok ? parsed.schema : null)
-    }
-  }
-
-  function openTableDocHtml() {
-    if (schema) openTableDoc(deriveTableDoc(schema))
-  }
-  function exportExcel() {
-    if (schema) downloadBlob(buildTableDocXlsxBlob(deriveTableDoc(schema)), 'table-definition.xlsx')
-  }
-  function exportPdf() {
-    if (schema) downloadBlob(buildTableDocPdfBlob(deriveTableDoc(schema)), 'table-definition.pdf')
-  }
 
   async function handleRename() {
     const trimmed = draftName.trim()
@@ -138,7 +106,7 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
         {!collapsed && <span className="truncate">{project.name}</span>}
       </Link>
 
-      <DropdownMenu onOpenChange={handleMenuOpenChange}>
+      <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
@@ -154,28 +122,6 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Table Doc</DropdownMenuLabel>
-          <DropdownMenuItem disabled={exportDisabled} onSelect={openTableDocHtml}>
-            Table Doc HTML
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={exportDisabled} onSelect={exportExcel}>
-            Table Doc Excel
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={exportDisabled} onSelect={exportPdf}>
-            Table Doc PDF
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>SQL</DropdownMenuLabel>
-          {SQL_DIALECT_VALUES.map((d) => (
-            <DropdownMenuItem
-              key={d}
-              disabled={exportDisabled}
-              onSelect={() => downloadSql(project.dbml_text, d)}
-            >
-              {`SQL · ${SQL_DIALECTS[d].label}`}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() => {
               setDraftName(project.name)

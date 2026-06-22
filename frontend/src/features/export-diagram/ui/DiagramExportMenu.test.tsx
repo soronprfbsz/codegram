@@ -22,7 +22,7 @@ describe('DiagramExportMenu', () => {
   it('renders a Diagram trigger and reveals PNG/SVG/PDF', async () => {
     const user = setup()
     render(<DiagramExportMenu diagram={diagram} />)
-    await user.click(screen.getByRole('button', { name: 'Diagram' }))
+    await user.click(screen.getByRole('button', { name: 'Export' }))
     for (const name of ['Diagram PNG', 'Diagram SVG', 'Diagram PDF']) {
       expect(await screen.findByRole('menuitem', { name })).toBeInTheDocument()
     }
@@ -35,21 +35,21 @@ describe('DiagramExportMenu', () => {
     const user = setup()
     render(<DiagramExportMenu diagram={diagram} />)
 
-    await user.click(screen.getByRole('button', { name: 'Diagram' }))
+    await user.click(screen.getByRole('button', { name: 'Export' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Diagram PNG' }))
     expect(epng).toHaveBeenCalledWith(diagram)
 
-    await user.click(screen.getByRole('button', { name: 'Diagram' }))
+    await user.click(screen.getByRole('button', { name: 'Export' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Diagram SVG' }))
     expect(esvg).toHaveBeenCalledWith(diagram)
 
-    await user.click(screen.getByRole('button', { name: 'Diagram' }))
+    await user.click(screen.getByRole('button', { name: 'Export' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Diagram PDF' }))
     expect(epdf).toHaveBeenCalledWith(diagram)
   })
 
   it('disables the trigger when disabled', () => {
     render(<DiagramExportMenu diagram={diagram} disabled />)
-    expect(screen.getByRole('button', { name: 'Diagram' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Export' })).toBeDisabled()
   })
 })

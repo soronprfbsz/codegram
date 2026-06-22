@@ -27,12 +27,10 @@ import { ErdInfoPanel } from '@/widgets/erd-info-panel'
 import { ErdCanvas, type ErdCaptureHandle } from '@/features/erd-canvas'
 import type { CanvasSelection, SelectionInfo } from '@/entities/erd'
 import { useLayoutPersistence } from '@/features/layout-persistence'
-import {
-  DiagramExportMenu,
-  type DiagramExportContext,
-} from '@/features/export-diagram'
+import { type DiagramExportContext } from '@/features/export-diagram'
 import { SqlImportDialog } from '@/features/sql-import'
 import { ErdTopBar } from '@/widgets/erd-topbar'
+import { ExportMenu } from '@/widgets/export-menu'
 import { DbConnectDialog } from '@/features/db-import'
 import {
   parseDbml,
@@ -277,8 +275,13 @@ export function EditorPage() {
         projectName={project.name}
         projectMeta={projectMeta}
         autosaveStatus={status}
-        diagramExport={
-          <DiagramExportMenu diagram={diagramCtx} disabled={exportDisabled} />
+        exportMenu={
+          <ExportMenu
+            diagram={diagramCtx}
+            schema={schema}
+            dbmlText={dbmlText}
+            disabled={exportDisabled}
+          />
         }
       />
 

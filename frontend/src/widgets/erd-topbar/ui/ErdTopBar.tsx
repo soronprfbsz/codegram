@@ -12,11 +12,10 @@ export interface ErdTopBarProps {
   /** Autosave lifecycle state (drives the Save pill). */
   autosaveStatus: AutosaveStatus
   /**
-   * The Diagram export control (a `<DiagramExportMenu/>`) rendered on the right.
-   * Diagram capture needs the live canvas, so it stays in the editor; Table Doc
-   * /SQL export and Import live elsewhere now (ADR-0013).
+   * The Export control (an `<ExportMenu/>`) rendered on the right — the single
+   * export hub for the open project (preview · Diagram · Table Doc · SQL).
    */
-  diagramExport?: ReactNode
+  exportMenu?: ReactNode
 }
 
 /** Dot + label for the save pill. */
@@ -60,13 +59,13 @@ function SavePill({ status }: { status: AutosaveStatus }) {
  * bar. The global sidebar owns brand / navigation / account / theme; the DBML
  * pane header owns Import (SQL / DB sync) and the info panel owns its own
  * collapse, so the bar is slim: the project identity, the Save pill, and the
- * Diagram export control.
+ * Export menu.
  */
 export function ErdTopBar({
   projectName,
   projectMeta,
   autosaveStatus,
-  diagramExport,
+  exportMenu,
 }: ErdTopBarProps) {
   return (
     <header
@@ -133,10 +132,10 @@ export function ErdTopBar({
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Right group: Save pill + Diagram export */}
+      {/* Right group: Save pill + Export menu */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <SavePill status={autosaveStatus} />
-        {diagramExport}
+        {exportMenu}
       </div>
     </header>
   )

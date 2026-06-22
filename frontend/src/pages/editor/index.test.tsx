@@ -32,7 +32,7 @@ type User = ReturnType<typeof userEvent.setup>
 
 /** Open the TopBar "Diagram ▾" export dropdown. */
 async function openDiagramMenu(user: User) {
-  await user.click(screen.getByRole('button', { name: 'Diagram' }))
+  await user.click(screen.getByRole('button', { name: 'Export' }))
 }
 
 /** Open the DBML pane header's "가져오기" (Import) dropdown. */
@@ -326,17 +326,22 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
     )
   })
 
-  it('renders a Diagram trigger with PNG/SVG/PDF only (Table Doc/SQL moved to the sidebar)', async () => {
+  it('Export menu is the unified hub: preview + Diagram + Table Doc + SQL', async () => {
     mockLoadedProject()
     const user = setup()
     renderEditor()
     await openDiagramMenu(user)
-    expect(await screen.findByRole('menuitem', { name: 'Diagram PNG' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Diagram SVG' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Diagram PDF' })).toBeInTheDocument()
-    // Table Doc / SQL are no longer in the editor.
-    expect(screen.queryByRole('menuitem', { name: 'Table Doc HTML' })).toBeNull()
-    expect(screen.queryByRole('menuitem', { name: 'SQL · PostgreSQL' })).toBeNull()
+    for (const name of [
+      '테이블 정의서 미리보기',
+      'Diagram PNG',
+      'Diagram SVG',
+      'Diagram PDF',
+      'Table Doc Excel',
+      'Table Doc PDF',
+      'SQL · PostgreSQL',
+    ]) {
+      expect(await screen.findByRole('menuitem', { name })).toBeInTheDocument()
+    }
   })
 
   it('Diagram PNG/SVG/PDF call the matching diagram exporter', async () => {
@@ -364,7 +369,7 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
     mockLoadedProject()
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({ status: 'idle' })
     renderEditor()
-    expect(screen.getByRole('button', { name: 'Diagram' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Export' })).toBeDisabled()
   })
 })
 

@@ -14,6 +14,10 @@ export interface TableDocViewProps {
   open: boolean
   /** Close handler. */
   onClose: () => void
+  /** Download the current model as an Excel 테이블 정의서. */
+  onDownloadExcel?: () => void
+  /** Download the current model as a PDF 테이블 정의서. */
+  onDownloadPdf?: () => void
 }
 
 function TableSection({ table }: { table: TableDocTable }) {
@@ -87,6 +91,8 @@ export function TableDocView({
   model,
   open,
   onClose,
+  onDownloadExcel,
+  onDownloadPdf,
 }: TableDocViewProps): React.JSX.Element | null {
   if (!open) return null
 
@@ -97,9 +103,29 @@ export function TableDocView({
     >
       <header className="flex items-center justify-between border-b p-4">
         <h2 className="text-xl font-bold">테이블 정의서</h2>
-        <Button variant="outline" onClick={onClose}>
-          Close
-        </Button>
+        <div className="flex items-center gap-2">
+          {onDownloadExcel ? (
+            <Button
+              variant="outline"
+              data-testid="table-doc-download-excel"
+              onClick={onDownloadExcel}
+            >
+              Excel 다운로드
+            </Button>
+          ) : null}
+          {onDownloadPdf ? (
+            <Button
+              variant="outline"
+              data-testid="table-doc-download-pdf"
+              onClick={onDownloadPdf}
+            >
+              PDF 다운로드
+            </Button>
+          ) : null}
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </div>
       </header>
       <div className="flex flex-1 flex-col gap-8 overflow-auto p-6">
         {model.tables.map((table) => (
