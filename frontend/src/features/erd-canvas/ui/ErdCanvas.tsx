@@ -609,6 +609,10 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
           ...e,
           ...(sourceHandle !== e.sourceHandle && { sourceHandle }),
           ...(targetHandle !== e.targetHandle && { targetHandle }),
+          // Elevate the selected edge above the others so ITS segment-drag
+          // handles win the pointer over any overlapping edge line underneath
+          // (and aren't occluded). zIndexMode is 'basic' → edge.zIndex is honored.
+          ...(e.id === selectedEdgeId && { zIndex: 1000 }),
           data: {
             ...e.data,
             active: activeEdgeIds.has(e.id),
