@@ -13,7 +13,16 @@
  * No React, no imports beyond the local `Point` type. Deterministic, pure:
  * inputs are deep-copied and never mutated; a NEW map is returned.
  */
-import { crossesObstacle, type Point, type Rect } from './routeOrthogonal'
+import { crossesObstacle, inflateRect, type Point, type Rect } from './routeOrthogonal'
+
+/**
+ * Minimum gap a spread shift must keep from any card. crossesObstacle uses a
+ * strict-interior test, so without this a shift could be slid right up against
+ * a card border (≈0px) — the "line hugging a table" artifact. We cancel a shift
+ * that NEWLY brings a segment within CLEARANCE of a card (segments that were
+ * already that close keep their freedom, mirroring the group-box rule).
+ */
+const CARD_CLEARANCE = 14
 
 export interface EdgeRoute {
   id: string
@@ -211,6 +220,14 @@ export function spreadEdgeRoutes(
       }
       // 이동한 세그먼트가 카드를 가로지르면 이동 취소(원좌표 유지).
       if (crossesObstacle(pt0, pt1, obstacles)) return
+      // 이동이 세그먼트를 카드에 '새로' CARD_CLEARANCE 이내로 바짝 붙이면 취소한다
+      // (경계만 안 넘으면 0px까지 허용하던 hugging 방지). 원래도 그만큼 가까웠던
+      // 세그먼트는 새 위반이 아니므로 자유를 유지(그룹 박스 규칙과 동일).
+      for (const card of obstacles) {
+        const near = inflateRect(card, CARD_CLEARANCE)
+        if (crossesObstacle(pt0, pt1, [near]) && !crossesObstacle(orig0, orig1, [near]))
+          return
+      }
       // 이동이 세그먼트를 '새로' 그룹 박스 안으로 밀어넣으면 취소한다. 원래도
       // 지나던 그룹(예: 끝점 그룹 안의 spine) 내 이동은 새 위반이 아니므로 허용.
       for (const gbox of groupBoxes) {

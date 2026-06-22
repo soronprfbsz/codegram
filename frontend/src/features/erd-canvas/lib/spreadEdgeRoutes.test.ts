@@ -79,6 +79,18 @@ describe('spreadEdgeRoutes', () => {
     expect(pa[2].y).toBe(pa[3].y)        // last stub still horizontal
   })
 
+  it('cancels a spread shift that would hug a card closer than the clearance', () => {
+    const a: Point[] = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 200 }, { x: 300, y: 200 }]
+    const b: Point[] = [{ x: 0, y: 50 }, { x: 100, y: 50 }, { x: 100, y: 250 }, { x: 300, y: 250 }]
+    // gap 12 → tracks 94 (a) / 106 (b). A card whose right edge is x=82 sits 12px
+    // from track 94 (< 14px clearance) but is clear of the original x=100 → a's
+    // shift is cancelled (stays put); b's track 106 is clear so it still spreads.
+    const card = { x: 0, y: 0, width: 82, height: 260 }
+    const out = spreadEdgeRoutes([{ id: 'a', points: a }, { id: 'b', points: b }], 12, undefined, [card])
+    expect(out.get('a')![1].x).toBe(100)
+    expect(out.get('b')![1].x).toBe(106)
+  })
+
   it('centers a 3-member group: the middle edge stays put, outers split by ±gap', () => {
     const mk = (y: number): Point[] => [
       { x: 0, y }, { x: 100, y }, { x: 100, y: y + 200 }, { x: 300, y: y + 200 },
