@@ -3,7 +3,9 @@
  * document string.
  *
  * Matches the opening line:
- *   ^\s*Table\s+("?)<name>\1\s*(\[[^\]]*\])?\s*\{
+ *   ^\s*Table\s+(<schema>.)?("?)<name>\1\s*(\[[^\]]*\])?\s*\{
+ *   — optional `<schema>.` prefix (bare or quoted), so a schema-qualified
+ *     header like `Table public.users {` still matches the bare name `users`
  *   — optional [settings] before { (e.g. [headercolor: #fff])
  *   — quoted OR bare table name
  *
@@ -22,10 +24,11 @@ export function tableLineRange(
   // Escape special regex chars in the table name.
   const escaped = tableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-  // Opening pattern: optional leading spaces, Table keyword, then either a
-  // bare name or a double-quoted name, optional [settings], then {
+  // Opening pattern: optional leading spaces, Table keyword, an optional
+  // `<schema>.` prefix (bare or quoted), then either a bare name or a
+  // double-quoted name, optional [settings], then {
   const openPattern = new RegExp(
-    `^\\s*Table\\s+("?)${escaped}\\1\\s*(?:\\[[^\\]]*\\])?\\s*\\{`,
+    `^\\s*Table\\s+(?:"?[^"\\s.]+"?\\s*\\.\\s*)?("?)${escaped}\\1\\s*(?:\\[[^\\]]*\\])?\\s*\\{`,
     'i',
   )
 

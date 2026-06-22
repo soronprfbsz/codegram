@@ -6,7 +6,14 @@ import {
   useDeleteProject,
   useUpdateProject,
   type Project,
+  type ProjectUpdatePayload,
 } from '@/entities/project'
+import {
+  PROJECT_COLOR_KEYS,
+  PROJECT_COLORS,
+  PROJECT_GLYPH_PALETTE,
+  GLYPH_MAX_LENGTH,
+} from '@/entities/project/model/glyph'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -32,10 +39,10 @@ export interface ProjectRowProps {
 }
 
 /**
- * A sidebar project list row: glyph + name link, inline rename, and a hover/
- * focus "⋯" menu with Rename / Delete. Preview + all export (Diagram · Table
- * Doc · SQL) now live in the editor TopBar's Export menu for the open project,
- * so the sidebar row is purely project management.
+ * A sidebar project list row: glyph + name link, plus a hover/focus "⋯" menu
+ * with 편집 (name + glyph + color, in a dialog) and Delete. Export + preview
+ * live in the editor TopBar's Export menu for the open project, so the sidebar
+ * row is purely project management.
  *
  * widgets layer: composes the project entity + shared UI only.
  */
@@ -44,18 +51,31 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
   const updateProject = useUpdateProject(project.id)
   const deleteProject = useDeleteProject()
 
-  const [editing, setEditing] = useState(false)
-  const [draftName, setDraftName] = useState(project.name)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // Edit dialog (name + glyph + color), seeded from the project on open.
+  const [editOpen, setEditOpen] = useState(false)
+  const [draftName, setDraftName] = useState(project.name)
+  const [draftGlyph, setDraftGlyph] = useState<string | null>(project.glyph)
+  const [draftColor, setDraftColor] = useState<string | null>(project.color)
 
-  async function handleRename() {
-    const trimmed = draftName.trim()
-    if (!trimmed || trimmed === project.name) {
-      setEditing(false)
-      return
-    }
-    await updateProject.mutateAsync({ name: trimmed })
-    setEditing(false)
+  function openEdit() {
+    setDraftName(project.name)
+    setDraftGlyph(project.glyph)
+    setDraftColor(project.color)
+    setEditOpen(true)
+  }
+
+  async function handleSaveEdit() {
+    const payload: ProjectUpdatePayload = {}
+    const trimmedName = draftName.trim()
+    if (trimmedName && trimmedName !== project.name) payload.name = trimmedName
+    const glyph = draftGlyph?.trim() || null
+    // The API payload can't clear a glyph (glyph?: string), so only send a set value.
+    if (glyph && glyph !== project.glyph) payload.glyph = glyph
+    if (draftColor && draftColor !== project.color) payload.color = draftColor
+
+    if (Object.keys(payload).length > 0) await updateProject.mutateAsync(payload)
+    setEditOpen(false)
   }
 
   async function handleDelete() {
@@ -63,28 +83,6 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
     setConfirmOpen(false)
     // Deleting the project currently open in the editor would orphan the route.
     if (active) navigate('/')
-  }
-
-  if (editing) {
-    return (
-      <li className="px-0.5">
-        <input
-          value={draftName}
-          autoFocus
-          aria-label="프로젝트 이름"
-          onChange={(e) => setDraftName(e.target.value)}
-          onBlur={handleRename}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleRename()
-            else if (e.key === 'Escape') {
-              setDraftName(project.name)
-              setEditing(false)
-            }
-          }}
-          className="h-9 w-full rounded-lg border border-sidebar-border bg-sidebar px-2 text-sm text-sidebar-foreground outline-none focus:border-primary"
-        />
-      </li>
-    )
   }
 
   return (
@@ -122,14 +120,7 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onSelect={() => {
-              setDraftName(project.name)
-              setEditing(true)
-            }}
-          >
-            이름 변경
-          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={openEdit}>편집</DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => setConfirmOpen(true)}
             className="text-destructive focus:text-destructive"
@@ -139,6 +130,93 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Edit dialog: name + glyph + color */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>프로젝트 편집</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            {/* Live preview + name */}
+            <div className="flex items-center gap-3">
+              <ProjectGlyph glyph={draftGlyph} color={draftColor} size={40} />
+              <input
+                value={draftName}
+                autoFocus
+                aria-label="프로젝트 이름"
+                placeholder="프로젝트 이름"
+                onChange={(e) => setDraftName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveEdit()
+                }}
+                className="h-9 flex-1 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+
+            {/* Color */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">색상</span>
+              <div className="flex flex-wrap gap-1.5">
+                {PROJECT_COLOR_KEYS.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-label={`색상 ${key}`}
+                    onClick={() => setDraftColor(key)}
+                    className={cn(
+                      'size-6 rounded-full border border-border',
+                      draftColor === key &&
+                        'ring-2 ring-ring ring-offset-1 ring-offset-background',
+                    )}
+                    style={{ backgroundColor: PROJECT_COLORS[key] }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Glyph */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">아이콘</span>
+              <div className="grid grid-cols-8 gap-1">
+                {PROJECT_GLYPH_PALETTE.map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    aria-label={`아이콘 ${g}`}
+                    onClick={() => setDraftGlyph(g)}
+                    className={cn(
+                      'grid size-7 place-items-center rounded text-base hover:bg-muted',
+                      draftGlyph === g && 'bg-muted ring-1 ring-ring',
+                    )}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={draftGlyph ?? ''}
+                onChange={(e) => setDraftGlyph(e.target.value || null)}
+                maxLength={GLYPH_MAX_LENGTH}
+                aria-label="아이콘 직접 입력"
+                placeholder="직접 입력 (이모지/문자)"
+                className="mt-1 h-8 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={updateProject.isPending}>
+              저장
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>

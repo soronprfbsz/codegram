@@ -54,4 +54,14 @@ describe('tableLineRange', () => {
     const doc = 'table users {\n  id int\n}'
     expect(tableLineRange(doc, 'users')).toEqual({ fromLine: 1, toLine: 3 })
   })
+
+  it('schema-qualified header `Table public.users {` — matches the bare name', () => {
+    const doc = 'Table public.users {\n  id integer [pk]\n}'
+    expect(tableLineRange(doc, 'users')).toEqual({ fromLine: 1, toLine: 3 })
+  })
+
+  it('quoted schema-qualified header `Table "public"."users" {` — matches', () => {
+    const doc = 'Table "public"."users" {\n  id integer [pk]\n}'
+    expect(tableLineRange(doc, 'users')).toEqual({ fromLine: 1, toLine: 3 })
+  })
 })

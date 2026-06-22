@@ -57,7 +57,7 @@ describe('ProjectRow context menu', () => {
     const user = setup()
     renderRow()
     await openMenu(user)
-    expect(await screen.findByRole('menuitem', { name: '이름 변경' })).toBeInTheDocument()
+    expect(await screen.findByRole('menuitem', { name: '편집' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: '삭제' })).toBeInTheDocument()
     // Preview + export no longer live in the sidebar row menu.
     expect(screen.queryByRole('menuitem', { name: '테이블 정의서 미리보기' })).toBeNull()
@@ -65,7 +65,7 @@ describe('ProjectRow context menu', () => {
     expect(screen.queryByRole('menuitem', { name: 'SQL · PostgreSQL' })).toBeNull()
   })
 
-  it('Rename swaps to an inline input and commits via useUpdateProject', async () => {
+  it('편집 opens a dialog and commits a name change via useUpdateProject', async () => {
     const mutateAsync = vi.fn().mockResolvedValue(undefined)
     vi.spyOn(projectEntity, 'useUpdateProject').mockReturnValue({
       mutateAsync,
@@ -74,12 +74,32 @@ describe('ProjectRow context menu', () => {
     const user = setup()
     renderRow()
     await openMenu(user)
-    fireEvent.click(await screen.findByRole('menuitem', { name: '이름 변경' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '편집' }))
 
     const input = await screen.findByRole('textbox', { name: '프로젝트 이름' })
     await user.clear(input)
-    await user.type(input, 'Renamed{Enter}')
+    await user.type(input, 'Renamed')
+    await user.click(screen.getByRole('button', { name: '저장' }))
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith({ name: 'Renamed' }))
+  })
+
+  it('편집 commits a glyph + color change without touching the name', async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined)
+    vi.spyOn(projectEntity, 'useUpdateProject').mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof projectEntity.useUpdateProject>)
+    const user = setup()
+    renderRow()
+    await openMenu(user)
+    fireEvent.click(await screen.findByRole('menuitem', { name: '편집' }))
+
+    await user.click(await screen.findByRole('button', { name: '색상 blue' }))
+    await user.click(screen.getByRole('button', { name: '아이콘 📊' }))
+    await user.click(screen.getByRole('button', { name: '저장' }))
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith({ glyph: '📊', color: 'blue' }),
+    )
   })
 
   it('Delete asks for confirmation, then deletes and navigates home when active', async () => {
