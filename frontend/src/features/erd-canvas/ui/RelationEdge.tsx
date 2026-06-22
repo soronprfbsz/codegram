@@ -36,6 +36,15 @@ type MarkerKind = 'one' | 'many'
 /** Horizontal spacing between the per-PK approach lanes at a target table. */
 const LANE_GAP = 14
 
+/**
+ * Width of each edge's invisible click/hit band. Kept BELOW {@link LANE_GAP} so
+ * adjacent parallel edges (one lane apart) don't overlap hit bands — React Flow
+ * picks the DOM-topmost edge in an overlap, which otherwise selects a line other
+ * than the one under the cursor. ±6px is still a comfortable click target.
+ * (Default BaseEdge interactionWidth is 20 = ±10, wider than the 14px lane.)
+ */
+const EDGE_HIT_WIDTH = 12
+
 /** 장애물 선택용 최소 노드 형태(테스트 가능하도록 InternalNode에서 분리). */
 export interface ObstacleNode {
   id: string
@@ -393,6 +402,7 @@ function RelationEdgeImpl({
       <BaseEdge
         id={id}
         path={smoothPath}
+        interactionWidth={EDGE_HIT_WIDTH}
         style={{
           stroke: 'var(--erd-edge)',
           strokeWidth: 1.5,
@@ -462,6 +472,7 @@ function RelationEdgeImpl({
       <BaseEdge
         id={id}
         path={edgePath}
+        interactionWidth={EDGE_HIT_WIDTH}
         markerStart={`url(#crowfoot-start-${mid})`}
         markerEnd={`url(#crowfoot-end-${mid})`}
         style={{
