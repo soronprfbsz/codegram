@@ -255,12 +255,27 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
     ...stickyNodes,
   ]
 
+  // De-duplicate edges that describe the SAME column pair. A DB often defines a
+  // relationship both as a single-column FK and inside a composite FK (e.g.
+  // `users.tenant_id > tenants.id` AND `tenants.(id,org_id) < users.(tenant_id,
+  // org_id)`), which would otherwise draw the id→tenant_id line twice, exactly
+  // overlapping. Key by the fully-qualified handle pair; keep the first.
+  const seenPair = new Set<string>()
+  const dedupe = (e: ErdFlowEdge): boolean => {
+    const key = `${e.source}|${e.sourceHandle ?? ''}>${e.target}|${e.targetHandle ?? ''}`
+    if (seenPair.has(key)) return false
+    seenPair.add(key)
+    return true
+  }
+
   // Drop edges to endpoints that aren't emitted nodes (dangling refs to missing
   // tables/columns) — React Flow silently drops such edges; emit only valid ones.
   const edges: ErdFlowEdge[] = [
     ...schema.refs.flatMap(refToEdges),
     ...enumLinkEdges(schema),
-  ].filter((e) => usedNodeIds.has(e.source) && usedNodeIds.has(e.target))
+  ]
+    .filter(dedupe)
+    .filter((e) => usedNodeIds.has(e.source) && usedNodeIds.has(e.target))
 
   return { nodes, edges }
 }

@@ -71,6 +71,38 @@ function emptySchema(over: Partial<DbmlSchema> = {}): DbmlSchema {
 
 // --- tests ------------------------------------------------------------------
 
+describe('schemaToFlow — edge de-dup', () => {
+  it('collapses duplicate column-pair edges (single FK + same pair inside a composite)', () => {
+    const schema = emptySchema({
+      tables: [
+        table('public', 'tenants', [
+          col('public', 'tenants', 'id', { pk: true }),
+          col('public', 'tenants', 'org_id'),
+        ]),
+        table('public', 'users', [
+          col('public', 'users', 'tenant_id', { isFk: true }),
+          col('public', 'users', 'org_id', { isFk: true }),
+        ]),
+      ],
+      refs: [
+        // single FK: tenants.id < users.tenant_id (same pair as the composite #0)
+        ref('tenants', ['id'], 'users', ['tenant_id'], '1-n'),
+        // composite FK: id→tenant_id (DUP) + org_id→org_id (unique)
+        ref('tenants', ['id', 'org_id'], 'users', ['tenant_id', 'org_id'], '1-n'),
+      ],
+    })
+    const { edges } = schemaToFlow(schema)
+    const rel = edges.filter((e) => e.type === 'relation')
+    // 3 raw edges (single, composite#0, composite#1) → 2 after de-dup.
+    expect(rel).toHaveLength(2)
+    const pairs = rel.map((e) => `${e.sourceHandle}>${e.targetHandle}`).sort()
+    expect(pairs).toEqual([
+      'public.tenants.id>public.users.tenant_id',
+      'public.tenants.org_id>public.users.org_id',
+    ])
+  })
+})
+
 describe('schemaToFlow — nodes', () => {
   it('creates one table node per DbmlTable with id == DbmlTable.id', () => {
     const schema = emptySchema({
