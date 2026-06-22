@@ -205,6 +205,31 @@ describe('routeOrthogonal', () => {
     })
   })
 
+  it('narrow facing gap: centers the connector so it does not hug either card', () => {
+    // users (right card) FK on its LEFT edge at x=300; tenants (left card) PK on
+    // its RIGHT edge at x=250. Gap = 50 < 2*STEP_OUT(60) → the step-out ports
+    // would cross and the stub would collapse to ~20px (line hugs a card).
+    const tenants: Rect = { x: 50, y: 100, width: 200, height: 120 }
+    const users: Rect = { x: 300, y: 100, width: 200, height: 320 }
+    const source = { x: 300, y: 170 } // users left handle, exits LEFT
+    const target = { x: 250, y: 150 } // tenants right handle, exits RIGHT
+    const pts = routeOrthogonal(source, target, 'left', 'right', [tenants, users])
+
+    expect(isOrthogonal(pts)).toBe(true)
+    expect(pathAvoids(pts, [tenants, users])).toBe(true)
+    expect(pts[0]).toEqual(source)
+    expect(pts[pts.length - 1]).toEqual(target)
+
+    // The vertical connector sits at the gap midpoint (275) — equal 25px stubs,
+    // so no segment ends up right next to a card.
+    const mid = (source.x + target.x) / 2 // 275
+    for (const p of pts.slice(1, -1)) {
+      expect(p.x).toBe(mid)
+      expect(p.x - (tenants.x + tenants.width)).toBeGreaterThanOrEqual(24) // clear of tenants.right
+      expect(users.x - p.x).toBeGreaterThanOrEqual(24) // clear of users.left
+    }
+  })
+
   it('polylineToPath builds an M/L svg path', () => {
     const d = polylineToPath([
       { x: 0, y: 0 },

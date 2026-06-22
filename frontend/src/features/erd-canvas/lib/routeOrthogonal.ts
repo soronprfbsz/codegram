@@ -122,6 +122,21 @@ export function routeOrthogonal(
     y: target.y,
   }
 
+  // Narrow facing gap: when the two anchors face each other (each step-out
+  // points INTO the gap between them) across a gap smaller than their combined
+  // step-outs, the ports cross and the stub collapses — the connector would
+  // turn right next to a card. Pull both step-out ports to the gap midpoint so
+  // each side keeps an equal stub (gap/2) and no segment hugs a table.
+  const sSign = sourceSide === 'right' ? 1 : -1
+  const tSign = targetSide === 'right' ? 1 : -1
+  const dx = target.x - source.x
+  const facing = dx !== 0 && Math.sign(dx) === sSign && Math.sign(-dx) === tSign
+  if (facing && Math.abs(dx) <= sMargin + tMargin) {
+    const mid = source.x + dx / 2
+    sPort.x = mid
+    tPort.x = mid
+  }
+
   // Candidate routing lines: just outside every obstacle + the endpoints/ports.
   const xsSet = new Set<number>([source.x, target.x, sPort.x, tPort.x])
   const ysSet = new Set<number>([source.y, target.y, sPort.y, tPort.y])
