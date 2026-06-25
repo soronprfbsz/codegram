@@ -9,7 +9,7 @@ export interface IntrospectRequest {
   username: string
   password: string
   database: string
-  db_schema?: string | null
+  db_schemas?: string[]
   ssl: boolean
 }
 
@@ -18,4 +18,9 @@ export interface IntrospectResponse {
   import_dialect: 'postgres' | 'mysql'
   ddl: string
   table_count: number
+}
+
+/** Matches backend SchemaListResponse. */
+export interface SchemaListResponse {
+  schemas: string[]
 }
