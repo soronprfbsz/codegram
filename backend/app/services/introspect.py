@@ -204,21 +204,20 @@ def _postgres_raw_type_names(
 
 
 def _patch_unknown_types(
-    metadata: MetaData, raw_names: dict[tuple[str, str], str]
+    metadata: MetaData, raw_names: dict[tuple[str | None, str, str], str]
 ) -> list[str]:
     """Replace every NullType column (a DB type SQLAlchemy can't map) with a
-    type that compiles: the original DB type name when known (`raw_names`),
-    else TEXT. Without this, a single unrecognized column makes build_ddl raise
-    CompileError and 500 the whole import. Mutates `metadata` in place; returns
-    the patched `table.column` identifiers for logging.
+    type that compiles: the original DB type name when known (`raw_names`,
+    keyed by (schema, table, column)), else TEXT. Mutates `metadata` in place;
+    returns the patched `schema.table.column` identifiers for logging.
     """
     patched: list[str] = []
     for table in metadata.tables.values():
         for column in table.columns:
             if isinstance(column.type, NullType):
-                raw = raw_names.get((table.name, column.name))
+                raw = raw_names.get((table.schema, table.name, column.name))
                 column.type = _RawType(raw) if raw else Text()
-                patched.append(f"{table.name}.{column.name}")
+                patched.append(f"{table.schema}.{table.name}.{column.name}")
     return patched
 
 
@@ -273,12 +272,16 @@ def introspect_to_ddl(req: IntrospectRequest) -> IntrospectResult:
     engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
     try:
         metadata = MetaData()
-        raw_names: dict[tuple[str, str], str] = {}
+        raw_names: dict[tuple[str | None, str, str], str] = {}
         try:
             with engine.connect() as conn:
-                metadata.reflect(bind=conn, schema=effective_schema(req))
-                if req.dialect == "postgresql":
-                    raw_names = _postgres_raw_type_names(conn, effective_schema(req))
+                for sch in reflect_schemas(req):
+                    metadata.reflect(bind=conn, schema=sch)
+                    if req.dialect == "postgresql":
+                        for (tbl, col), udt in _postgres_raw_type_names(
+                            conn, sch
+                        ).items():
+                            raw_names[(sch, tbl, col)] = udt
         except OperationalError as exc:
             raise ConnectionFailedError(
                 "데이터베이스에 접속할 수 없습니다. 접속 정보를 확인하세요."

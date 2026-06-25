@@ -263,11 +263,34 @@ def test_patch_unknown_types_restores_raw_name():
         Column("id", Integer, primary_key=True),
         Column("embedding", NullType()),
     )
-    patched = _patch_unknown_types(md, {("rag_chunks", "embedding"): "vector"})
-    assert "rag_chunks.embedding" in patched
+    patched = _patch_unknown_types(md, {(None, "rag_chunks", "embedding"): "vector"})
+    assert "None.rag_chunks.embedding" in patched
     # build_ddl must NOT raise now, and the original type name is preserved.
     ddl = build_ddl(md, _pg.dialect())
     assert "vector" in ddl
+
+
+def test_build_ddl_qualifies_table_with_schema():
+    """A reflected table carrying .schema renders schema-qualified DDL, so
+    @dbml/core assigns the right schema and multi-schema keys never collide."""
+    md = MetaData()
+    Table("orders", md, Column("id", Integer, primary_key=True), schema="sales")
+    ddl = build_ddl(md, _pg.dialect())
+    assert "sales.orders" in ddl
+
+
+def test_patch_unknown_types_keys_by_schema():
+    """Same table name in two schemas must not cross-map raw types."""
+    md = MetaData()
+    Table("t", md, Column("id", Integer, primary_key=True),
+          Column("c", NullType()), schema="public")
+    Table("t", md, Column("id", Integer, primary_key=True),
+          Column("c", NullType()), schema="sales")
+    _patch_unknown_types(md, {("public", "t", "c"): "vector",
+                              ("sales", "t", "c"): "geometry"})
+    ddl = build_ddl(md, _pg.dialect())
+    assert "vector" in ddl
+    assert "geometry" in ddl
 
 
 def test_patch_unknown_types_generic_fallback_when_name_missing():
