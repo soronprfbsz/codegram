@@ -30,12 +30,17 @@ function renderEditor() {
 
 type User = ReturnType<typeof userEvent.setup>
 
-/** Open the TopBar "Diagram ▾" export dropdown. */
-async function openDiagramMenu(user: User) {
-  await user.click(screen.getByRole('button', { name: 'Export' }))
+/** Info-panel group sections are collapsed by default — expand them to see rows. */
+function expandAllGroups() {
+  screen.queryAllByLabelText('그룹 펼치기').forEach((b) => fireEvent.click(b))
 }
 
-/** Open the DBML pane header's "가져오기" (Import) dropdown. */
+/** Open the TopBar "Diagram ▾" export dropdown. */
+async function openDiagramMenu(user: User) {
+  await user.click(screen.getByRole('button', { name: '내보내기' }))
+}
+
+/** Open the topbar's "Import" dropdown. */
 async function openImportMenu(user: User) {
   await user.click(screen.getByRole('button', { name: '가져오기' }))
 }
@@ -111,7 +116,7 @@ describe('EditorPage', () => {
     expect(lastCall.baseline).toBe('Table users {\n  id int [pk]\n}')
   })
 
-  it('collapses the info panel via its header toggle and re-expands from the rail', async () => {
+  it('toggles the info panel from the topbar 정보 button (hidden by default)', async () => {
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -149,21 +154,57 @@ describe('EditorPage', () => {
 
     renderEditor()
 
-    expect(screen.getAllByText(/schema summary/i).length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByTestId('stat-tables').textContent).toBe('1')
-    expect(screen.getByTestId('tablelist-row-users')).toBeInTheDocument()
+    // 기본 hidden — 우측 정보 패널 콘텐츠는 마운트되지 않는다.
+    expect(screen.queryByText(/스키마 요약/)).toBeNull()
+    expect(screen.queryByTestId('tablelist-row-users')).toBeNull()
 
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
 
-    // The collapse toggle lives in the info panel's own header now.
-    await user.click(screen.getByRole('button', { name: 'Collapse info panel' }))
-    // Collapsed → the rail shows an expand button; panel content is gone.
-    const expand = await screen.findByRole('button', { name: 'Expand info panel' })
-    expect(screen.queryByText(/schema summary/i)).toBeNull()
+    // 탑바 정보 버튼 → 패널 표시.
+    await user.click(screen.getByTestId('info-panel-button'))
+    expect(screen.getAllByText(/스키마 요약/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByTestId('stat-tables').textContent).toBe('1')
+    expandAllGroups()
+    expect(screen.getByTestId('tablelist-row-users')).toBeInTheDocument()
 
-    // Re-expanding restores the panel content.
-    await user.click(expand)
-    expect(screen.getAllByText(/schema summary/i).length).toBeGreaterThanOrEqual(1)
+    // 패널 내부 닫기 버튼 → 영역 자체가 사라진다(레일 아님).
+    await user.click(screen.getByRole('button', { name: '정보 패널 닫기' }))
+    expect(screen.queryByText(/스키마 요약/)).toBeNull()
+    expect(screen.queryByTestId('info-panel-column')).toBeNull()
+
+    // 정보 버튼 재클릭 → 패널 복귀.
+    await user.click(screen.getByTestId('info-panel-button'))
+    expect(screen.getAllByText(/스키마 요약/).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows parse errors with line/column + message when DBML is invalid', () => {
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        name: 'My Project',
+        dbml_text: 'Table T {\n  Checks {\n    x\n  }\n}',
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof project.useProject>)
+
+    vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
+      status: 'error',
+      errors: [
+        { message: 'A check field must be a function expression', line: 4, column: 5 },
+      ],
+      lastValidSchema: undefined,
+    })
+
+    renderEditor()
+
+    const strip = screen.getByTestId('dbml-parse-errors')
+    expect(strip).toHaveTextContent('line 4:5')
+    expect(strip).toHaveTextContent('A check field must be a function expression')
   })
 
   it('mounts the ERD canvas region in the 3-zone layout', () => {
@@ -197,7 +238,7 @@ describe('EditorPage', () => {
     } as ReturnType<typeof project.useProject>)
 
     renderEditor()
-    expect(screen.getByText(/project not found/i)).toBeInTheDocument()
+    expect(screen.getByText(/프로젝트를 찾을 수 없습니다/)).toBeInTheDocument()
   })
 
   it('seeds layout from project.layout.positions into the autosave layout', () => {
@@ -333,11 +374,11 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
     await openDiagramMenu(user)
     for (const name of [
       '테이블 정의서 미리보기',
-      'Diagram PNG',
-      'Diagram SVG',
-      'Diagram PDF',
-      'Table Doc Excel',
-      'Table Doc PDF',
+      '다이어그램 PNG',
+      '다이어그램 SVG',
+      '다이어그램 PDF',
+      '테이블 정의서 Excel',
+      '테이블 정의서 PDF',
       'SQL · PostgreSQL',
     ]) {
       expect(await screen.findByRole('menuitem', { name })).toBeInTheDocument()
@@ -353,15 +394,15 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
     renderEditor()
 
     await openDiagramMenu(user)
-    await chooseItem('Diagram PNG')
+    await chooseItem('다이어그램 PNG')
     expect(png).toHaveBeenCalledTimes(1)
 
     await openDiagramMenu(user)
-    await chooseItem('Diagram SVG')
+    await chooseItem('다이어그램 SVG')
     expect(svg).toHaveBeenCalledTimes(1)
 
     await openDiagramMenu(user)
-    await chooseItem('Diagram PDF')
+    await chooseItem('다이어그램 PDF')
     expect(pdf).toHaveBeenCalledTimes(1)
   })
 
@@ -369,7 +410,7 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
     mockLoadedProject()
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({ status: 'idle' })
     renderEditor()
-    expect(screen.getByRole('button', { name: 'Export' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '내보내기' })).toBeDisabled()
   })
 })
 
@@ -449,6 +490,9 @@ describe('EditorPage — Phase 5 selection wiring', () => {
     })
     renderEditor()
 
+    // 정보 패널은 기본 hidden — 탑바 정보 버튼으로 열어 리스트를 노출한다.
+    await user.click(screen.getByTestId('info-panel-button'))
+    expandAllGroups()
     const row = screen.getByTestId('tablelist-row-users')
     await user.click(row)
 
@@ -464,7 +508,7 @@ describe('EditorPage — Phase 5 selection wiring', () => {
   })
 })
 
-describe('EditorPage — SQL import wiring (DBML header)', () => {
+describe('EditorPage — SQL import wiring (topbar)', () => {
   const usersSchema: DbmlSchema = {
     tables: [
       {
@@ -541,14 +585,14 @@ describe('EditorPage — SQL import wiring (DBML header)', () => {
     )
   })
 
-  it('opens the SqlImportDialog from 가져오기 ▸ Import SQL', async () => {
+  it('opens the SqlImportDialog from Import ▸ Import SQL', async () => {
     mockLoadedProject('Table users {\n  id integer [pk]\n}')
     const user = setup()
     renderEditor()
 
     expect(screen.queryByTestId('sql-import-dialog-stub')).toBeNull()
     await openImportMenu(user)
-    await user.click(await screen.findByRole('menuitem', { name: 'Import SQL' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'SQL 가져오기' }))
     expect(screen.getByTestId('sql-import-dialog-stub')).toBeInTheDocument()
   })
 
@@ -558,7 +602,7 @@ describe('EditorPage — SQL import wiring (DBML header)', () => {
     renderEditor()
 
     await openImportMenu(user)
-    await user.click(await screen.findByRole('menuitem', { name: 'Import SQL' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'SQL 가져오기' }))
     expect(screen.getByTestId('has-existing')).toHaveTextContent('true')
   })
 
@@ -568,7 +612,7 @@ describe('EditorPage — SQL import wiring (DBML header)', () => {
     renderEditor()
 
     await openImportMenu(user)
-    await user.click(await screen.findByRole('menuitem', { name: 'Import SQL' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'SQL 가져오기' }))
     await user.click(screen.getByRole('button', { name: 'fire-import' }))
 
     await waitFor(() =>
@@ -616,13 +660,14 @@ describe('EditorPage — DB Sync wiring', () => {
       },
     )
     vi.spyOn(dbImport, 'DbConnectDialog').mockImplementation(
-      (props: { open: boolean; onIntrospected: (d: string, n: string) => void }) =>
+      (props: { open: boolean; onIntrospected: (d: string, n: string, s: string[]) => void }) =>
         props.open ? (
           <button
             onClick={() =>
               props.onIntrospected(
                 'Table synced {\n  id int [pk]\n}',
                 'db',
+                [],
               )
             }
           >
@@ -632,43 +677,51 @@ describe('EditorPage — DB Sync wiring', () => {
     )
   })
 
-  it('confirm path: Replace replaces the DBML and shows the synced table', async () => {
+  it('confirm path: Sync merges the DBML and shows the synced table', async () => {
     mockLoadedProject('Table old {\n  id int [pk]\n}')
     const user = setup()
     renderEditor()
+
+    // tablelist를 검증하려면 정보 패널을 연다(기본 hidden).
+    await user.click(screen.getByTestId('info-panel-button'))
 
     await openImportMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: 'DB에서 동기화' }))
     await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
 
-    expect(screen.getByText(/sync from database\?/i)).toBeInTheDocument()
+    expect(screen.getByText(/데이터베이스에서 동기화할까요/)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /replace/i }))
+    await user.click(screen.getByRole('button', { name: '동기화' }))
 
-    await waitFor(() =>
-      expect(screen.getByTestId('tablelist-row-synced')).toBeInTheDocument(),
-    )
+    await waitFor(() => {
+      expandAllGroups() // groups collapse by default; reveal rows once parsed
+      expect(screen.getByTestId('tablelist-row-synced')).toBeInTheDocument()
+    })
     expect(screen.queryByTestId('tablelist-row-old')).toBeNull()
   })
 
-  it('cancel path: Cancel on confirm dialog does NOT replace the DBML', async () => {
+  it('cancel path: Cancel on confirm dialog does NOT change the DBML', async () => {
     mockLoadedProject('Table old {\n  id int [pk]\n}')
     const user = setup()
     renderEditor()
+
+    // tablelist를 검증하려면 정보 패널을 연다(기본 hidden).
+    await user.click(screen.getByTestId('info-panel-button'))
 
     await openImportMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: 'DB에서 동기화' }))
     await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
 
-    expect(screen.getByText(/sync from database\?/i)).toBeInTheDocument()
+    expect(screen.getByText(/데이터베이스에서 동기화할까요/)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+    await user.click(screen.getByRole('button', { name: /^취소$/ }))
 
-    expect(screen.queryByText(/sync from database\?/i)).toBeNull()
+    expect(screen.queryByText(/데이터베이스에서 동기화할까요/)).toBeNull()
 
-    await waitFor(() =>
-      expect(screen.getByTestId('tablelist-row-old')).toBeInTheDocument(),
-    )
+    await waitFor(() => {
+      expandAllGroups() // groups collapse by default; reveal rows once parsed
+      expect(screen.getByTestId('tablelist-row-old')).toBeInTheDocument()
+    })
     expect(screen.queryByTestId('tablelist-row-synced')).toBeNull()
   })
 })
