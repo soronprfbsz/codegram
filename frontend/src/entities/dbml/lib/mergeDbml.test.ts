@@ -158,4 +158,37 @@ describe('mergeDbml multi-schema', () => {
     expect(merged2.tables.map((t) => t.id)).not.toContain('public.stale')
     expect(merged2.tables.map((t) => t.id)).toContain('sales.orders')
   })
+
+  it('preserves non-synced tables even when a cross-schema FK auto-reflects another non-synced table into incoming', () => {
+    const current = `Table "public"."orders" {
+  id int [pk]
+  customer_id int
+}
+Table "sales"."customers" {
+  id int [pk]
+}
+Table "sales"."products" {
+  id int [pk]
+}
+Ref: "public"."orders".customer_id > "sales"."customers".id
+`
+    // Syncing public: SQLAlchemy auto-reflects sales.customers into incoming (the FK
+    // target), but NOT sales.products (no FK from public). Pre-fix, the duplicate
+    // sales.customers makes the merge throw and fall back to incoming, losing products.
+    const incoming = `Table "public"."orders" {
+  id int [pk]
+  customer_id int
+  note varchar
+}
+Table "sales"."customers" {
+  id int [pk]
+}
+Ref: "public"."orders".customer_id > "sales"."customers".id
+`
+    const merged = schema(mergeDbml(current, incoming, ['public']))
+    const ids = merged.tables.map((t) => t.id)
+    expect(ids).toContain('sales.products')       // preserved (the bug dropped this)
+    expect(ids.filter((id) => id === 'sales.customers')).toHaveLength(1) // exactly once, no dup
+    expect(ids).toContain('public.orders')         // synced, updated
+  })
 })

@@ -14,6 +14,9 @@ import { Parser, ModelExporter } from '@dbml/core'
  *
  * `syncedSchemas` controls which schemas are governed by this sync. Tables/enums/refs
  * belonging to schemas NOT in `syncedSchemas` are preserved from CURRENT verbatim.
+ * Any non-synced entities that SQLAlchemy auto-reflected into INCOMING (e.g. a
+ * cross-schema FK target) are filtered out before appending the CURRENT overlay so
+ * that parseJSONToDatabase never sees a duplicate and falls back to losing the data.
  * Empty `syncedSchemas` → infer from INCOMING's schema set (legacy behavior).
  *
  * Works at @dbml/core's rawDb JSON level, then re-emits canonical DBML via
@@ -94,18 +97,27 @@ export function mergeDbml(
       }
     }
 
-    // Preserve everything from schemas NOT being synced: their tables aren't in
-    // `incoming`, so without this they'd be silently dropped.
+    // Within synced schemas, `incoming` is the structural truth. Drop anything
+    // SQLAlchemy auto-reflected from a NON-synced schema (e.g. a cross-schema FK
+    // target) — those come from `current` (the authoritative overlay) below, so
+    // appending them again would duplicate and make parseJSONToDatabase throw.
+    rawNew.tables = (rawNew.tables ?? []).filter((t) => synced.has(schemaOf(t)))
+    rawNew.enums = (rawNew.enums ?? []).filter((e) => synced.has(schemaOf(e)))
+    rawNew.refs = (rawNew.refs ?? []).filter((r) =>
+      (r.endpoints ?? []).every((ep) => synced.has(ep.schemaName ?? 'public')),
+    )
+
+    // Now append the authoritative non-synced overlay from `current`.
     const preservedTables = (rawOld.tables ?? []).filter(
       (t) => !synced.has(schemaOf(t)),
     )
-    rawNew.tables = [...(rawNew.tables ?? []), ...preservedTables]
+    rawNew.tables = [...rawNew.tables, ...preservedTables]
     const preservedEnums = (rawOld.enums ?? []).filter(
       (e) => !synced.has(schemaOf(e)),
     )
-    rawNew.enums = [...(rawNew.enums ?? []), ...preservedEnums]
+    rawNew.enums = [...rawNew.enums, ...preservedEnums]
 
-    const finalKeys = new Set((rawNew.tables ?? []).map(keyOf))
+    const finalKeys = new Set(rawNew.tables.map(keyOf))
     // Carry refs touching a preserved (non-synced) table, when both endpoints
     // still resolve in the merged set. (Cross-schema synced↔non-synced refs may
     // not survive a partial sync; re-sync both schemas to restore them.)
@@ -114,7 +126,7 @@ export function mergeDbml(
         (r.endpoints ?? []).some((ep) => !synced.has(ep.schemaName ?? 'public')) &&
         (r.endpoints ?? []).every((ep) => finalKeys.has(epKey(ep))),
     )
-    rawNew.refs = [...(rawNew.refs ?? []), ...preservedRefs]
+    rawNew.refs = [...rawNew.refs, ...preservedRefs]
 
     // Carry table groups, dropping members absent from the FINAL table set.
     rawNew.tableGroups = (rawOld.tableGroups ?? [])
