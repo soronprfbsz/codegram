@@ -265,6 +265,37 @@ class IntrospectResult:
     table_count: int
 
 
+def list_schemas(req: IntrospectRequest) -> list[str]:
+    """Connect and list selectable PostgreSQL schemas (system schemas excluded).
+    MariaDB returns [] without connecting (the database IS the scope). SYNC —
+    run in a threadpool. Always disposes the engine."""
+    if req.dialect != "postgresql":
+        return []
+    url, connect_args, _ = build_connection_url(req)
+    engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT schema_name FROM information_schema.schemata "
+                    "WHERE schema_name NOT LIKE 'pg\\_%' "
+                    "AND schema_name <> 'information_schema' "
+                    "ORDER BY schema_name"
+                )
+            )
+            return [r.schema_name for r in rows]
+    except OperationalError as exc:
+        raise ConnectionFailedError(
+            "데이터베이스에 접속할 수 없습니다. 접속 정보를 확인하세요."
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise ConnectionFailedError(
+            "스키마 목록을 읽는 중 오류가 발생했습니다."
+        ) from exc
+    finally:
+        engine.dispose()
+
+
 def introspect_to_ddl(req: IntrospectRequest) -> IntrospectResult:
     """Connect, reflect the target schema, and emit DDL. SYNC — run in a
     threadpool from the async route. Always disposes the engine."""

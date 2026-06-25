@@ -358,3 +358,9 @@ def test_sanitize_check_constraints_noop_without_backticks():
         _CheckConstraint("price > 0", name="ck_price"),
     )
     assert _sanitize_check_constraints(md) == []
+
+
+def test_list_schemas_mariadb_returns_empty():
+    """MariaDB has no schema concept (the database is the scope) — no connect."""
+    from app.services.introspect import list_schemas
+    assert list_schemas(_req(dialect="mariadb")) == []

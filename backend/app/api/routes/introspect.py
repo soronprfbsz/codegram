@@ -9,11 +9,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.users import current_active_user
 from app.models.user import User
-from app.schemas.introspect import IntrospectRequest, IntrospectResponse
+from app.schemas.introspect import (
+    IntrospectRequest,
+    IntrospectResponse,
+    SchemaListResponse,
+)
 from app.services.introspect import (
     ConnectionFailedError,
     NoTablesFoundError,
     introspect_to_ddl,
+    list_schemas,
 )
 
 router = APIRouter(prefix="/introspect", tags=["introspect"])
@@ -42,3 +47,20 @@ async def introspect(
         ddl=result.ddl,
         table_count=result.table_count,
     )
+
+
+@router.post("/schemas", response_model=SchemaListResponse)
+async def schemas(
+    payload: IntrospectRequest,
+    user: User = Depends(current_active_user),
+) -> SchemaListResponse:
+    """List selectable schemas for the target DB (PostgreSQL; MariaDB → [])."""
+    try:
+        names = await anyio.to_thread.run_sync(
+            list_schemas, payload, abandon_on_cancel=True
+        )
+    except ConnectionFailedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)
+        ) from None
+    return SchemaListResponse(schemas=names)

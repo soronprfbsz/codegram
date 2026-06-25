@@ -32,3 +32,9 @@ class IntrospectResponse(BaseModel):
     import_dialect: Literal["postgres", "mysql"]
     ddl: str
     table_count: int
+
+
+class SchemaListResponse(BaseModel):
+    """Backend returns the selectable schema names (PostgreSQL)."""
+
+    schemas: list[str]
