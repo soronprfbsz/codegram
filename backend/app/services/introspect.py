@@ -8,11 +8,12 @@ import os
 import ssl as ssl_module
 from dataclasses import dataclass
 
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.engine import Connection, URL
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
-from sqlalchemy.schema import CreateIndex, CreateTable
+from sqlalchemy.schema import CheckConstraint, CreateIndex, CreateTable
 from sqlalchemy.types import NullType, Text, UserDefinedType
 
 from app.schemas.introspect import IntrospectRequest
@@ -122,19 +123,47 @@ def build_connection_url(
     return url, connect_args, _IMPORT_DIALECT[req.dialect]
 
 
-def effective_schema(req: IntrospectRequest) -> str | None:
-    """PostgreSQL target namespace (default `public`); MariaDB scope is the
-    connected database, so reflection uses schema=None there."""
+def reflect_schemas(req: IntrospectRequest) -> list[str | None]:
+    """Schemas to reflect. PostgreSQL: the selected namespaces (default
+    ["public"]). MariaDB: [None] — the connected database IS the scope, so a
+    single schema=None reflection covers it."""
     if req.dialect == "postgresql":
-        return req.db_schema or "public"
-    return None
+        return list(req.db_schemas) if req.db_schemas else ["public"]
+    return [None]
+
+
+def _enum_type_ddls(metadata: MetaData, dialect: Dialect) -> list[str]:
+    """`CREATE TYPE <name> AS ENUM (...)` for every distinct NAMED enum type used
+    by a reflected column. Postgres native enums reflect as named types that
+    CreateTable references by name but never defines, so without emitting their
+    definition @dbml/core sees a bare type name and the enum's values are lost
+    (no Enum block is produced). MySQL/MariaDB inline enums have no type name and
+    are skipped — CreateTable already emits them inline. Emitted before the
+    tables so the type exists when a column references it."""
+    preparer = dialect.identifier_preparer
+    seen: dict[tuple[str | None, str], list[str]] = {}
+    for table in metadata.tables.values():
+        for column in table.columns:
+            col_type = column.type
+            name = getattr(col_type, "name", None)
+            values = getattr(col_type, "enums", None)
+            if isinstance(col_type, SAEnum) and name and values:
+                seen.setdefault((getattr(col_type, "schema", None), name), list(values))
+    ddls: list[str] = []
+    for (_schema, name), values in seen.items():
+        # Unqualified to match how CreateTable renders the column's type name.
+        qname = preparer.quote(name)
+        vals = ", ".join("'" + v.replace("'", "''") + "'" for v in values)
+        ddls.append(f"CREATE TYPE {qname} AS ENUM ({vals});")
+    return ddls
 
 
 def build_ddl(metadata: MetaData, dialect: Dialect) -> str:
     """Emit dialect DDL for every reflected table: CREATE TABLE (PK/FK/UQ/NN
-    inline) followed by its secondary indexes. Tables are FK-sorted so the
-    output reads top-down; @dbml/core resolves refs regardless of order."""
-    parts: list[str] = []
+    inline) followed by its secondary indexes, preceded by CREATE TYPE for any
+    named enum types. Tables are FK-sorted so the output reads top-down;
+    @dbml/core resolves refs regardless of order."""
+    parts: list[str] = _enum_type_ddls(metadata, dialect)
     for table in metadata.sorted_tables:
         parts.append(str(CreateTable(table).compile(dialect=dialect)).strip() + ";")
         for index in sorted(table.indexes, key=lambda i: i.name or ""):
@@ -193,6 +222,31 @@ def _patch_unknown_types(
     return patched
 
 
+def _sanitize_check_constraints(metadata: MetaData) -> list[str]:
+    """Strip backtick-quoted identifiers out of reflected CHECK clauses.
+
+    MariaDB reflects a CHECK clause with its identifiers backtick-quoted, e.g.
+    the expression  `DAY_OF_MONTH` between 1 and 31  (DAY_OF_MONTH in backticks).
+    @dbml/core then wraps the WHOLE clause in backticks to emit a DBML check
+    expression, producing nested backticks its own parser rejects ("A check
+    field must be a function expression"). A DBML check expression is a single
+    backtick-wrapped raw expression (dbdiagram, 2025-11), so removing the inner
+    backticks keeps the constraint AND yields parseable DBML. Postgres checks
+    carry no backticks, so this is a no-op there. Mutates metadata in place;
+    returns the sanitized table.constraint identifiers for logging.
+    """
+    cleaned: list[str] = []
+    for table in metadata.tables.values():
+        for constraint in table.constraints:
+            if not isinstance(constraint, CheckConstraint):
+                continue
+            original = str(constraint.sqltext)
+            if "`" in original:
+                constraint.sqltext = text(original.replace("`", ""))
+                cleaned.append(f"{table.name}.{constraint.name or 'check'}")
+    return cleaned
+
+
 class IntrospectError(Exception):
     """Base for introspection failures surfaced to the user."""
 
@@ -241,6 +295,13 @@ def introspect_to_ddl(req: IntrospectRequest) -> IntrospectResult:
                 "introspect: patched %d unrecognized column type(s): %s",
                 len(patched),
                 ", ".join(patched),
+            )
+        sanitized = _sanitize_check_constraints(metadata)
+        if sanitized:
+            logger.info(
+                "introspect: sanitized %d CHECK constraint(s) for DBML: %s",
+                len(sanitized),
+                ", ".join(sanitized),
             )
         return IntrospectResult(
             import_dialect=import_dialect,

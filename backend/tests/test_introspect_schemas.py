@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from app.schemas.introspect import IntrospectRequest, IntrospectResponse
 
 
-def test_request_defaults_and_db_schema_field():
+def test_request_defaults_and_db_schemas_field():
     req = IntrospectRequest(
         dialect="postgresql",
         host="db.example.com",
@@ -14,11 +14,11 @@ def test_request_defaults_and_db_schema_field():
         password="p",
         database="app",
     )
-    assert req.db_schema is None
+    assert req.db_schemas is None
     assert req.ssl is False
-    # `schema` must NOT be a field (it shadows BaseModel); the field is db_schema.
+    # `schema` must NOT be a field (it shadows BaseModel); the field is db_schemas.
     assert "schema" not in IntrospectRequest.model_fields
-    assert "db_schema" in IntrospectRequest.model_fields
+    assert "db_schemas" in IntrospectRequest.model_fields
     assert (
         IntrospectRequest(
             dialect="postgresql",
@@ -27,9 +27,9 @@ def test_request_defaults_and_db_schema_field():
             username="u",
             password="p",
             database="app",
-            db_schema="sales",
-        ).db_schema
-        == "sales"
+            db_schemas=["public", "sales"],
+        ).db_schemas
+        == ["public", "sales"]
     )
 
 

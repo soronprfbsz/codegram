@@ -2,7 +2,7 @@
 from app.schemas.introspect import IntrospectRequest
 from app.services.introspect import (
     build_connection_url,
-    effective_schema,
+    reflect_schemas,
 )
 
 
@@ -52,10 +52,12 @@ def test_postgres_password_is_url_encoded():
     assert "p%40ss%2Fword" in url.render_as_string(hide_password=False)
 
 
-def test_effective_schema():
-    assert effective_schema(_req()) == "public"
-    assert effective_schema(_req(db_schema="sales")) == "sales"
-    assert effective_schema(_req(dialect="mariadb")) is None
+def test_reflect_schemas_postgres_and_mariadb():
+    from app.services.introspect import reflect_schemas
+    assert reflect_schemas(_req()) == ["public"]
+    assert reflect_schemas(_req(db_schemas=[])) == ["public"]
+    assert reflect_schemas(_req(db_schemas=["public", "sales"])) == ["public", "sales"]
+    assert reflect_schemas(_req(dialect="mariadb")) == [None]
 
 
 from sqlalchemy import create_engine, text, MetaData
@@ -102,6 +104,48 @@ def test_build_ddl_mysql_dialect_parameterized():
     assert "posts" in ddl
     assert "PRIMARY KEY" in ddl
     assert "FOREIGN KEY" in ddl
+
+
+def _metadata_with_named_enum() -> MetaData:
+    """A table with a NAMED enum column, like a reflected Postgres enum."""
+    from sqlalchemy import BigInteger, Column, Enum, Table
+
+    md = MetaData()
+    Table(
+        "failed_auth_attempts",
+        md,
+        Column("attempt_id", BigInteger, primary_key=True),
+        Column(
+            "failure_reason",
+            Enum("bad_password", "user_not_found", name="failure_reason_t"),
+        ),
+    )
+    return md
+
+
+def test_build_ddl_emits_create_type_for_named_enum():
+    ddl = build_ddl(_metadata_with_named_enum(), postgresql.dialect())
+    # The enum type is defined (values preserved) so @dbml/core makes an Enum block.
+    assert "CREATE TYPE" in ddl
+    assert "failure_reason_t" in ddl
+    assert "'bad_password'" in ddl
+    assert "'user_not_found'" in ddl
+    # CREATE TYPE precedes the CREATE TABLE that references it.
+    assert ddl.index("CREATE TYPE") < ddl.index("CREATE TABLE")
+
+
+def test_build_ddl_escapes_single_quotes_in_enum_values():
+    from sqlalchemy import Column, Integer, Enum, Table
+
+    md = MetaData()
+    Table(
+        "t",
+        md,
+        Column("id", Integer, primary_key=True),
+        Column("label", Enum("it's", "ok", name="label_t")),
+    )
+    ddl = build_ddl(md, postgresql.dialect())
+    assert "'it''s'" in ddl  # single quote doubled for SQL safety
 
 
 from app.services.introspect import (
@@ -245,3 +289,49 @@ def test_patch_unknown_types_leaves_known_columns_untouched():
     assert patched == []
     ddl = build_ddl(md, _pg.dialect())
     assert "INTEGER" in ddl.upper()
+
+
+from sqlalchemy import CheckConstraint as _CheckConstraint
+from app.services.introspect import _sanitize_check_constraints
+
+
+def test_sanitize_check_constraints_strips_inner_backticks():
+    """MariaDB reflects CHECK clauses with backtick-quoted identifiers; the
+    sanitizer must remove those backticks so @dbml/core emits a valid single-
+    backtick DBML check expression (instead of unparseable nested backticks)."""
+    md = MetaData()
+    Table(
+        "SMS_EX_TIME_SCHEDULE_MONTHLY",
+        md,
+        Column("DAY_OF_MONTH", Integer, nullable=False),
+        _CheckConstraint("`DAY_OF_MONTH` between 1 and 31", name="CONSTRAINT_1"),
+    )
+
+    cleaned = _sanitize_check_constraints(md)
+    assert cleaned == ["SMS_EX_TIME_SCHEDULE_MONTHLY.CONSTRAINT_1"]
+
+    checks = [
+        c
+        for c in md.tables["SMS_EX_TIME_SCHEDULE_MONTHLY"].constraints
+        if isinstance(c, _CheckConstraint)
+    ]
+    assert len(checks) == 1
+    text_after = str(checks[0].sqltext)
+    assert "`" not in text_after
+    assert "DAY_OF_MONTH between 1 and 31" in text_after
+
+    # The CHECK is preserved (not dropped) and emits cleanly in the DDL.
+    ddl = build_ddl(md, mysql.dialect())
+    assert "DAY_OF_MONTH between 1 and 31" in ddl
+
+
+def test_sanitize_check_constraints_noop_without_backticks():
+    """Postgres-style checks carry no backticks — the sanitizer leaves them be."""
+    md = MetaData()
+    Table(
+        "t",
+        md,
+        Column("price", Integer, nullable=False),
+        _CheckConstraint("price > 0", name="ck_price"),
+    )
+    assert _sanitize_check_constraints(md) == []

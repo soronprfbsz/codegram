@@ -1,8 +1,8 @@
 """DTOs for DB introspection (transient — no persistence). See ADR-0008.
 
-`db_schema` (not `schema`) names the target PostgreSQL namespace: `schema`
-would shadow a pydantic BaseModel attribute. MariaDB ignores it (the connected
-database IS the scope).
+`db_schemas` names the target PostgreSQL namespaces: `schema` would shadow a
+pydantic BaseModel attribute. MariaDB ignores it (the connected database IS the
+scope).
 """
 from typing import Literal
 
@@ -20,7 +20,9 @@ class IntrospectRequest(BaseModel):
     # are allowed. The value is transient and never stored.
     password: str = ""
     database: str = Field(min_length=1)
-    db_schema: str | None = None
+    # PostgreSQL: target namespaces to reflect (default ["public"]). Empty/None
+    # means ["public"]. MariaDB ignores this (the connected database IS the scope).
+    db_schemas: list[str] | None = None
     ssl: bool = False
 
 
