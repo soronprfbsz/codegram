@@ -217,11 +217,13 @@ test('db-sync: partial re-sync (public only) preserves non-synced sales schema t
   await page.getByTestId('db-connect-load-schemas').click()
   await page.getByTestId('db-connect-schema-option-public').waitFor({ state: 'visible', timeout: 10000 })
   await page.getByTestId('db-connect-schema-option-public').check()
-  // Explicitly ensure sales is NOT checked (it may appear in the list too)
+  // Precondition: sales schema must be seeded so we can verify it's genuinely
+  // excluded from the sync. If it's missing the test skips (visibly) rather than
+  // passing silently without actually exercising the preservation guarantee.
   const salesOption = page.getByTestId('db-connect-schema-option-sales')
-  if (await salesOption.isVisible()) {
-    await salesOption.uncheck()
-  }
+  const salesVisible = await salesOption.isVisible().catch(() => false)
+  test.skip(!salesVisible, 'sales schema not seeded in target DB — preservation precondition unmet')
+  await salesOption.uncheck() // ensure public-only selection (sales explicitly excluded)
 
   // ── Connect (introspect public only) ──────────────────────────────────────
   const introspectResponse = page.waitForResponse(
