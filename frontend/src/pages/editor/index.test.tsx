@@ -667,7 +667,7 @@ describe('EditorPage — DB Sync wiring', () => {
               props.onIntrospected(
                 'Table synced {\n  id int [pk]\n}',
                 'db',
-                [],
+                ['public'],
               )
             }
           >
@@ -697,6 +697,31 @@ describe('EditorPage — DB Sync wiring', () => {
       expandAllGroups() // groups collapse by default; reveal rows once parsed
       expect(screen.getByTestId('tablelist-row-synced')).toBeInTheDocument()
     })
+    expect(screen.queryByTestId('tablelist-row-old')).toBeNull()
+  })
+
+  it('confirm path: non-synced schema tables are preserved after sync', async () => {
+    // initial project has a `private` schema table — not in syncedSchemas (['public'])
+    mockLoadedProject(
+      'Table "private"."kept" {\n  id int [pk]\n}\nTable "public"."old" {\n  id int [pk]\n}',
+    )
+    const user = setup()
+    renderEditor()
+
+    await user.click(screen.getByTestId('info-panel-button'))
+
+    await openImportMenu(user)
+    await user.click(await screen.findByRole('menuitem', { name: 'DB에서 동기화' }))
+    await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
+    await user.click(screen.getByRole('button', { name: '동기화' }))
+
+    await waitFor(() => {
+      expandAllGroups()
+      expect(screen.getByTestId('tablelist-row-synced')).toBeInTheDocument()
+    })
+    // private.kept survives because 'private' was not in syncedSchemas
+    expect(screen.getByTestId('tablelist-row-kept')).toBeInTheDocument()
+    // public.old is removed (synced schema, not in incoming)
     expect(screen.queryByTestId('tablelist-row-old')).toBeNull()
   })
 

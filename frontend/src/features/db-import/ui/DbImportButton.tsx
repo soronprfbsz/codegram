@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { useCreateProject } from '@/entities/project'
 import { Button } from '@/shared/ui/button'
 import { DbConnectDialog } from './DbConnectDialog'
@@ -12,13 +13,14 @@ import { DbConnectDialog } from './DbConnectDialog'
  * + this feature's dialog (FSD downward imports).
  */
 export function DbImportButton() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const createProject = useCreateProject()
   const [open, setOpen] = useState(false)
 
-  async function handleIntrospected(dbml: string, databaseName: string) {
+  async function handleIntrospected(dbml: string, databaseName: string, _schemas?: string[]) {
     const created = await createProject.mutateAsync({
-      name: databaseName || 'Imported database',
+      name: databaseName || t('dbConnect.importedName'),
       dbml_text: dbml,
     })
     navigate(`/editor/${created.id}`)
@@ -27,7 +29,7 @@ export function DbImportButton() {
   return (
     <>
       <Button variant="outline" onClick={() => setOpen(true)}>
-        Connect to Database
+        {t('dbConnect.button')}
       </Button>
       <DbConnectDialog
         open={open}

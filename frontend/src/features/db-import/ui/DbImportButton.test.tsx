@@ -1,5 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
+import i18n from '@/shared/i18n'
 import { render, screen } from '@testing-library/react'
+
+// 이 스위트는 영어 라벨/문구를 단언하므로 인터페이스 언어를 en으로 고정한다.
+beforeAll(async () => {
+  await i18n.changeLanguage('en')
+})
 import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event'
 import { DbImportButton } from './DbImportButton'
 
