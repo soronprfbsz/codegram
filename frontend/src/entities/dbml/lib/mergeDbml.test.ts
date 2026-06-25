@@ -151,9 +151,8 @@ describe('mergeDbml multi-schema', () => {
   })
 
   it('still drops tables removed from a synced schema', () => {
-    const merged = schema(mergeDbml(CURRENT_MULTI, INCOMING_PUBLIC, ['public']))
-    // public had only `users`; nothing public was dropped here, but a public
-    // table absent from incoming must not survive:
+    // A public table absent from incoming must not survive, while the
+    // non-synced sales schema is preserved.
     const current2 = CURRENT_MULTI + '\nTable "public"."stale" {\n  id int [pk]\n}\n'
     const merged2 = schema(mergeDbml(current2, INCOMING_PUBLIC, ['public']))
     expect(merged2.tables.map((t) => t.id)).not.toContain('public.stale')
