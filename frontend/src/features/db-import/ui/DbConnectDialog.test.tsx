@@ -140,10 +140,12 @@ describe('DbConnectDialog', () => {
 
   it('disables Connect when the port is cleared', async () => {
     const user = setup()
+    listSchemasMutateAsync.mockResolvedValueOnce({ schemas: ['public'] })
     render(
       <DbConnectDialog open onOpenChange={vi.fn()} onIntrospected={vi.fn()} />,
     )
     await fillRequired(user)
+    await user.click(screen.getByTestId('db-connect-load-schemas'))
     await user.clear(screen.getByTestId('db-connect-port'))
     expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled()
   })
@@ -165,11 +167,16 @@ describe('DbConnectDialog', () => {
     await user.click(screen.getByTestId('db-connect-load-schemas'))
     // both checkboxes appear
     expect(screen.getByTestId('db-connect-schema-option-public')).toBeInTheDocument()
+    // public is auto-checked
+    expect(screen.getByTestId('db-connect-schema-option-public')).toBeChecked()
     // public is pre-selected, select sales in addition
     await user.click(screen.getByTestId('db-connect-schema-option-sales'))
     await user.click(screen.getByRole('button', { name: 'Connect' }))
     expect(onIntrospected).toHaveBeenCalledTimes(1)
     const [, , schemas] = onIntrospected.mock.calls[0]
     expect(schemas).toEqual(expect.arrayContaining(['public', 'sales']))
+    const sentReq = mutateAsync.mock.calls[0][0]
+    expect(sentReq.db_schemas).toEqual(expect.arrayContaining(['public', 'sales']))
+    expect(sentReq.db_schemas).toHaveLength(2)
   })
 })

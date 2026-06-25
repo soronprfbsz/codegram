@@ -241,6 +241,7 @@ export function DbConnectDialog({
                   disabled={
                     listSchemas.isPending ||
                     host.trim().length === 0 ||
+                    username.trim().length === 0 ||
                     database.trim().length === 0
                   }
                 >
