@@ -85,6 +85,15 @@ test('Table Doc Excel/PDF download non-empty files via the worker', async ({ pag
   expect(await streamSize(await pdf.createReadStream())).toBeGreaterThan(0)
 })
 
+test('Table Doc Word downloads a non-empty .docx via the worker', async ({ page }) => {
+  await registerAndLogin(page, `export-word-${Date.now()}@example.com`)
+  await openEditorWithProject(page)
+
+  const docx = await downloadFromMenu(page, '테이블 정의서 Word')
+  expect(docx.suggestedFilename()).toBe('table-definition.docx')
+  expect(await streamSize(await docx.createReadStream())).toBeGreaterThan(0)
+})
+
 test('opens the HTML table-definition preview from the Export menu', async ({ page }) => {
   await registerAndLogin(page, `export-preview-${Date.now()}@example.com`)
   await openEditorWithProject(page)
