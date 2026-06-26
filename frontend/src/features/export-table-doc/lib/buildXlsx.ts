@@ -1,20 +1,11 @@
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { columnRow, type TableDocModel } from '@/entities/table-doc'
 import type { TableDocLabels } from './labels'
+import { HEADER_FILL, HEADER_TEXT, GRID_BORDER, STANDARD_COLUMN_WIDTHS } from './tableDocStyle'
 
-/** Excel worksheet names are capped at 31 characters. */
 const MAX_SHEET_NAME = 31
+const clampSheetName = (name: string): string => name.slice(0, MAX_SHEET_NAME)
 
-function clampSheetName(name: string): string {
-  return name.slice(0, MAX_SHEET_NAME)
-}
-
-/**
- * Produce a unique worksheet name ≤31 chars. `book_append_sheet` THROWS on a
- * duplicate name, and two valid tables can collide after clamping (cross-schema
- * same name, or two names sharing the first 31 chars). On collision, append a
- * `~N` suffix, trimming the base so the total stays within the 31-char limit.
- */
 function uniqueSheetName(name: string, used: Set<string>): string {
   let candidate = clampSheetName(name)
   let n = 2
@@ -27,51 +18,68 @@ function uniqueSheetName(name: string, used: Set<string>): string {
   return candidate
 }
 
+const thin = { style: 'thin' as const, color: { argb: `FF${GRID_BORDER}` } }
+const BORDER = { top: thin, left: thin, bottom: thin, right: thin }
+
+/** Style the first row of a worksheet as a header (fill + bold white + border). */
+function styleHeader(row: ExcelJS.Row): void {
+  row.eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${HEADER_FILL}` } }
+    cell.font = { bold: true, color: { argb: `FF${HEADER_TEXT}` } }
+    cell.border = BORDER
+  })
+}
+
+/** Apply grid borders to every cell of a data row. */
+function borderRow(row: ExcelJS.Row): void {
+  row.eachCell((cell) => {
+    cell.border = BORDER
+  })
+}
+
 /**
- * Pure: build an .xlsx Blob from the derived table-doc model. One worksheet
- * per table (sheet name = table name, clamped to 31 chars and de-duplicated),
- * holding the standard column set, plus a final `Enums` sheet. No download,
- * no React.
+ * Build a styled .xlsx Blob from the derived table-doc model: one worksheet per
+ * table (header row + standard columns + an optional CHECK section), plus a
+ * trailing Enums sheet. Header rows carry the shared fill/bold style; standard
+ * columns get widths from STANDARD_COLUMN_WIDTHS. Async because exceljs writes
+ * the buffer asynchronously. No download, no React.
  */
-export function buildTableDocXlsxBlob(model: TableDocModel, labels: TableDocLabels): Blob {
-  const workbook = XLSX.utils.book_new()
-  // Reserve the trailing enums sheet name so a table with that name is
-  // de-duplicated instead of colliding with it.
-  const usedSheetNames = new Set<string>([labels.enumsSheet])
+export async function buildTableDocXlsxBlob(
+  model: TableDocModel,
+  labels: TableDocLabels,
+): Promise<Blob> {
+  const wb = new ExcelJS.Workbook()
+  const used = new Set<string>([labels.enumsSheet])
 
   for (const table of model.tables) {
-    const aoa: string[][] = [
-      [...labels.columnHeaders],
-      ...table.columns.map(columnRow),
-    ]
-    // CHECK constraints: appended below the columns in the same sheet (blank-row
-    // separated, then a titled header) so the export matches the HTML preview.
+    const ws = wb.addWorksheet(uniqueSheetName(table.name, used))
+    ws.columns = STANDARD_COLUMN_WIDTHS.map((w) => ({ width: w }))
+
+    const header = ws.addRow([...labels.columnHeaders])
+    styleHeader(header)
+    for (const col of table.columns) borderRow(ws.addRow(columnRow(col)))
+
     const checks = Array.isArray(table.checks) ? table.checks : []
     if (checks.length > 0) {
-      aoa.push([], [labels.checks])
-      aoa.push([labels.checkName, labels.checkValues, labels.checkExpression])
+      ws.addRow([])
+      const checkHeader = ws.addRow([labels.checkName, labels.checkValues, labels.checkExpression])
+      styleHeader(checkHeader)
       for (const chk of checks) {
-        aoa.push([chk.name, chk.values.join(', '), chk.expression])
+        borderRow(ws.addRow([chk.name, chk.values.join(', '), chk.expression]))
       }
     }
-    const sheet = XLSX.utils.aoa_to_sheet(aoa)
-    XLSX.utils.book_append_sheet(
-      workbook,
-      sheet,
-      uniqueSheetName(table.name, usedSheetNames),
-    )
   }
 
-  const enumAoa: string[][] = [[labels.enumColEnum, labels.enumColValue, labels.enumColNote]]
+  const enumWs = wb.addWorksheet(clampSheetName(labels.enumsSheet))
+  enumWs.columns = [{ width: 28 }, { width: 22 }, { width: 30 }]
+  styleHeader(enumWs.addRow([labels.enumColEnum, labels.enumColValue, labels.enumColNote]))
   for (const en of model.enums) {
     for (const value of en.values) {
-      enumAoa.push([`${en.schema}.${en.name}`, value.name, value.note])
+      borderRow(enumWs.addRow([`${en.schema}.${en.name}`, value.name, value.note]))
     }
   }
-  const enumSheet = XLSX.utils.aoa_to_sheet(enumAoa)
-  XLSX.utils.book_append_sheet(workbook, enumSheet, clampSheetName(labels.enumsSheet))
 
-  const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+  const buffer = await wb.xlsx.writeBuffer()
   return new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })

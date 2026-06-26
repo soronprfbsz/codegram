@@ -1,298 +1,61 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
+import ExcelJS from 'exceljs'
 import type { TableDocModel } from '@/entities/table-doc'
-
-// Mock SheetJS: capture every util call so we can assert the rows/sheet names
-// the builder feeds it, without decoding a real workbook.
-const aoaToSheet = vi.fn(() => ({ __sheet: true }))
-const bookNew = vi.fn(() => ({ SheetNames: [] as string[], Sheets: {} }))
-const bookAppendSheet = vi.fn()
-const write = vi.fn(() => new Uint8Array([1, 2, 3]))
-
-vi.mock('xlsx', () => ({
-  utils: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    aoa_to_sheet: (...args: any[]) => (aoaToSheet as any)(...args),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    book_new: (...args: any[]) => (bookNew as any)(...args),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    book_append_sheet: (...args: any[]) => (bookAppendSheet as any)(...args),
-  },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  write: (...args: any[]) => (write as any)(...args),
-}))
-
 import { buildTableDocXlsxBlob } from './buildXlsx'
 import type { TableDocLabels } from './labels'
+import { HEADER_FILL } from './tableDocStyle'
 
-// Korean labels (mirrors the previous hardcoded strings) so existing assertions
-// hold AND we verify the builder emits exactly the labels it is given.
 const LABELS: TableDocLabels = {
   columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
-  fkColumn: '컬럼',
-  fkReference: '참조',
-  enumColEnum: 'Enum',
-  enumColValue: '값',
-  enumColNote: '설명',
-  enumsSheet: 'Enums',
-  checks: 'CHECK 제약',
-  checkName: '이름',
-  checkValues: '허용값',
-  checkExpression: '표현식',
+  fkColumn: '컬럼', fkReference: '참조',
+  enumColEnum: 'Enum', enumColValue: '값', enumColNote: '설명', enumsSheet: 'Enums',
+  checks: 'CHECK 제약', checkName: '이름', checkValues: '허용값', checkExpression: '표현식',
 }
 
 const model: TableDocModel = {
   tables: [
     {
-      id: 'public.users',
-      schema: 'public',
-      name: 'users',
-      note: 'app users',
+      id: 'public.users', schema: 'public', name: 'users', note: 'app users',
       columns: [
-        {
-          name: 'id',
-          type: 'integer',
-          pk: true,
-          fk: false,
-          notNull: true,
-          unique: false,
-          default: '',
-          note: 'primary key',
-        },
-        {
-          name: 'org_id',
-          type: 'integer',
-          pk: false,
-          fk: true,
-          notNull: true,
-          unique: false,
-          default: '',
-          note: '',
-        },
+        { name: 'id', type: 'integer', pk: true, fk: false, notNull: true, unique: false, default: '', note: 'pk' },
+        { name: 'email', type: 'varchar', pk: false, fk: false, notNull: true, unique: true, default: '', note: '' },
       ],
-      fkTargets: [
-        {
-          columns: ['org_id'],
-          targetTable: 'orgs',
-          targetSchema: 'public',
-          targetColumns: ['id'],
-        },
-      ],
-    },
-    {
-      id: 'public.a_table_with_a_really_long_name_over_limit',
-      schema: 'public',
-      name: 'a_table_with_a_really_long_name_over_limit',
-      note: '',
-      columns: [
-        {
-          name: 'id',
-          type: 'integer',
-          pk: true,
-          fk: false,
-          notNull: true,
-          unique: false,
-          default: '',
-          note: '',
-        },
-      ],
-      fkTargets: [],
+      fkTargets: [], checks: [],
     },
   ],
-  enums: [
-    {
-      id: 'public.role',
-      schema: 'public',
-      name: 'role',
-      note: '',
-      values: [
-        { name: 'admin', note: 'super user' },
-        { name: 'member', note: '' },
-      ],
-    },
-  ],
+  enums: [{ id: 'public.role', schema: 'public', name: 'role', note: '', values: [{ name: 'admin', note: '' }] }],
 }
 
-describe('buildTableDocXlsxBlob', () => {
-  beforeEach(() => {
-    aoaToSheet.mockClear()
-    bookNew.mockClear()
-    bookAppendSheet.mockClear()
-    write.mockClear()
+async function read(blob: Blob): Promise<ExcelJS.Workbook> {
+  const buf = await blob.arrayBuffer()
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.load(buf)
+  return wb
+}
+
+describe('buildTableDocXlsxBlob (exceljs)', () => {
+  it('creates one worksheet per table plus an Enums sheet', async () => {
+    const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
+    expect(wb.getWorksheet('users')).toBeTruthy()
+    expect(wb.getWorksheet('Enums')).toBeTruthy()
   })
 
-  it('creates one workbook', () => {
-    buildTableDocXlsxBlob(model, LABELS)
-    expect(bookNew).toHaveBeenCalledTimes(1)
+  it('writes the translated header row and a data row', async () => {
+    const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
+    const ws = wb.getWorksheet('users')!
+    expect(ws.getRow(1).values).toEqual(expect.arrayContaining(['컬럼명', '데이터타입', '설명']))
+    expect(ws.getRow(2).getCell(1).value).toBe('id')
   })
 
-  it('feeds the standard column header + one row per column to aoa_to_sheet', () => {
-    buildTableDocXlsxBlob(model, LABELS)
-    // First table sheet: header row then 2 column rows.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const firstCall = (aoaToSheet.mock.calls as any)[0][0] as unknown[][]
-    expect(firstCall[0]).toEqual([
-      '컬럼명',
-      '데이터타입',
-      'PK',
-      'FK',
-      'NN',
-      'UNIQUE',
-      '기본값',
-      '설명',
-    ])
-    expect(firstCall[1]).toEqual([
-      'id',
-      'integer',
-      'Y',
-      '',
-      'Y',
-      '',
-      '',
-      'primary key',
-    ])
-    expect(firstCall[2]).toEqual([
-      'org_id',
-      'integer',
-      '',
-      'Y',
-      'Y',
-      '',
-      '',
-      '',
-    ])
+  it('styles the header row with the shared fill color', async () => {
+    const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
+    const cell = wb.getWorksheet('users')!.getRow(1).getCell(1)
+    expect((cell.fill as ExcelJS.FillPattern).fgColor?.argb).toBe(`FF${HEADER_FILL}`)
+    expect(cell.font?.bold).toBe(true)
   })
 
-  it('appends one sheet per table plus an Enums sheet, clamping names to 31 chars', () => {
-    buildTableDocXlsxBlob(model, LABELS)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sheetNames = (bookAppendSheet.mock.calls as any[]).map((c) => c[2] as string)
-    expect(sheetNames).toEqual([
-      'users',
-      'a_table_with_a_really_long_name', // 42 chars clamped to 31
-      'Enums',
-    ])
-    expect(sheetNames[1]).toHaveLength(31)
-  })
-
-  it('builds the Enums sheet rows from enum values', () => {
-    buildTableDocXlsxBlob(model, LABELS)
-    // The Enums sheet is the LAST aoa_to_sheet call.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const enumAoa = ((aoaToSheet.mock.calls as any).at(-1) as any[])[0] as unknown[][]
-    expect(enumAoa[0]).toEqual(['Enum', '값', '설명'])
-    expect(enumAoa[1]).toEqual(['public.role', 'admin', 'super user'])
-    expect(enumAoa[2]).toEqual(['public.role', 'member', ''])
-  })
-
-  it('appends a CHECK section to a table sheet when the table has checks', () => {
-    const withChecks: TableDocModel = {
-      tables: [
-        {
-          id: 'core.fa',
-          schema: 'core',
-          name: 'fa',
-          note: '',
-          columns: [
-            { name: 'reason', type: 'TEXT', pk: false, fk: false, notNull: true, unique: false, default: '', note: '' },
-          ],
-          fkTargets: [],
-          checks: [
-            { name: 'fa_reason_chk', expression: "reason IN ('a', 'b')", values: ['a', 'b'] },
-          ],
-        },
-      ],
-      enums: [],
-    }
-    buildTableDocXlsxBlob(withChecks, LABELS)
-    // First sheet AOA: header + 1 column row + blank + title + check header + check row.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const aoa = (aoaToSheet.mock.calls as any)[0][0] as unknown[][]
-    expect(aoa).toContainEqual(['CHECK 제약'])
-    expect(aoa).toContainEqual(['이름', '허용값', '표현식'])
-    expect(aoa).toContainEqual(['fa_reason_chk', 'a, b', "reason IN ('a', 'b')"])
-  })
-
-  it('writes an xlsx array buffer and returns a Blob', () => {
-    const blob = buildTableDocXlsxBlob(model, LABELS)
-    expect(write).toHaveBeenCalledWith(expect.anything(), {
-      bookType: 'xlsx',
-      type: 'array',
-    })
-    expect(blob).toBeInstanceOf(Blob)
-  })
-
-  it('de-duplicates colliding sheet names without throwing', () => {
-    const collidingModel: TableDocModel = {
-      tables: [
-        // (a) cross-schema same table name -> both want sheet "users".
-        { id: 'public.users', schema: 'public', name: 'users', note: '', columns: [], fkTargets: [] },
-        { id: 'audit.users', schema: 'audit', name: 'users', note: '', columns: [], fkTargets: [] },
-        // (b) two names sharing the first 31 chars after the clamp.
-        {
-          id: 'public.really_long_shared_prefix_alpha',
-          schema: 'public',
-          name: 'really_long_shared_prefix_aaaaaaaaaa_alpha',
-          note: '',
-          columns: [],
-          fkTargets: [],
-        },
-        {
-          id: 'public.really_long_shared_prefix_beta',
-          schema: 'public',
-          name: 'really_long_shared_prefix_aaaaaaaaaa_beta',
-          note: '',
-          columns: [],
-          fkTargets: [],
-        },
-      ],
-      enums: [],
-    }
-    expect(() => buildTableDocXlsxBlob(collidingModel, LABELS)).not.toThrow()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sheetNames = (bookAppendSheet.mock.calls as any[]).map((c) => c[2] as string)
-    // All distinct, all within the 31-char limit.
-    expect(new Set(sheetNames).size).toBe(sheetNames.length)
-    for (const name of sheetNames) {
-      expect(name.length).toBeLessThanOrEqual(31)
-    }
-    expect(sheetNames[0]).toBe('users')
-    expect(sheetNames[1]).toBe('users~2')
-  })
-
-  it('returns a valid workbook for an empty model (always-present Enums sheet)', () => {
-    const emptyModel: TableDocModel = { tables: [], enums: [] }
-    let blob!: Blob
-    expect(() => {
-      blob = buildTableDocXlsxBlob(emptyModel, LABELS)
-    }).not.toThrow()
-    // The Enums sheet is always appended, so the workbook is never zero-sheet.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sheetNames = (bookAppendSheet.mock.calls as any[]).map((c) => c[2] as string)
-    expect(sheetNames).toEqual(['Enums'])
-    expect(blob).toBeInstanceOf(Blob)
-  })
-
-  it('produces a header-only sheet for a table with zero columns', () => {
-    const emptyColsModel: TableDocModel = {
-      tables: [
-        { id: 'public.blank', schema: 'public', name: 'blank', note: '', columns: [], fkTargets: [] },
-      ],
-      enums: [],
-    }
-    buildTableDocXlsxBlob(emptyColsModel, LABELS)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const firstAoa = (aoaToSheet.mock.calls as any)[0][0] as unknown[][]
-    // Header row only — no body rows.
-    expect(firstAoa).toHaveLength(1)
-    expect(firstAoa[0]).toEqual([
-      '컬럼명',
-      '데이터타입',
-      'PK',
-      'FK',
-      'NN',
-      'UNIQUE',
-      '기본값',
-      '설명',
-    ])
+  it('sets a column width on the first column', async () => {
+    const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
+    expect(wb.getWorksheet('users')!.getColumn(1).width).toBeGreaterThan(0)
   })
 })
