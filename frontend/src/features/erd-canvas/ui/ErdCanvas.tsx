@@ -392,6 +392,8 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   flowEdgeIdsRef.current = new Set(flow.edges.map((e) => e.id))
   const onEdgePathsChangeRef = useRef(onEdgePathsChange)
   onEdgePathsChangeRef.current = onEdgePathsChange
+  const onCanvasReadyRef = useRef(onCanvasReady)
+  onCanvasReadyRef.current = onCanvasReady
 
   // Rendered full polyline of the SELECTED edge, reported by RelationEdge.
   // Drives SelectionInfo waypoints and panel edits on auto-routed edges.
@@ -501,14 +503,14 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     const r1 = requestAnimationFrame(() => {
       r2 = requestAnimationFrame(() => {
         fitView({ padding: 0.1 })
-        onCanvasReady?.()
+        onCanvasReadyRef.current?.()
       })
     })
     return () => {
       cancelAnimationFrame(r1)
       if (r2) cancelAnimationFrame(r2)
     }
-  }, [cardsMeasured, fitView, onCanvasReady])
+  }, [cardsMeasured, fitView])
 
   function setNodePositionAbsImpl(nodeId: string, pos: XYPosition) {
     const current = nodesRef.current
