@@ -105,3 +105,12 @@ test('opens the HTML table-definition preview from the Export menu', async ({ pa
   await expect(view).toBeVisible()
   await expect(view.getByRole('cell', { name: 'email' }).first()).toBeVisible()
 })
+
+test('SQL export menu offers only PostgreSQL and MySQL (no MS SQL)', async ({ page }) => {
+  await registerAndLogin(page, `export-sql-${Date.now()}@example.com`)
+  await openEditorWithProject(page)
+  await page.getByRole('button', { name: '내보내기', exact: true }).click()
+  await expect(page.getByRole('menuitem', { name: 'SQL · PostgreSQL' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'SQL · MySQL' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: /MS SQL/ })).toHaveCount(0)
+})
