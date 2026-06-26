@@ -71,7 +71,7 @@ export async function buildTableDocXlsxBlob(
   labels: TableDocLabels,
 ): Promise<Blob> {
   const wb = new ExcelJS.Workbook()
-  const used = new Set<string>([clampSheetName(labels.overviewSheet), labels.enumsSheet])
+  const used = new Set<string>([clampSheetName(labels.overviewSheet), clampSheetName(labels.enumsSheet)])
 
   const byId = new Map(model.tables.map((t) => [t.id, t]))
   const groups = model.groups

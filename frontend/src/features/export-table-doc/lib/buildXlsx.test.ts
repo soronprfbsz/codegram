@@ -75,4 +75,35 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     })
     expect(filled).toBe(true)
   })
+
+  it('renders the CHECK section inside a group sheet', async () => {
+    const m: TableDocModel = {
+      tables: [{
+        id: 'public.u', schema: 'public', name: 'u', note: '',
+        columns: [{ name: 'id', type: 'int', pk: true, fk: false, notNull: true, unique: false, default: '', note: '' }],
+        fkTargets: [],
+        checks: [{ name: 'c_kind', values: ['a', 'b'], expression: "kind IN ('a','b')" }],
+      }],
+      enums: [],
+      groups: [{ name: 'g1', tableIds: ['public.u'] }],
+    }
+    const wb = await read(await buildTableDocXlsxBlob(m, LABELS))
+    const ws = wb.getWorksheet('g1')!
+    const firstCol: string[] = []
+    ws.eachRow((r) => firstCol.push(String(r.getCell(1).value ?? '')))
+    expect(firstCol).toContain('CHECK 제약')
+  })
+
+  it('overview header row carries the shared fill color', async () => {
+    const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
+    const ov = wb.getWorksheet('테이블 목록')!
+    let filled = false
+    ov.eachRow((r) => {
+      if (String(r.getCell(1).value) === LABELS.overviewNo) {
+        const fill = r.getCell(1).fill as ExcelJS.FillPattern
+        if (fill?.fgColor?.argb === `FF${HEADER_FILL}`) filled = true
+      }
+    })
+    expect(filled).toBe(true)
+  })
 })
