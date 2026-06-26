@@ -58,4 +58,32 @@ describe('buildTableDocXlsxBlob (exceljs)', () => {
     const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
     expect(wb.getWorksheet('users')!.getColumn(1).width).toBeGreaterThan(0)
   })
+
+  it('renders the CHECK section title row before the check column headers', async () => {
+    const modelWithCheck: TableDocModel = {
+      tables: [
+        {
+          id: 'public.orders', schema: 'public', name: 'orders', note: '',
+          columns: [
+            { name: 'id', type: 'integer', pk: true, fk: false, notNull: true, unique: false, default: '', note: '' },
+          ],
+          fkTargets: [],
+          checks: [{ name: 'status_check', values: ['active', 'inactive'], expression: "status IN ('active','inactive')" }],
+        },
+      ],
+      enums: [],
+    }
+    const wb = await read(await buildTableDocXlsxBlob(modelWithCheck, LABELS))
+    const ws = wb.getWorksheet('orders')!
+
+    // Collect all first-cell values for each row
+    const cellValues: unknown[] = []
+    ws.eachRow((row) => { cellValues.push(row.getCell(1).value) })
+
+    const titleIdx = cellValues.indexOf('CHECK 제약')
+    expect(titleIdx).toBeGreaterThan(-1)
+
+    // The check column-header row must come immediately after the title row
+    expect(cellValues[titleIdx + 1]).toBe('이름')
+  })
 })

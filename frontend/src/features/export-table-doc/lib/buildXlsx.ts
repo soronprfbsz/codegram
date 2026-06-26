@@ -62,6 +62,8 @@ export async function buildTableDocXlsxBlob(
     const checks = Array.isArray(table.checks) ? table.checks : []
     if (checks.length > 0) {
       ws.addRow([])
+      const checkTitle = ws.addRow([labels.checks])
+      checkTitle.getCell(1).font = { bold: true }
       const checkHeader = ws.addRow([labels.checkName, labels.checkValues, labels.checkExpression])
       styleHeader(checkHeader)
       for (const chk of checks) {
