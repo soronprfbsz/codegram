@@ -14,7 +14,7 @@ async function registerAndLogin(page: Page, email: string) {
     (resp) =>
       resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -28,8 +28,8 @@ async function createProjectAndOpen(page: Page, name: string): Promise<string> {
       resp.request().method() === 'POST' &&
       resp.status() === 201,
   )
-  await page.getByPlaceholder('Project name').fill(name)
-  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByPlaceholder('프로젝트 이름').fill(name)
+  await page.getByRole('button', { name: '만들기' }).click()
   const created = await (await createResponse).json()
   const projectId = created.id as string
   await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
@@ -358,7 +358,9 @@ test.describe('Editor manual layout persistence', () => {
     // Click Auto-arrange (one-shot dagre over all nodes, discards saved coords).
     // Auto-arrange lifts a fresh StoredLayout -> autosave PATCHes.
     const autoPatch = waitForAutosavePatch(page, projectId)
-    await page.getByRole('button', { name: 'Auto-arrange' }).click()
+    await page.getByTestId('auto-arrange-button').click()
+    // 확인 다이얼로그에서 초기화 진행.
+    await page.getByTestId('auto-arrange-confirm-ok').click()
     const autoBody = await autoPatch
     const positions = autoBody.layout?.positions ?? {}
     expect(positions['public.users']).toBeTruthy()

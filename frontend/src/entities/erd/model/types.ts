@@ -48,6 +48,9 @@ export interface TableNodeData {
 export interface EnumNodeData {
   enumName: string
   values: string[]
+  /** For a CHECK-synthesized enum: the id of the table it belongs to, so layout
+   *  can park it beside that table. Absent for native (DBML) enums. */
+  ownerTableId?: string
   [key: string]: unknown
 }
 

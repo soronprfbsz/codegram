@@ -41,6 +41,7 @@ function table(
     name,
     schema,
     columns,
+    checks: [],
     ...over,
   }
 }
@@ -416,6 +417,75 @@ describe('schemaToFlow — enum link edges (optional, included)', () => {
     expect(edges.some((e) => (e.data as RelationEdgeData | undefined)?.isEnumLink)).toBe(
       false,
     )
+  })
+})
+
+describe('schemaToFlow — synthesized enum from enum-style CHECK', () => {
+  it('creates an enum node + dashed link from a `col = ANY(ARRAY[...])` check', () => {
+    const schema = emptySchema({
+      tables: [
+        table(
+          'core',
+          'failed_auth_attempts',
+          [
+            col('core', 'failed_auth_attempts', 'attempt_id', { pk: true }),
+            col('core', 'failed_auth_attempts', 'failure_reason', { type: 'TEXT' }),
+          ],
+          {
+            checks: [
+              {
+                name: 'fa_reason_chk',
+                expression:
+                  "failure_reason = ANY (ARRAY['invalid_credentials'::text, 'user_disabled'::text])",
+              },
+            ],
+          },
+        ),
+      ],
+    })
+    const { nodes, edges } = schemaToFlow(schema)
+    const enumNode = nodes.find((n) => n.id === 'enum:check:core.failed_auth_attempts.failure_reason')
+    expect(enumNode).toBeDefined()
+    expect(enumNode!.type).toBe('enum')
+    expect((enumNode!.data as { values: string[] }).values).toEqual([
+      'invalid_credentials',
+      'user_disabled',
+    ])
+    const link = edges.find(
+      (e) => (e.data as RelationEdgeData | undefined)?.isEnumLink && e.target === enumNode!.id,
+    )
+    expect(link).toBeDefined()
+    expect(link!.source).toBe('core.failed_auth_attempts')
+    expect(link!.sourceHandle).toBe('core.failed_auth_attempts.failure_reason')
+  })
+
+  it('is a TOP-LEVEL node tagged with its owner table id (not a group member)', () => {
+    const schema = emptySchema({
+      tables: [
+        table('core', 'fa', [col('core', 'fa', 'reason', { type: 'TEXT' })], {
+          checks: [{ name: 'c', expression: "reason IN ('a', 'b')" }],
+        }),
+      ],
+      // Even when the owner table is grouped, the synthesized enum stays top-level
+      // (layout parks it beside the table) — see placeSatelliteEnums.
+      tableGroups: [{ name: 'auth', color: '#1570EF', tables: ['core.fa'] }],
+    })
+    const { nodes } = schemaToFlow(schema)
+    const enumNode = nodes.find((n) => n.id === 'enum:check:core.fa.reason')!
+    expect(enumNode.parentId).toBeUndefined()
+    expect((enumNode.data as { ownerTableId?: string }).ownerTableId).toBe('core.fa')
+  })
+
+  it('skips non-enum checks (numeric range) — no synthesized enum node', () => {
+    const schema = emptySchema({
+      tables: [
+        table('public', 't', [col('public', 't', 'n')], {
+          checks: [{ name: 't_n_chk', expression: 'n >= 0 AND n <= 9' }],
+        }),
+      ],
+    })
+    const { nodes } = schemaToFlow(schema)
+    expect(nodes.some((n) => n.type === 'enum')).toBe(false)
   })
 })
 

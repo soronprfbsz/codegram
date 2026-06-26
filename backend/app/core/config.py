@@ -34,6 +34,17 @@ class Settings(BaseSettings):
     debug: bool = False
     environment: str = "development"
 
+    # Project snapshot history (ADR-0014). Cadences/retention are fixed
+    # operator-tunable constants, not user-facing settings.
+    # Fine: a periodic snapshot of changed projects, pruned after the retain
+    # window. Coarse: a monthly snapshot kept far longer. Manual snapshots are
+    # user-created, never auto-pruned, and capped per project.
+    scheduler_enabled: bool = True
+    snapshot_fine_interval_minutes: int = 30
+    snapshot_fine_retain_days: int = 90
+    snapshot_coarse_retain_days: int = 730
+    snapshot_manual_max: int = 50
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

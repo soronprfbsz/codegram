@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { NodeProps } from '@xyflow/react'
 import { LayoutGrid } from 'lucide-react'
 import type { GroupNodeData } from '@/entities/erd'
@@ -14,6 +15,7 @@ export type GroupNodeProps = NodeProps & { data: GroupNodeData }
  * features layer: shared + entities/erd + @xyflow/react.
  */
 function GroupNodeImpl({ id, data }: GroupNodeProps) {
+  const { t } = useTranslation()
   const color = data.color ?? 'var(--erd-border-2)'
   const borderColor = `color-mix(in srgb, ${color} 50%, transparent)`
   const bgColor = `color-mix(in srgb, ${color} 7%, transparent)`
@@ -68,7 +70,7 @@ function GroupNodeImpl({ id, data }: GroupNodeProps) {
         <button
           data-testid={`group-arrange-${id}`}
           className="erd-group-arrange"
-          title="이 그룹 정렬"
+          title={t('group.arrange')}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation()

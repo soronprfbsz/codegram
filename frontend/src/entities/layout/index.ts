@@ -17,6 +17,8 @@ export {
   simplifyPath,
   pruneEdgePaths,
   applyEdgeSide,
+  clampSegmentDrag,
   type PathPoint,
+  type CardRect,
 } from './lib/edgePath'
 export { arrangeGroupInPlace } from './lib/arrangeGroup'

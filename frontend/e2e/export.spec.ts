@@ -14,7 +14,7 @@ async function registerAndLogin(page: Page, email: string) {
     (resp) =>
       resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -31,8 +31,8 @@ async function createProjectAndOpen(
       resp.request().method() === 'POST' &&
       resp.status() === 201,
   )
-  await page.getByPlaceholder('Project name').fill(name)
-  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByPlaceholder('프로젝트 이름').fill(name)
+  await page.getByRole('button', { name: '만들기' }).click()
   const created = await (await createResponse).json()
   const projectId = created.id as string
   await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
@@ -51,7 +51,7 @@ async function typeDbml(page: Page, dbml: string) {
 /** Open the TopBar "Diagram ▾" dropdown (diagram capture stays in the editor). */
 async function openDiagramMenu(page: Page) {
   await page.getByRole('button', { name: 'Diagram' }).click()
-  await page.getByRole('menuitem', { name: 'Diagram PNG' }).waitFor()
+  await page.getByRole('menuitem', { name: '다이어그램 PNG' }).waitFor()
 }
 
 /** Open a project's sidebar "⋯" menu (Table Doc / SQL export live here). */
@@ -114,19 +114,19 @@ test.describe('Editor export', () => {
     // Diagram PNG → a download fires. ARM the listener BEFORE the click.
     await openDiagramMenu(page)
     const pngDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: 'Diagram PNG' }).click()
+    await page.getByRole('menuitem', { name: '다이어그램 PNG' }).click()
     expect((await pngDownload).suggestedFilename()).toBe('diagram.png')
 
     // Diagram SVG → a download fires.
     await openDiagramMenu(page)
     const svgDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: 'Diagram SVG' }).click()
+    await page.getByRole('menuitem', { name: '다이어그램 SVG' }).click()
     expect((await svgDownload).suggestedFilename()).toBe('diagram.svg')
 
     // Diagram PDF → a download fires.
     await openDiagramMenu(page)
     const pdfDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: 'Diagram PDF' }).click()
+    await page.getByRole('menuitem', { name: '다이어그램 PDF' }).click()
     expect((await pdfDownload).suggestedFilename()).toBe('diagram.pdf')
   })
 
@@ -145,7 +145,7 @@ test.describe('Editor export', () => {
     // Table Doc Excel → a download fires. ARM before the click.
     await openProjectMenu(page, 'Export TableDoc')
     const xlsxDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: 'Table Doc Excel' }).click()
+    await page.getByRole('menuitem', { name: '테이블 정의서 Excel' }).click()
     expect((await xlsxDownload).suggestedFilename()).toBe(
       'table-definition.xlsx',
     )
@@ -153,7 +153,7 @@ test.describe('Editor export', () => {
     // Table Doc PDF → a download fires.
     await openProjectMenu(page, 'Export TableDoc')
     const pdfDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: 'Table Doc PDF' }).click()
+    await page.getByRole('menuitem', { name: '테이블 정의서 PDF' }).click()
     expect((await pdfDownload).suggestedFilename()).toBe(
       'table-definition.pdf',
     )

@@ -6,6 +6,7 @@ import {
   simplifyPath,
   pruneEdgePaths,
   applyEdgeSide,
+  clampSegmentDrag,
 } from './edgePath'
 
 // 기준 Z-경로: source(0,0) → (50,0) → (50,100) → target(100,100)
@@ -139,8 +140,38 @@ describe('pruneEdgePaths', () => {
   })
 })
 
-describe('applyEdgeSide (좌/우 앵커 스왑)', () => {
-  it('records a NON-default side on a fresh entry', () => {
+describe('clampSegmentDrag (카드 최소 클리어런스 침범 금지)', () => {
+  // A card at x[100,300] y[100,200]; clearance 14 → forbidden y[86,214] when the
+  // segment's x-span overlaps x[86,314].
+  const card = { x: 100, y: 100, width: 200, height: 100 }
+  const a = { x: 150, y: 0 } // horizontal segment spanning x 150..250 (overlaps card x)
+  const b = { x: 250, y: 0 }
+
+  it('stops a horizontal segment at the inflated top edge instead of crossing in', () => {
+    // Dragging down from y=0 toward y=160 (inside the card) → clamps to top-14.
+    expect(clampSegmentDrag(a, b, true, 160, [card], 14)).toBe(100 - 14)
+  })
+
+  it('allows a move that stays clear of the card', () => {
+    expect(clampSegmentDrag(a, b, true, 50, [card], 14)).toBe(50)
+  })
+
+  it('ignores a card the segment does not overlap along its length', () => {
+    const farA = { x: 400, y: 0 }
+    const farB = { x: 500, y: 0 } // x 400..500, no overlap with card x[86,314]
+    expect(clampSegmentDrag(farA, farB, true, 160, [card], 14)).toBe(160)
+  })
+
+  it('clamps a vertical segment to the inflated left/right edge', () => {
+    const va = { x: 0, y: 120 } // vertical-ish? actually spans y 120..180 (overlaps card y)
+    const vb = { x: 0, y: 180 }
+    // Dragging right from x=0 toward x=160 (inside card x) → clamp to left-14.
+    expect(clampSegmentDrag(va, vb, false, 160, [card], 14)).toBe(100 - 14)
+  })
+})
+
+describe('applyEdgeSide (드래그-플립 앵커 면)', () => {
+  it('records the chosen side on a fresh entry', () => {
     expect(applyEdgeSide(undefined, 'source', 'left')).toEqual({
       sourceSide: 'left',
     })
@@ -149,22 +180,27 @@ describe('applyEdgeSide (좌/우 앵커 스왑)', () => {
     })
   })
 
-  it('returns undefined when flipping back to the default side empties the entry', () => {
-    // source default = right, target default = left.
-    expect(applyEdgeSide({ sourceSide: 'left' }, 'source', 'right')).toBeUndefined()
-    expect(applyEdgeSide({ targetSide: 'right' }, 'target', 'left')).toBeUndefined()
-    expect(applyEdgeSide(undefined, 'source', 'right')).toBeUndefined()
+  it('ALWAYS stores the explicit pick — even the geometric-default side', () => {
+    // The drag is an explicit choice; un-stored defaults are geometry-derived,
+    // so a stored side must win over geometry (otherwise the flip is undone).
+    expect(applyEdgeSide(undefined, 'source', 'right')).toEqual({ sourceSide: 'right' })
+    expect(applyEdgeSide({ sourceSide: 'left' }, 'source', 'right')).toEqual({
+      sourceSide: 'right',
+    })
+    expect(applyEdgeSide({ targetSide: 'right' }, 'target', 'left')).toEqual({
+      targetSide: 'left',
+    })
   })
 
-  it('clears manual waypoints — the old geometry dies with the side swap', () => {
+  it('clears manual waypoints — the old geometry dies with the side flip', () => {
     expect(
       applyEdgeSide({ waypoints: Z, targetSide: 'right' }, 'source', 'left'),
     ).toEqual({ sourceSide: 'left', targetSide: 'right' })
   })
 
-  it('keeps the OTHER end untouched when one end flips back to default', () => {
+  it('keeps the OTHER end untouched when one end flips', () => {
     expect(
       applyEdgeSide({ sourceSide: 'left', targetSide: 'right' }, 'source', 'right'),
-    ).toEqual({ targetSide: 'right' })
+    ).toEqual({ sourceSide: 'right', targetSide: 'right' })
   })
 })

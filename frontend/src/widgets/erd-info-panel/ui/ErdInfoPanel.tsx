@@ -1,12 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
-import { Plus, Search, PanelRightClose } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Plus, PanelRightClose, FolderCog } from 'lucide-react'
 import type { DbmlSchema } from '@/entities/dbml'
-import { searchTables } from '@/entities/dbml'
 import { deriveDisplayGroups } from '@/entities/erd'
-import type { SelectionInfo } from '@/entities/erd'
 import type { GroupOpHandlers } from '../model/types'
 import { GroupSection } from './GroupSection'
-import { SelectionSection } from './SelectionSection'
+import { ManageGroupsDialog } from './ManageGroupsDialog'
+
+/** Shared style for the "Table names" header icon buttons (그룹 관리 / 생성). */
+const HEADER_ICON_BTN: React.CSSProperties = {
+  background: 'none',
+  border: 'none',
+  padding: 4,
+  color: 'var(--erd-text-3)',
+  display: 'flex',
+  alignItems: 'center',
+  borderRadius: 4,
+}
 
 export interface ErdInfoPanelProps {
   schema: DbmlSchema | undefined
@@ -14,24 +24,13 @@ export interface ErdInfoPanelProps {
   selected: string | null
   /** Called when a table row is clicked, with the schema-qualified table id. */
   onSelect: (tableId: string) => void
-  /**
-   * Called when a table is chosen via search (row click or Enter) — navigates
-   * the canvas to that table and highlights the matched column(s). Falls back to
-   * onSelect when omitted.
-   */
-  onNavigateToTable?: (tableId: string, matchedColumnIds: string[]) => void
   /** DBML Project database_type value, when available. */
   dialect?: string
   /** Group mutation callbacks. When omitted, renders in read-only mode. */
   groupOps?: GroupOpHandlers
   /** While false, mutation triggers are disabled. Defaults to true. */
   mutationsEnabled?: boolean
-  /** 캔버스가 보고한 현재 선택의 좌표 정보. 있으면 최상단에 Selection 섹션 표시. */
-  selectionInfo?: SelectionInfo | null
-  onEditNodePosition?: (nodeId: string, pos: { x: number; y: number }) => void
-  onEditEdgeWaypoint?: (edgeId: string, vertexIndex: number, axis: 'x' | 'y', value: number) => void
-  onResetEdgePath?: (edgeId: string) => void
-  /** Collapse the panel to the rail. When omitted, the header toggle is hidden. */
+  /** Close (hide) the panel area. When omitted, the header close button is hidden. */
   onCollapse?: () => void
 }
 
@@ -83,16 +82,12 @@ export function ErdInfoPanel({
   schema,
   selected,
   onSelect,
-  onNavigateToTable,
   dialect,
   groupOps,
   mutationsEnabled = true,
-  selectionInfo,
-  onEditNodePosition,
-  onEditEdgeWaypoint,
-  onResetEdgePath,
   onCollapse,
 }: ErdInfoPanelProps) {
+  const { t } = useTranslation()
   // Stat cells — safe to 0 when schema is undefined.
   const tables = schema?.tables.length ?? 0
   const refs = schema?.refs.length ?? 0
@@ -101,96 +96,24 @@ export function ErdInfoPanel({
   const notes = schema?.notes.length ?? 0
   const dialectLabel = dialect ?? '—'
 
-  const cells: [string, string | number][] = [
-    ['Tables', tables],
-    ['Refs', refs],
-    ['Table groups', tableGroups],
-    ['Enums', enums],
-    ['Notes', notes],
-    ['Dialect', dialectLabel],
+  // [stable testid suffix, 표시 라벨(번역), 값] — testid는 언어와 무관하게 고정.
+  const cells: [string, string, string | number][] = [
+    ['tables', t('infoPanel.statTables'), tables],
+    ['refs', t('infoPanel.statRefs'), refs],
+    ['table-groups', t('infoPanel.statTableGroups'), tableGroups],
+    ['enums', t('infoPanel.statEnums'), enums],
+    ['notes', t('infoPanel.statNotes'), notes],
+    ['dialect', t('infoPanel.statDialect'), dialectLabel],
   ]
 
   const displayGroups = schema ? deriveDisplayGroups(schema) : []
 
-  // ── Table search (name/column/note, case-insensitive substring) ──────────
-  const [query, setQuery] = useState('')
-  const searchActive = query.trim().length > 0
-  const matches = searchActive ? searchTables(schema, query) : new Map()
-  // While searching: keep only matching tables, drop empty groups, force-expand.
-  const visibleGroups = searchActive
-    ? displayGroups
-        .map((g) => ({ ...g, tables: g.tables.filter((t) => matches.has(t.id)) }))
-        .filter((g) => g.tables.length > 0)
-    : displayGroups
-  const flatMatched = searchActive ? visibleGroups.flatMap((g) => g.tables) : []
+  // Expand state: set of EXPANDED group keys. Default empty ⇒ every group
+  // (and Ungrouped) starts collapsed; newly-added groups also start collapsed.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  // Keyboard cursor over the flat match list (↑/↓ move, Enter navigates).
-  const [activeIndex, setActiveIndex] = useState(0)
-  useEffect(() => setActiveIndex(0), [query])
-  const activeTableId = searchActive ? flatMatched[activeIndex]?.id ?? null : null
-
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
-
-  // "/" focuses the search box — unless focus is already in a text field/editor.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
-      const el = document.activeElement as HTMLElement | null
-      const tag = el?.tagName
-      if (
-        tag === 'INPUT' ||
-        tag === 'TEXTAREA' ||
-        el?.isContentEditable ||
-        el?.closest('.cm-editor')
-      ) {
-        return
-      }
-      e.preventDefault()
-      searchInputRef.current?.focus()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
-  // Keep the keyboard-active row scrolled into view.
-  useEffect(() => {
-    if (!searchActive) return
-    const t = flatMatched[activeIndex]
-    if (!t) return
-    listRef.current
-      ?.querySelector(`[data-testid="tablelist-row-${CSS.escape(t.name)}"]`)
-      ?.scrollIntoView({ block: 'nearest' })
-  }, [activeIndex, searchActive, flatMatched])
-
-  function commitNavigate(tableId: string) {
-    if (onNavigateToTable) {
-      onNavigateToTable(tableId, matches.get(tableId)?.matchedColumnIds ?? [])
-    } else {
-      onSelect(tableId)
-    }
-  }
-
-  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setActiveIndex((i) => Math.min(i + 1, Math.max(flatMatched.length - 1, 0)))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActiveIndex((i) => Math.max(i - 1, 0))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      const t = flatMatched[activeIndex] ?? flatMatched[0]
-      if (t) commitNavigate(t.id)
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      if (query) setQuery('')
-      else searchInputRef.current?.blur()
-    }
-  }
-
-  // Collapse state: set of group keys that are collapsed
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  // "그룹 관리" 일괄 이동 모달 열림 상태
+  const [manageOpen, setManageOpen] = useState(false)
 
   // Create group inline input state
   const [creating, setCreating] = useState(false)
@@ -202,8 +125,17 @@ export function ErdInfoPanel({
     .filter((g) => g.key !== '__ungrouped')
     .map((g) => g.label)
 
+  // 캔버스에서 테이블을 선택하면, 그 테이블이 속한 그룹이 접혀 있어도 펼쳐서
+  // 선택된(하이라이트된) 행이 보이게 한다. (요청: 접힌 그룹도 열리며 선택)
+  useEffect(() => {
+    if (!selected || !schema) return
+    const groups = deriveDisplayGroups(schema)
+    const g = groups.find((grp) => grp.tables.some((t) => t.name === selected))
+    if (g) setExpanded((prev) => (prev.has(g.key) ? prev : new Set(prev).add(g.key)))
+  }, [selected, schema])
+
   function toggleCollapse(key: string) {
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       const next = new Set(prev)
       if (next.has(key)) {
         next.delete(key)
@@ -237,124 +169,35 @@ export function ErdInfoPanel({
         height: '100%',
       }}
     >
-      {/* ── Panel header (44px) — label + collapse to rail ───────── */}
-      {onCollapse && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            height: 44,
-            padding: '0 8px 0 14px',
-            flexShrink: 0,
-            borderBottom: '1px solid var(--erd-border)',
-          }}
-        >
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: '.04em',
-              textTransform: 'uppercase',
-              color: 'var(--erd-text-2)',
-              flex: 1,
-            }}
-          >
-            정보
-          </span>
-          <button
-            type="button"
-            className="erd-topbar-btn"
-            onClick={onCollapse}
-            aria-label="Collapse info panel"
-            title="정보 패널 접기"
-            style={{
-              display: 'grid',
-              placeItems: 'center',
-              width: 28,
-              height: 28,
-              flexShrink: 0,
-              borderRadius: 6,
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--erd-text-3)',
-              cursor: 'pointer',
-            }}
-          >
-            <PanelRightClose size={16} strokeWidth={2} />
-          </button>
-        </div>
-      )}
-
-      {/* ── Table search (상시, 최상단) ─────────────────────────── */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '8px 14px',
-          flexShrink: 0,
-          borderBottom: '1px solid var(--erd-border)',
-        }}
-      >
-        <Search size={14} style={{ color: 'var(--erd-text-3)', flexShrink: 0 }} aria-hidden />
-        <input
-          ref={searchInputRef}
-          data-testid="table-search-input"
-          value={query}
-          placeholder="테이블 · 컬럼 · 주석 검색  (/)"
-          aria-label="Search tables"
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleSearchKeyDown}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            fontSize: 12.5,
-            background: 'transparent',
-            border: 'none',
-            outline: 'none',
-            color: 'inherit',
-          }}
-        />
-        {searchActive && (
-          <button
-            data-testid="table-search-clear"
-            aria-label="Clear search"
-            onClick={() => {
-              setQuery('')
-              searchInputRef.current?.focus()
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: 2,
-              cursor: 'pointer',
-              color: 'var(--erd-text-3)',
-              fontSize: 13,
-              lineHeight: 1,
-              flexShrink: 0,
-            }}
-          >
-            ✕
-          </button>
-        )}
-      </div>
-
-      {/* ── Selection (Q4 #3: 최상단, 선택 시에만) ─────────────── */}
-      {selectionInfo && onEditNodePosition && onEditEdgeWaypoint && onResetEdgePath && (
-        <>
-          <PanelHead label="Selection" />
-          <SelectionSection
-            info={selectionInfo}
-            onEditNodePosition={onEditNodePosition}
-            onEditEdgeWaypoint={onEditEdgeWaypoint}
-            onResetEdgePath={onResetEdgePath}
-          />
-        </>
-      )}
-
-      {/* ── Schema summary ─────────────────────────── */}
-      <PanelHead label="Schema summary" />
+      {/* ── Schema summary (패널 접기 버튼이 우측에) ───────────── */}
+      <PanelHead
+        label={t('infoPanel.schemaSummary')}
+        actions={
+          onCollapse ? (
+            <button
+              type="button"
+              className="erd-topbar-btn"
+              onClick={onCollapse}
+              aria-label={t('infoPanel.closePanel')}
+              title={t('infoPanel.closePanel')}
+              style={{
+                display: 'grid',
+                placeItems: 'center',
+                width: 24,
+                height: 24,
+                flexShrink: 0,
+                borderRadius: 4,
+                border: 'none',
+                background: 'transparent',
+                color: 'var(--erd-text-3)',
+                cursor: 'pointer',
+              }}
+            >
+              <PanelRightClose size={15} strokeWidth={2} />
+            </button>
+          ) : undefined
+        }
+      />
       <div style={{ padding: 14, flexShrink: 0 }}>
         {/* 2-column grid: 1px gaps over --erd-border, outer radius 10 */}
         <div
@@ -369,9 +212,9 @@ export function ErdInfoPanel({
             border: '1px solid var(--erd-border)',
           }}
         >
-          {cells.map(([label, value]) => (
+          {cells.map(([id, label, value]) => (
             <div
-              key={label}
+              key={id}
               style={{
                 background: 'var(--erd-surface)',
                 padding: '12px 14px',
@@ -387,7 +230,7 @@ export function ErdInfoPanel({
                 {label}
               </div>
               <div
-                data-testid={`stat-${label.toLowerCase().replace(/\s+/g, '-')}`}
+                data-testid={`stat-${id}`}
                 style={{
                   fontSize: 22,
                   fontWeight: 600,
@@ -402,40 +245,49 @@ export function ErdInfoPanel({
         </div>
       </div>
 
-      {/* ── Table names ───────────────────────────── */}
+      {/* ── Table groups ───────────────────────────── */}
       <PanelHead
-        label="Table names"
+        label={t('infoPanel.tableGroups')}
         actions={
           groupOps ? (
-            <button
-              data-testid="group-create-button"
-              disabled={!mutationsEnabled}
-              title={mutationsEnabled ? 'New group' : 'Fix DBML errors first'}
-              onClick={() => {
-                setCreating(true)
-                setCreateValue('')
-                setCreateError(false)
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                padding: 4,
-                cursor: mutationsEnabled ? 'pointer' : 'not-allowed',
-                color: 'var(--erd-text-3)',
-                display: 'flex',
-                alignItems: 'center',
-                borderRadius: 4,
-              }}
-              aria-label="New group"
-            >
-              <Plus size={14} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <button
+                data-testid="manage-groups-button"
+                disabled={!mutationsEnabled}
+                title={mutationsEnabled ? t('infoPanel.manageGroupsTooltip') : t('infoPanel.fixErrors')}
+                onClick={() => setManageOpen(true)}
+                style={{
+                  ...HEADER_ICON_BTN,
+                  cursor: mutationsEnabled ? 'pointer' : 'not-allowed',
+                }}
+                aria-label={t('infoPanel.manageGroups')}
+              >
+                <FolderCog size={14} />
+              </button>
+              <button
+                data-testid="group-create-button"
+                disabled={!mutationsEnabled}
+                title={mutationsEnabled ? t('infoPanel.newGroup') : t('infoPanel.fixErrors')}
+                onClick={() => {
+                  setCreating(true)
+                  setCreateValue('')
+                  setCreateError(false)
+                }}
+                style={{
+                  ...HEADER_ICON_BTN,
+                  cursor: mutationsEnabled ? 'pointer' : 'not-allowed',
+                }}
+                aria-label={t('infoPanel.newGroup')}
+              >
+                <Plus size={14} />
+              </button>
+            </div>
           ) : undefined
         }
       />
 
       {/* Scrollable list */}
-      <div ref={listRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {/* Inline create input row */}
         {creating && (
           <div style={{ padding: '8px 14px' }}>
@@ -443,7 +295,7 @@ export function ErdInfoPanel({
               data-testid="group-create-input"
               value={createValue}
               autoFocus
-              placeholder="Group name…"
+              placeholder={t('infoPanel.groupNamePlaceholder')}
               onChange={(e) => {
                 setCreateValue(e.target.value)
                 setCreateError(false)
@@ -475,36 +327,43 @@ export function ErdInfoPanel({
                 data-testid="group-create-error"
                 style={{ fontSize: 11, color: 'var(--erd-error)', marginTop: 4 }}
               >
-                A group with that name already exists.
+                {t('infoPanel.duplicateGroup')}
               </div>
             )}
           </div>
         )}
 
-        {visibleGroups.length === 0 && !creating && (
+        {displayGroups.length === 0 && !creating && (
           <div
             style={{ padding: '16px 14px', fontSize: 12, color: 'var(--erd-text-3)' }}
           >
-            {searchActive ? '검색 결과 없음' : 'No tables'}
+            {t('infoPanel.noTables')}
           </div>
         )}
 
-        {visibleGroups.map((group) => (
+        {displayGroups.map((group) => (
           <GroupSection
             key={group.key}
             group={group}
             groupNames={groupNames}
             selected={selected}
-            onSelect={searchActive ? commitNavigate : onSelect}
-            collapsed={searchActive ? false : collapsed.has(group.key)}
+            onSelect={onSelect}
+            collapsed={!expanded.has(group.key)}
             onToggleCollapse={() => toggleCollapse(group.key)}
             groupOps={groupOps}
             mutationsEnabled={mutationsEnabled}
-            matches={searchActive ? matches : undefined}
-            activeTableId={activeTableId}
           />
         ))}
       </div>
+
+      {groupOps && (
+        <ManageGroupsDialog
+          open={manageOpen}
+          onOpenChange={setManageOpen}
+          schema={schema}
+          groupOps={groupOps}
+        />
+      )}
     </div>
   )
 }

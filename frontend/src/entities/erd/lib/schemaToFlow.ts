@@ -8,6 +8,7 @@
  *
  * entities layer: imports only entities/dbml + entities/erd types (FSD).
  */
+import { parseEnumCheck } from '@/entities/dbml'
 import type {
   DbmlSchema,
   DbmlTable,
@@ -133,12 +134,62 @@ function enumLinkEdges(schema: DbmlSchema): ErdFlowEdge[] {
           source: table.id,
           sourceHandle: col.id,
           target: enumNodeId(table.schema, col.type),
+          targetHandle: 'in',
           data,
         })
       }
     }
   }
   return edges
+}
+
+/**
+ * Synthesize enum nodes (+ dashed column links) from enum-style CHECK
+ * constraints — a TEXT column constrained to a value set (`col = ANY(ARRAY[…])`
+ * / `col IN (…)`) is semantically an enum, so it renders like a native enum on
+ * the canvas. Reserves each synthesized node id in `used` so the edge-validity
+ * filter (which checks emitted node ids) keeps the links. The constrained
+ * column must exist on the table; otherwise the check is skipped.
+ *
+ * These are TOP-LEVEL nodes (not group members): `EnumNodeData.ownerTableId`
+ * records the owning table so the layout parks the enum BESIDE that table (a
+ * value list can be tall, and forcing it inside a packed group's box would make
+ * the box swallow neighboring tables — see placeSatelliteEnums).
+ */
+function checkEnumNodesAndEdges(
+  schema: DbmlSchema,
+  used: Set<string>,
+): { nodes: ErdFlowNode[]; edges: ErdFlowEdge[] } {
+  const nodes: ErdFlowNode[] = []
+  const edges: ErdFlowEdge[] = []
+  for (const table of schema.tables) {
+    const checks = Array.isArray(table.checks) ? table.checks : []
+    for (const check of checks) {
+      const { column, values } = parseEnumCheck(check.expression)
+      if (!column || values.length === 0) continue
+      if (!table.columns.some((c) => c.name === column)) continue
+      const id = reserveId(used, `enum:check:${table.id}.${column}`)
+      const data: EnumNodeData = { enumName: column, values, ownerTableId: table.id }
+      nodes.push({ id, type: 'enum', position: { ...ZERO }, data })
+      const colId = `${table.schema}.${table.name}.${column}`
+      const edgeData: RelationEdgeData = {
+        relation: 'n-1',
+        sourceMarker: 'many',
+        targetMarker: 'one',
+        isEnumLink: true,
+      }
+      edges.push({
+        id: `enumlink:check:${colId}`,
+        type: 'relation',
+        source: table.id,
+        sourceHandle: colId,
+        target: id,
+        targetHandle: 'in',
+        data: edgeData,
+      })
+    }
+  }
+  return { nodes, edges }
 }
 
 /**
@@ -246,12 +297,17 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
     }
   })
 
+  // Enum nodes synthesized from enum-style CHECK constraints (+ their column
+  // links). Built after the real nodes so every table id is already reserved.
+  const checkEnums = checkEnumNodesAndEdges(schema, usedNodeIds)
+
   // Group nodes FIRST (React Flow parent-before-child requirement), then tables,
-  // then enums + sticky notes.
+  // then enums (native + check-derived) + sticky notes.
   const nodes: ErdFlowNode[] = [
     ...groupNodes,
     ...tableNodes,
     ...enumNodes,
+    ...checkEnums.nodes,
     ...stickyNodes,
   ]
 
@@ -273,6 +329,7 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
   const edges: ErdFlowEdge[] = [
     ...schema.refs.flatMap(refToEdges),
     ...enumLinkEdges(schema),
+    ...checkEnums.edges,
   ]
     .filter(dedupe)
     .filter((e) => usedNodeIds.has(e.source) && usedNodeIds.has(e.target))

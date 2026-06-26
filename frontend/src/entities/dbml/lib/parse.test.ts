@@ -123,6 +123,110 @@ describe('parseDbml — refs & cardinality', () => {
     expect(ref.toTable).toBe('categories')
     expect(ref.relation).toBe('n-1')
   })
+
+  // A PK referenced BY other tables must NOT be flagged as a FK (only the
+  // referencing child column is the FK).
+  it('does not flag a referenced PK as a FK (only the referencing column is)', () => {
+    const schema = parseOk(`
+      Table organization {
+        id integer [pk]
+        name varchar
+      }
+      Table users {
+        id integer [pk]
+        org_id integer [ref: > organization.id]
+      }
+    `)
+    const orgId = schema.tables
+      .find((t) => t.name === 'organization')!
+      .columns.find((c) => c.name === 'id')!
+    expect(orgId.pk).toBe(true)
+    expect(orgId.isFk).toBe(false) // referenced PK, NOT a FK
+
+    const fk = schema.tables
+      .find((t) => t.name === 'users')!
+      .columns.find((c) => c.name === 'org_id')!
+    expect(fk.isFk).toBe(true)
+  })
+
+  it('flags the FK side regardless of operator direction (<)', () => {
+    const schema = parseOk(`
+      Table a { id integer [pk] }
+      Table b {
+        id integer [pk]
+        a_id integer
+      }
+      Ref: a.id < b.a_id
+    `)
+    const aId = schema.tables.find((t) => t.name === 'a')!.columns[0]
+    const aFk = schema.tables
+      .find((t) => t.name === 'b')!
+      .columns.find((c) => c.name === 'a_id')!
+    expect(aId.isFk).toBe(false)
+    expect(aFk.isFk).toBe(true)
+  })
+})
+
+describe('parseDbml — table CHECK constraints', () => {
+  it('maps named and unnamed checks from a Checks block', () => {
+    const schema = parseOk(`
+      Table failed_auth_attempts {
+        attempt_id integer [pk]
+        http_status integer
+        retries integer
+        Checks {
+          \`http_status >= 100 AND http_status <= 599\` [name: 'fa_status_chk']
+          \`retries >= 0\`
+        }
+      }
+    `)
+    const t = schema.tables[0]
+    expect(t.checks).toHaveLength(2)
+    expect(t.checks[0]).toEqual({
+      expression: 'http_status >= 100 AND http_status <= 599',
+      name: 'fa_status_chk',
+    })
+    expect(t.checks[1]).toEqual({ expression: 'retries >= 0', name: undefined })
+  })
+
+  it('gives a table with no checks an empty checks array', () => {
+    const schema = parseOk(`Table t { id integer [pk] }`)
+    expect(schema.tables[0].checks).toEqual([])
+  })
+})
+
+describe('parseDbml — primary keys via index blocks', () => {
+  it('marks a single-column PK declared in an indexes block', () => {
+    const schema = parseOk(`
+      Table failed_auth_attempts {
+        attempt_id integer
+        ip varchar
+        indexes {
+          attempt_id [pk]
+        }
+      }
+    `)
+    const cols = schema.tables[0].columns
+    expect(cols.find((c) => c.name === 'attempt_id')!.pk).toBe(true)
+    expect(cols.find((c) => c.name === 'ip')!.pk).toBe(false)
+  })
+
+  it('marks every column of a composite PK declared in an indexes block', () => {
+    const schema = parseOk(`
+      Table membership {
+        user_id integer
+        group_id integer
+        joined_at timestamp
+        indexes {
+          (user_id, group_id) [pk]
+        }
+      }
+    `)
+    const cols = schema.tables[0].columns
+    expect(cols.find((c) => c.name === 'user_id')!.pk).toBe(true)
+    expect(cols.find((c) => c.name === 'group_id')!.pk).toBe(true)
+    expect(cols.find((c) => c.name === 'joined_at')!.pk).toBe(false)
+  })
 })
 
 describe('parseDbml — enums', () => {

@@ -21,6 +21,7 @@ def test_project_has_expected_columns() -> None:
         "updated_at",
         "glyph",
         "color",
+        "bg_color",
     }
 
 

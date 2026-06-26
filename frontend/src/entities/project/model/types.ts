@@ -11,7 +11,10 @@ export interface Project {
   dbml_text: string
   layout: Record<string, unknown>
   glyph: string | null
+  /** Icon/text color (categorical key). */
   color: string | null
+  /** Background color (categorical key incl. 'transparent'); null → tint of color. */
+  bg_color: string | null
   created_at: string
   updated_at: string
 }
@@ -30,4 +33,5 @@ export interface ProjectUpdatePayload {
   layout?: Record<string, unknown>
   glyph?: string
   color?: string
+  bg_color?: string
 }

@@ -22,6 +22,12 @@ interface UseProjectAutosaveOptions {
    */
   layoutBaseline?: StoredLayout
   delayMs?: number
+  /**
+   * While true (e.g. a snapshot preview is open), autosave is paused: no PATCH
+   * fires and any already-debounced save is cancelled. Prevents a read-only
+   * preview's swapped-in content from being persisted as the current state.
+   */
+  suspended?: boolean
 }
 
 interface UseProjectAutosaveResult {
@@ -45,6 +51,7 @@ export function useProjectAutosave({
   baseline,
   layoutBaseline,
   delayMs = 600,
+  suspended = false,
 }: UseProjectAutosaveOptions): UseProjectAutosaveResult {
   const updateMutation = useUpdateProject(projectId)
   const [status, setStatus] = useState<AutosaveStatus>('idle')
@@ -95,6 +102,11 @@ export function useProjectAutosave({
   }, [projectId, debouncedSave])
 
   useEffect(() => {
+    // Paused (e.g. snapshot preview open): drop any pending save and never fire.
+    if (suspended) {
+      debouncedSave.cancel()
+      return
+    }
     // Skip the first run after mount/switch: only autosave after a real edit.
     if (!mountedRef.current) {
       mountedRef.current = true
@@ -112,7 +124,7 @@ export function useProjectAutosave({
       return
     }
     debouncedSave()
-  }, [dbmlText, baseline, layoutKey, layoutBaselineKey, debouncedSave])
+  }, [dbmlText, baseline, layoutKey, layoutBaselineKey, debouncedSave, suspended])
 
   return { status }
 }

@@ -17,11 +17,6 @@ describe('ErdTopBar', () => {
     expect(screen.getByRole('heading', { name: 'My Schema' })).toBeInTheDocument()
   })
 
-  it('renders the DBML badge', () => {
-    renderTopBar()
-    expect(screen.getByText('DBML')).toBeInTheDocument()
-  })
-
   it('shows the subtitle when projectMeta is provided', () => {
     renderTopBar({ projectMeta: 'release_manager' })
     expect(screen.getByText(/release_manager\s*·\s*public/)).toBeInTheDocument()
@@ -39,12 +34,12 @@ describe('ErdTopBar', () => {
 
   it('shows "Saving…" when status is saving', () => {
     renderTopBar({ autosaveStatus: 'saving' })
-    expect(screen.getByText('Saving…')).toBeInTheDocument()
+    expect(screen.getByText('저장 중…')).toBeInTheDocument()
   })
 
   it('shows "Save failed" when status is error', () => {
     renderTopBar({ autosaveStatus: 'error' })
-    expect(screen.getByText('Save failed')).toBeInTheDocument()
+    expect(screen.getByText('저장 실패')).toBeInTheDocument()
   })
 
   it('is slim: no Actions dropdown, no Import/panel-toggle (those moved out)', () => {

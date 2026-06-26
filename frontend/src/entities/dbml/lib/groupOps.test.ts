@@ -216,3 +216,64 @@ describe('moveTableToGroup', () => {
     expect(r.text).toContain('app.users')
   })
 })
+
+import { moveTablesToGroup } from './groupOps'
+
+const MULTI = `Table a { id int }
+Table b { id int }
+Table c { id int }
+
+TableGroup g1 {
+  a
+}
+
+TableGroup g2 {
+  b
+}
+`
+
+describe('moveTablesToGroup (bulk)', () => {
+  it('moves several tables (from different groups + ungrouped) into one group', () => {
+    // a(g1), b(g2), c(ungrouped) → g2
+    const r = moveTablesToGroup(MULTI, schemaOf(MULTI), ['public.a', 'public.b', 'public.c'], 'g2')
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const p = parseDbml(r.text)
+    expect(p.ok).toBe(true)
+    if (!p.ok) return
+    expect(p.schema.tableGroups.find((g) => g.name === 'g1')?.tables).toEqual([])
+    expect(p.schema.tableGroups.find((g) => g.name === 'g2')?.tables).toEqual([
+      'public.b',
+      'public.a',
+      'public.c',
+    ])
+  })
+
+  it('moves several tables to Ungrouped (null)', () => {
+    const r = moveTablesToGroup(MULTI, schemaOf(MULTI), ['public.a', 'public.b'], null)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const p = parseDbml(r.text)
+    expect(p.ok).toBe(true)
+    if (!p.ok) return
+    expect(p.schema.tableGroups.find((g) => g.name === 'g1')?.tables).toEqual([])
+    expect(p.schema.tableGroups.find((g) => g.name === 'g2')?.tables).toEqual([])
+  })
+
+  it('skips tables already in the target group', () => {
+    // b is already in g2; a moves in. Result g2 = [b, a].
+    const r = moveTablesToGroup(MULTI, schemaOf(MULTI), ['public.a', 'public.b'], 'g2')
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const p = parseDbml(r.text)
+    expect(p.ok && p.schema.tableGroups.find((g) => g.name === 'g2')?.tables).toEqual([
+      'public.b',
+      'public.a',
+    ])
+  })
+
+  it('empty id list is a no-op (returns valid text)', () => {
+    const r = moveTablesToGroup(MULTI, schemaOf(MULTI), [], 'g1')
+    expect(r.ok && r.text).toBe(MULTI)
+  })
+})

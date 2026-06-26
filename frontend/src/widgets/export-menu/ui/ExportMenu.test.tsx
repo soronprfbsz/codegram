@@ -30,7 +30,7 @@ function renderMenu(props: Partial<Parameters<typeof ExportMenu>[0]> = {}) {
 }
 
 async function openMenu(user: ReturnType<typeof setup>) {
-  await user.click(screen.getByRole('button', { name: 'Export' }))
+  await user.click(screen.getByRole('button', { name: '내보내기' }))
 }
 
 describe('ExportMenu', () => {
@@ -46,11 +46,11 @@ describe('ExportMenu', () => {
     await openMenu(user)
     for (const name of [
       '테이블 정의서 미리보기',
-      'Diagram PNG',
-      'Diagram SVG',
-      'Diagram PDF',
-      'Table Doc Excel',
-      'Table Doc PDF',
+      '다이어그램 PNG',
+      '다이어그램 SVG',
+      '다이어그램 PDF',
+      '테이블 정의서 Excel',
+      '테이블 정의서 PDF',
       'SQL · PostgreSQL',
       'SQL · MySQL',
       'SQL · MS SQL Server',
@@ -73,7 +73,7 @@ describe('ExportMenu', () => {
     const user = setup()
     renderMenu()
     await openMenu(user)
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Table Doc Excel' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: '테이블 정의서 Excel' }))
     expect(xlsx).toHaveBeenCalledTimes(1)
     expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.xlsx')
   })
@@ -89,6 +89,6 @@ describe('ExportMenu', () => {
 
   it('disables the trigger when disabled', () => {
     renderMenu({ disabled: true })
-    expect(screen.getByRole('button', { name: 'Export' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '내보내기' })).toBeDisabled()
   })
 })

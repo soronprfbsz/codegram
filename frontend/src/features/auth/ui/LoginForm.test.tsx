@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
+import i18n from '@/shared/i18n'
 import { render, screen } from '@testing-library/react'
+
+// 이 스위트는 영어 라벨/문구를 단언하므로 인터페이스 언어를 en으로 고정한다.
+beforeAll(async () => {
+  await i18n.changeLanguage('en')
+})
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { LoginForm } from './LoginForm'

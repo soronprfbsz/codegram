@@ -14,26 +14,43 @@ the frontend converts to DBML.
 
 - `backend/` — FastAPI (clean/layered) + async SQLAlchemy 2.0 + Alembic.
 - `frontend/` — React 19 + TypeScript (Feature-Sliced Design) + Vite.
-- `docker-compose.yml` — postgres + backend + frontend dev stack.
+- `deploy/` — deploy assets: `docker-compose.yml` (postgres + backend + frontend
+  dev stack), the optional local `docker-compose.override.yml`, and `scripts/`.
 
 ## Quickstart
 
 ```bash
 cp .env.example .env
-docker compose up -d --build
-docker compose exec -T backend alembic upgrade head   # create the DB schema (first run only)
+deploy/scripts/start.sh   # build + run, auto-renew dep volumes, migrate, health-check
 ```
 
-Then open **http://localhost:5173**, register an account, and create a project.
-(Backend health check: http://localhost:8000/api/health)
+`start.sh` runs `docker compose` with the files in `deploy/` while resolving build
+contexts and `.env` from the repo root (`--project-directory`), then applies DB
+migrations. It also detects dependency changes (package-lock / pyproject) and
+renews the in-container `node_modules` / `.venv` anonymous volumes — a bare
+`docker compose up --build` reuses the stale volume, so a newly-added dependency
+would otherwise fail to resolve in the container.
 
-Stop with `docker compose down` (add `-v` to also drop the database volume).
+```bash
+deploy/scripts/start.sh --fresh   # force-renew node_modules/.venv (after editing deps manually)
+deploy/scripts/start.sh --down    # stop the stack (keeps the DB volume)
+```
+
+It prints the URL on success (default **http://localhost:5173**). Register an
+account and create a project. (Backend health: `/api/health`.)
+
+To run compose directly instead of the script:
+
+```bash
+docker compose --project-directory . -f deploy/docker-compose.yml [-f deploy/docker-compose.override.yml] up -d --build
+```
 
 ### Custom host ports
 
-To publish on different host ports — e.g. backend `4000`, frontend `4001` — add a
-local `docker-compose.override.yml` (do not commit it). Only the host-published ports
-change; the browser only needs the frontend port (Vite proxies `/api` to the backend):
+To publish on different host ports — e.g. backend `4000`, frontend `4001` — create a
+local `deploy/docker-compose.override.yml` (gitignored). Only the host-published
+ports change; the browser only needs the frontend port (Vite proxies `/api` to the
+backend), and `start.sh` picks it up automatically:
 
 ```yaml
 services:
@@ -45,10 +62,12 @@ services:
     ports: !override ["4001:5173"]
 ```
 
-Then `docker compose up -d` and open **http://localhost:4001**.
+Then `deploy/scripts/start.sh` opens on **http://localhost:4001**.
 
 ## Tests
 
-- Backend: `docker compose exec -T backend pytest`
-- Frontend unit: `docker compose exec -T frontend npm run test:run`
+Run compose commands via the deploy file (or `cd` into the running containers):
+
+- Backend: `docker compose --project-directory . -f deploy/docker-compose.yml exec -T backend pytest`
+- Frontend unit: `docker compose --project-directory . -f deploy/docker-compose.yml exec -T frontend npm run test:run`
 - E2E (full stack must be up): `cd frontend && npx playwright test`

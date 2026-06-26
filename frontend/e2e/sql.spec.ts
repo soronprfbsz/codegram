@@ -14,7 +14,7 @@ async function registerAndLogin(page: Page, email: string) {
     (resp) =>
       resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -30,8 +30,8 @@ async function createProjectAndOpen(
       resp.request().method() === 'POST' &&
       resp.status() === 201,
   )
-  await page.getByPlaceholder('Project name').fill(name)
-  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByPlaceholder('프로젝트 이름').fill(name)
+  await page.getByRole('button', { name: '만들기' }).click()
   const created = await (await createResponse).json()
   const projectId = created.id as string
   await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
@@ -47,10 +47,12 @@ async function typeDbml(page: Page, dbml: string) {
   await page.keyboard.type(dbml)
 }
 
-/** Open the DBML pane header's "가져오기" (Import) dropdown. */
+/** Open the topbar's "Import" dropdown. */
 async function openImportMenu(page: Page) {
-  await page.getByRole('button', { name: '가져오기' }).click()
-  await page.getByRole('menuitem', { name: 'Import SQL' }).waitFor()
+  // testid (not name) — a project named "...Import" would collide with the
+  // sidebar "<name> 메뉴" button under substring role-name matching.
+  await page.getByTestId('import-menu-button').click()
+  await page.getByRole('menuitem', { name: 'SQL 가져오기' }).waitFor()
 }
 
 /** Open a project's sidebar "⋯" menu (Table Doc / SQL export live here). */
@@ -110,15 +112,15 @@ test.describe('SQL import/export', () => {
     await registerAndLogin(page, `sql-import-${Date.now()}@example.com`)
     await createProjectAndOpen(page, 'SQL Import')
 
-    // Open the import modal from the DBML pane header's 가져오기 menu.
+    // Open the import modal from the topbar's Import menu.
     await openImportMenu(page)
-    await page.getByRole('menuitem', { name: 'Import SQL' }).click()
+    await page.getByRole('menuitem', { name: 'SQL 가져오기' }).click()
 
     // Paste the SQL into the modal textarea (dialect defaults to PostgreSQL).
     await page.getByTestId('sql-import-textarea').fill(SAMPLE_SQL)
 
     // Click Import. The project starts empty, so no overwrite confirm appears.
-    await page.getByRole('button', { name: 'Import', exact: true }).click()
+    await page.getByRole('button', { name: '가져오기', exact: true }).click()
 
     // The converted DBML replaces the editor text -> the ERD renders both
     // imported tables. Scope to the React Flow nodes (by data-id) so the
@@ -139,7 +141,7 @@ test.describe('SQL import/export', () => {
     await createProjectAndOpen(page, 'SQL Import File')
 
     await openImportMenu(page)
-    await page.getByRole('menuitem', { name: 'Import SQL' }).click()
+    await page.getByRole('menuitem', { name: 'SQL 가져오기' }).click()
 
     // Upload a .sql file via the hidden file input (bypasses the OS picker).
     await page.getByTestId('sql-file-input').setInputFiles({
@@ -148,7 +150,7 @@ test.describe('SQL import/export', () => {
       buffer: Buffer.from(SAMPLE_SQL),
     })
 
-    await page.getByRole('button', { name: 'Import', exact: true }).click()
+    await page.getByRole('button', { name: '가져오기', exact: true }).click()
 
     await waitForTwoNodes(page)
     await expect(

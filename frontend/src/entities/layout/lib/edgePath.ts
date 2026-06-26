@@ -129,12 +129,61 @@ export function editVertexAxis(
 }
 
 /**
- * Apply an endpoint anchor-side change (좌/우 스왑) to a stored edge entry.
- * Clears the manual waypoints (the old geometry is meaningless once the
- * endpoint jumps sides) and stores only NON-DEFAULT sides (source exits
- * RIGHT, target enters LEFT). Returns undefined when the entry becomes empty
- * — the caller drops it from the map.
+ * Apply an endpoint anchor-side change (drag-to-flip) to a stored edge entry.
+ * Clears the manual waypoints (the old geometry is meaningless once the endpoint
+ * jumps sides) and ALWAYS records the chosen side. We cannot drop "default"
+ * sides here: the un-stored default is GEOMETRIC (resolveEdgeSides flips an edge
+ * whose target sits left of its source), so dropping a side would let geometry
+ * override the user's explicit drag and silently undo the flip. An explicit pick
+ * is sticky until the user flips again.
  */
+/** A card rectangle (table/enum) the dragged segment must keep clear of. */
+export interface CardRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * Clamp a segment-drag coordinate so the dragged segment never crosses INTO a
+ * card (kept ≥ `clearance` away) — "no line move may violate the minimum
+ * clearance". `a`/`b` are the segment endpoints; `horizontal` segments move in
+ * Y (coord = y), vertical ones in X (coord = x). A card blocks the move only
+ * when the segment's span overlaps the card along the parallel axis; then the
+ * coord is stopped at the inflated card edge nearest where the segment came
+ * from. Pure; iterates a few passes so stacked cards all clamp.
+ */
+export function clampSegmentDrag(
+  a: PathPoint,
+  b: PathPoint,
+  horizontal: boolean,
+  coord: number,
+  cards: CardRect[],
+  clearance: number,
+): number {
+  const spanLo = Math.min(horizontal ? a.x : a.y, horizontal ? b.x : b.y)
+  const spanHi = Math.max(horizontal ? a.x : a.y, horizontal ? b.x : b.y)
+  const origin = horizontal ? a.y : a.x // where the segment started (assumed clear)
+  let v = coord
+  for (let pass = 0; pass < 4; pass++) {
+    let moved = false
+    for (const c of cards) {
+      const parLo = (horizontal ? c.x : c.y) - clearance
+      const parHi = (horizontal ? c.x + c.width : c.y + c.height) + clearance
+      if (spanHi <= parLo || spanLo >= parHi) continue // no overlap along the segment
+      const perpLo = (horizontal ? c.y : c.x) - clearance
+      const perpHi = (horizontal ? c.y + c.height : c.x + c.width) + clearance
+      if (v > perpLo && v < perpHi) {
+        v = origin <= perpLo ? perpLo : perpHi
+        moved = true
+      }
+    }
+    if (!moved) break
+  }
+  return v
+}
+
 export function applyEdgeSide(
   entry: StoredEdgePath | undefined,
   end: 'source' | 'target',
@@ -142,11 +191,8 @@ export function applyEdgeSide(
 ): StoredEdgePath | undefined {
   const next: StoredEdgePath = { ...entry }
   delete next.waypoints
-  const key = end === 'source' ? 'sourceSide' : 'targetSide'
-  const defaultSide: EdgeSide = end === 'source' ? 'right' : 'left'
-  if (side === defaultSide) delete next[key]
-  else next[key] = side
-  return next.sourceSide || next.targetSide ? next : undefined
+  next[end === 'source' ? 'sourceSide' : 'targetSide'] = side
+  return next
 }
 
 /** Drop manual paths whose edge no longer exists (GC at commit time, ADR-0012). */

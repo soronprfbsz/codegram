@@ -17,6 +17,7 @@
 import { autoLayout } from '@/entities/erd'
 import type { ErdFlowNode, ErdFlowEdge } from '@/entities/erd'
 import { fitGroupBoxes } from './groupBox'
+import { placeSatelliteEnums } from './placeSatelliteEnums'
 import type { LayoutPositions, StoredLayout } from '@/entities/layout/model/types'
 
 /**
@@ -56,8 +57,16 @@ export function reconcileLayout(
     return { ...node, position: { x: entry.x, y: entry.y } }
   })
 
-  // 3. Re-fit each group node to its (possibly moved) members.
-  return fitGroupBoxes(overridden)
+  // 3. Re-fit each group node to its (possibly moved) members. Done BEFORE the
+  //    satellite pass so group members sit at their FINAL absolute coords.
+  const boxed = fitGroupBoxes(overridden)
+
+  // 4. Park CHECK-synthesized satellite enums (those WITHOUT a stored position)
+  //    beside their owner table. A user-moved enum (stored) is respected;
+  //    Auto-arrange reconciles against an empty stored set so it re-parks all.
+  //    Satellites are TOP-LEVEL, so this needs no further group-box refit. Runs
+  //    last → obstacle rects are final, so the enum lands clear of every node.
+  return placeSatelliteEnums(boxed, stored)
 }
 
 /**

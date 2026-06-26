@@ -1,10 +1,12 @@
 import { lazy, Suspense } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router'
 import { HomePage } from '@/pages/home'
 import { LoginPage } from '@/pages/login'
 import { RegisterPage } from '@/pages/register'
 import { RequireAuth, RequireGuest } from '@/app/providers/RequireAuth'
 import { AppLayout } from '@/widgets/app-layout'
+import { Spinner } from '@/shared/ui/spinner'
 
 // Lazy-load the editor route so @dbml/core, CodeMirror and React Flow are
 // code-split onto the editor chunk only — NOT shipped to login/home (Plan 3b
@@ -13,6 +15,16 @@ import { AppLayout } from '@/widgets/app-layout'
 const EditorPage = lazy(() =>
   import('@/pages/editor').then((m) => ({ default: m.EditorPage })),
 )
+
+/** Full-area spinner shown while the lazy editor chunk loads. */
+function EditorChunkFallback() {
+  const { t } = useTranslation()
+  return (
+    <div className="flex h-full items-center justify-center">
+      <Spinner label={t('editor.loadingErd')} />
+    </div>
+  )
+}
 
 const router = createBrowserRouter([
   {
@@ -30,13 +42,7 @@ const router = createBrowserRouter([
       {
         path: '/editor/:id',
         element: (
-          <Suspense
-            fallback={
-              <div className="flex h-full items-center justify-center">
-                Loading editor…
-              </div>
-            }
-          >
+          <Suspense fallback={<EditorChunkFallback />}>
             <EditorPage />
           </Suspense>
         ),

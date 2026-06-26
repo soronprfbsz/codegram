@@ -1,6 +1,8 @@
 import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom'
+// i18n을 초기화해 컴포넌트 테스트의 t()가 ko(기본) 번역을 반환하게 한다.
+import '@/shared/i18n'
 
 // Testing Library's `waitFor` only advances fake timers when it can detect a
 // global `jest` object (jestFakeTimersAreEnabled checks `typeof jest`). Under

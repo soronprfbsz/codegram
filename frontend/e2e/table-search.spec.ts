@@ -1,7 +1,8 @@
 // frontend/e2e/table-search.spec.ts
-// E2E for the Info-panel table search: filter, navigate (select + DBML scroll +
-// canvas center), match hint, and the "/" focus shortcut. Verifies the pieces
-// jsdom unit tests can't (real React Flow viewport geometry, CodeMirror scroll).
+// E2E for the topbar table search: dropdown results, navigate (select + DBML
+// scroll + canvas center), match hint, and the "/" focus shortcut. Verifies the
+// pieces jsdom unit tests can't (real React Flow viewport geometry, CodeMirror
+// scroll).
 import { test, expect, type Page } from '@playwright/test'
 
 const PASSWORD = 'password123'
@@ -14,7 +15,7 @@ async function registerAndLogin(page: Page, email: string) {
   const loginResponse = page.waitForResponse(
     (resp) => resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -52,7 +53,7 @@ async function openEditor(page: Page, name: string) {
     .toBeGreaterThanOrEqual(3)
 }
 
-test.describe('Info panel table search', () => {
+test.describe('Topbar table search', () => {
   test.beforeEach(async ({ context }) => {
     await context.clearCookies()
   })
@@ -69,9 +70,9 @@ test.describe('Info panel table search', () => {
     const input = page.getByTestId('table-search-input')
     await input.fill('posts')
 
-    // Only the matching table remains in the list.
-    await expect(page.getByTestId('tablelist-row-posts')).toBeVisible()
-    await expect(page.getByTestId('tablelist-row-users')).toHaveCount(0)
+    // Only the matching table appears in the dropdown.
+    await expect(page.getByTestId('table-search-result-posts')).toBeVisible()
+    await expect(page.getByTestId('table-search-result-users')).toHaveCount(0)
 
     // Enter navigates to the top match.
     await input.press('Enter')
@@ -94,15 +95,15 @@ test.describe('Info panel table search', () => {
 
     // Column-name match → hint names the column.
     await input.fill('title')
-    await expect(page.getByTestId('tablelist-row-posts')).toBeVisible()
-    await expect(page.getByTestId('tablelist-hint-posts')).toHaveText('컬럼: title')
+    await expect(page.getByTestId('table-search-result-posts')).toBeVisible()
+    await expect(page.getByTestId('table-search-hint-posts')).toHaveText('컬럼: title')
 
     // Column-note match (Korean) → users matches via the email note.
     await input.fill('로그인')
-    await expect(page.getByTestId('tablelist-row-users')).toBeVisible()
-    await expect(page.getByTestId('tablelist-hint-users')).toHaveText('컬럼 주석 일치')
+    await expect(page.getByTestId('table-search-result-users')).toBeVisible()
+    await expect(page.getByTestId('table-search-hint-users')).toHaveText('컬럼 주석 일치')
 
-    await page.getByTestId('tablelist-row-users').click()
+    await page.getByTestId('table-search-result-users').click()
     // The matched column row (email) is highlighted on the users node — this is
     // the search-driven highlight (email is not an FK, so selection alone would
     // leave it transparent).

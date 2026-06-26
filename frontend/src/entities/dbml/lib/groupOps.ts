@@ -275,3 +275,36 @@ export function moveTableToGroup(
   }
   return guarded(out)
 }
+
+/**
+ * Move SEVERAL tables to one group in a single rewrite (bulk move). Applies
+ * each table's remove+add against the evolving text, parse-guarding ONCE at the
+ * end (no N intermediate re-parses). `schema` (the pre-edit parse) supplies each
+ * table's current group; member tokens are name-based so sequential edits on the
+ * evolving text are safe. toGroup === null → Ungrouped. Tables already in the
+ * target are skipped. On any sub-step failure the original text is preserved.
+ */
+export function moveTablesToGroup(
+  text: string,
+  schema: DbmlSchema,
+  tableIds: string[],
+  toGroup: string | null,
+): GroupOpResult {
+  let out = text
+  for (const tableId of tableIds) {
+    const fromGroup =
+      schema.tableGroups.find((g) => g.tables.includes(tableId))?.name ?? null
+    if (fromGroup === toGroup) continue
+    if (fromGroup !== null) {
+      const removed = removeMember(out, fromGroup, tableId)
+      if (!removed.ok) return removed
+      out = removed.text
+    }
+    if (toGroup !== null) {
+      const added = addMember(out, toGroup, tableId)
+      if (!added.ok) return added
+      out = added.text
+    }
+  }
+  return guarded(out)
+}

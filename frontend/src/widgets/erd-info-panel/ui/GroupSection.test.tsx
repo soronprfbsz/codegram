@@ -63,15 +63,18 @@ describe('GroupSection — group menu', () => {
     const user = setup()
     render(<GroupSection {...base} />)
     await user.click(screen.getByTestId('group-menu-auth'))
-    await user.click(await screen.findByText('Default color'))
+    await user.click(await screen.findByText('기본 색상'))
     expect(handlers.onSetGroupColor).toHaveBeenCalledWith('auth', null)
   })
 
-  it('Delete calls onDeleteGroup', async () => {
+  it('Delete asks for confirmation, then calls onDeleteGroup', async () => {
     const user = setup()
     render(<GroupSection {...base} />)
     await user.click(screen.getByTestId('group-menu-auth'))
-    await user.click(await screen.findByText('Delete'))
+    await user.click(await screen.findByText('삭제'))
+    // 공통 확인 모달이 떠야 하고, 확인 전에는 삭제되지 않는다.
+    expect(handlers.onDeleteGroup).not.toHaveBeenCalled()
+    await user.click(await screen.findByTestId('group-delete-confirm-auth-ok'))
     expect(handlers.onDeleteGroup).toHaveBeenCalledWith('auth')
   })
 
@@ -79,7 +82,7 @@ describe('GroupSection — group menu', () => {
     const user = setup()
     render(<GroupSection {...base} />)
     await user.click(screen.getByTestId('group-menu-auth'))
-    await user.click(await screen.findByText('Rename'))
+    await user.click(await screen.findByText('이름 변경'))
     const input = screen.getByTestId('group-rename-input')
     fireEvent.change(input, { target: { value: 'identity' } })
     fireEvent.keyDown(input, { key: 'Enter' })
@@ -105,7 +108,7 @@ describe('GroupSection — move menu', () => {
     const user = setup()
     render(<GroupSection {...base} />)
     await user.click(screen.getByTestId('table-move-users'))
-    await user.click(await screen.findByText('Ungrouped'))
+    await user.click(await screen.findByText('미분류'))
     expect(handlers.onMoveTable).toHaveBeenCalledWith('public.users', null)
   })
 
@@ -122,7 +125,7 @@ describe('GroupSection — move menu', () => {
     render(<GroupSection {...base} group={ungrouped} />)
     await user.click(screen.getByTestId('table-move-users'))
     await screen.findByText('auth') // 메뉴 열림 대기
-    expect(screen.queryByText('Move to')).toBeTruthy()
-    expect(screen.queryByRole('menuitem', { name: 'Ungrouped' })).toBeNull()
+    expect(screen.queryByText('이동 대상')).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: '미분류' })).toBeNull()
   })
 })

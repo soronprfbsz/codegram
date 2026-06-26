@@ -41,7 +41,7 @@ async function registerAndLogin(page: Page, email: string, password: string) {
     (resp) =>
       resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -58,8 +58,8 @@ test('table groups: full CRUD scenario', async ({ page }) => {
       resp.request().method() === 'POST' &&
       resp.status() === 201,
   )
-  await page.getByPlaceholder('Project name').fill('TG Test')
-  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByPlaceholder('프로젝트 이름').fill('TG Test')
+  await page.getByRole('button', { name: '만들기' }).click()
   const created = await (await createResponse).json()
   const projectId = created.id as string
   await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
@@ -79,7 +79,15 @@ test('table groups: full CRUD scenario', async ({ page }) => {
   await page.keyboard.type(dbml)
 
   // Wait for Valid badge (parse settles after 600ms debounce).
-  await expect(page.getByText('Valid')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText('유효')).toBeVisible({ timeout: 10_000 })
+
+  // 정보 패널은 기본 hidden — 그룹 조작 UI를 쓰려면 탑바 정보 버튼으로 연다.
+  await page.getByTestId('info-panel-button').click()
+  await expect(page.getByTestId('schema-summary-grid')).toBeInViewport()
+
+  // 그룹 섹션은 기본 접힘 — 미분류를 펼쳐 테이블 행/이동 메뉴를 노출한다.
+  await page.getByTestId('group-toggle-__ungrouped').click()
+  await expect(page.getByTestId('tablelist-row-users')).toBeVisible()
 
   // ── Step 1: Create group 'auth' ───────────────────────────────────────
   await page.getByTestId('group-create-button').click()
@@ -96,7 +104,7 @@ test('table groups: full CRUD scenario', async ({ page }) => {
     .toContain('TableGroup auth {')
 
   // ── Step 2: Move users into 'auth' ────────────────────────────────────
-  await expect(page.getByText('Valid')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText('유효')).toBeVisible({ timeout: 10_000 })
 
   await page.getByTestId('table-move-users').click()
   await page.getByRole('menuitem', { name: 'auth' }).click()
@@ -110,7 +118,7 @@ test('table groups: full CRUD scenario', async ({ page }) => {
     .toMatch(/TableGroup auth \{[\s\S]*users[\s\S]*\}/)
 
   // ── Step 3: Set color #EC4899 on 'auth' ───────────────────────────────
-  await expect(page.getByText('Valid')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText('유효')).toBeVisible({ timeout: 10_000 })
 
   await page.getByTestId('group-menu-auth').click()
   await page.getByTestId('swatch-#EC4899').click()
@@ -129,18 +137,19 @@ test('table groups: full CRUD scenario', async ({ page }) => {
   // Wait for any Radix dropdown portal to close before clicking toggle.
   await expect(page.locator('[role="menu"]')).toHaveCount(0, { timeout: 5_000 })
 
-  // ── Step 4: Collapse/expand 'auth' ────────────────────────────────────
+  // ── Step 4: Expand/collapse 'auth' (그룹은 기본 접힘) ─────────────────
+  // 새로 만든 그룹은 기본 접힘 → users 행이 보이지 않는다.
+  await expect(page.getByTestId('tablelist-row-users')).toBeHidden()
+  await page.getByTestId('group-toggle-auth').click()
+  await expect(page.getByTestId('tablelist-row-users')).toBeVisible()
   await page.getByTestId('group-toggle-auth').click()
   await expect(page.getByTestId('tablelist-row-users')).toBeHidden()
 
-  await page.getByTestId('group-toggle-auth').click()
-  await expect(page.getByTestId('tablelist-row-users')).toBeVisible()
-
   // ── Step 5: Rename 'auth' → 'core' ────────────────────────────────────
-  await expect(page.getByText('Valid')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText('유효')).toBeVisible({ timeout: 10_000 })
 
   await page.getByTestId('group-menu-auth').click()
-  await page.getByRole('menuitem', { name: 'Rename' }).click()
+  await page.getByRole('menuitem', { name: '이름 변경' }).click()
   await page.getByTestId('group-rename-input').fill('core')
   await page.keyboard.press('Enter')
 
@@ -153,10 +162,10 @@ test('table groups: full CRUD scenario', async ({ page }) => {
     .toContain('TableGroup core')
 
   // ── Step 6: Delete 'core' ─────────────────────────────────────────────
-  await expect(page.getByText('Valid')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByText('유효')).toBeVisible({ timeout: 10_000 })
 
   await page.getByTestId('group-menu-core').click()
-  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  await page.getByRole('menuitem', { name: '삭제' }).click()
 
   await expect
     .poll(
@@ -169,27 +178,16 @@ test('table groups: full CRUD scenario', async ({ page }) => {
   // users should still be listed (now Ungrouped).
   await expect(page.getByTestId('tablelist-row-users')).toBeVisible()
 
-  // ── Step 7: Off-canvas toggle ─────────────────────────────────────────
-  // Panel is open by default — schema-summary-grid is visible.
+  // ── Step 7: 정보 패널 show/hide 토글 ──────────────────────────────────
+  // 패널은 열린 상태 — schema-summary-grid가 보인다.
   await expect(page.getByTestId('schema-summary-grid')).toBeInViewport()
 
-  // Collapse the panel via its own header toggle (grid column → 40px rail).
-  await page.getByRole('button', { name: 'Collapse info panel' }).click()
+  // 탑바 정보 버튼 재클릭 → 우측 영역 자체가 제거된다(레일 아님).
+  await page.getByTestId('info-panel-button').click()
+  await expect(page.getByTestId('info-panel-column')).toHaveCount(0, { timeout: 5_000 })
 
-  // Poll the info-panel-column width until it reaches the 40px rail (CSS 200ms).
-  await expect
-    .poll(
-      async () => {
-        const col = page.getByTestId('info-panel-column')
-        const box = await col.boundingBox()
-        return box?.width ?? -1
-      },
-      { timeout: 5_000 },
-    )
-    .toBe(40)
-
-  // Expand again from the rail.
-  await page.getByRole('button', { name: 'Expand info panel' }).click()
+  // 다시 클릭하면 패널이 복귀한다.
+  await page.getByTestId('info-panel-button').click()
   await expect(page.getByTestId('schema-summary-grid')).toBeInViewport({ timeout: 5_000 })
 })
 
@@ -313,4 +311,44 @@ test('그룹 라벨 hover → 정렬 버튼으로 그룹 내부 콤팩트 정렬
 
   // 콤팩트 재배치 후 그룹 박스 높이가 줄었는지 확인.
   await expect.poll(async () => (await region.boundingBox())!.height, { timeout: 5000 }).toBeLessThan(hBefore)
+})
+
+test('그룹 본체(빈 공간) 클릭 → 캔버스 클릭처럼 선택 해제', async ({ page }) => {
+  const email = `tg-deselect-${Date.now()}@example.com`
+  const password = 'password123'
+  await registerAndLogin(page, email, password)
+
+  const dbml_text = [
+    'Table users {',
+    '  id integer [pk]',
+    '  org_id integer [ref: > orgs.id]',
+    '}',
+    'Table orgs {',
+    '  id integer [pk]',
+    '  name varchar',
+    '}',
+    'TableGroup acct {',
+    '  users',
+    '  orgs',
+    '}',
+  ].join('\n')
+
+  const createResp = await page.request.post('/api/projects', {
+    data: { name: `TG-Deselect-${Date.now()}`, dbml_text, layout: {} },
+  })
+  const projectId = (await createResp.json()).id as string
+  await page.goto(`/editor/${projectId}`)
+  await page.waitForSelector('[data-testid^="group-region-"]')
+  await expect
+    .poll(async () => page.locator('.react-flow__edge').count(), { timeout: 8000 })
+    .toBeGreaterThanOrEqual(1)
+
+  // 엣지 선택 → 세그먼트 핸들 표시.
+  await clickEdgeMidpoint(page)
+  await expect(page.locator('[data-testid^="edge-seg-"]').first()).toBeVisible()
+
+  // 그룹 본체(멤버 카드가 아닌 빈 공간)를 클릭 → 선택 해제 → 핸들 사라짐.
+  const box = (await page.locator('.react-flow__node-group').first().boundingBox())!
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.85)
+  await expect(page.locator('[data-testid^="edge-seg-"]')).toHaveCount(0, { timeout: 3000 })
 })

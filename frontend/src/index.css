@@ -9,6 +9,12 @@
 @import "@fontsource/pretendard/700.css";
 @import "@fontsource/pretendard/800.css";
 @import "@fontsource/pretendard/900.css";
+/* JetBrains Mono — ERD 테이블/컬럼 식별자용 고가독 monospace(큰 x-height라
+   저배율 줌아웃에서도 또렷하다). 기존 폴백 의도를 실제 설치로 충족. */
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "@fontsource/jetbrains-mono/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -59,6 +65,10 @@
 }
 
 :root {
+    /* Monospace 단일 출처 — ERD 테이블/컬럼 식별자에 쓰는 고가독 mono.
+       JetBrains Mono(큰 x-height)로 저배율 줌아웃 가독성을 높인다. */
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+
     /* ── Tesla tokens — Light ────────────────────────────────────────────
        Radical minimalism: white canvas, single Electric-Blue accent, Carbon
        Dark ink, 4px radius, near-zero decoration. Separation via spacing +
@@ -69,8 +79,8 @@
     --card-foreground: #171a20;
     --popover: #ffffff;
     --popover-foreground: #171a20;
-    --primary: #3e6ae1;             /* Electric Blue — the sole accent */
-    --primary-foreground: #ffffff;
+    --primary: #FACC15;             /* Gold — primary fill buttons (cleaner, less muddy) */
+    --primary-foreground: #1f1a08;  /* dark text for legibility on gold */
     --secondary: #f4f4f4;           /* Light Ash */
     --secondary-foreground: #393c41;/* Graphite */
     --muted: #f4f4f4;
@@ -141,8 +151,8 @@
     --card-foreground: #f4f4f5;
     --popover: #1f232b;
     --popover-foreground: #f4f4f5;
-    --primary: #3e6ae1;
-    --primary-foreground: #ffffff;
+    --primary: #FACC15;
+    --primary-foreground: #1f1a08;
     --secondary: #2a2e36;
     --secondary-foreground: #e4e5e7;
     --muted: #2a2e36;
@@ -195,12 +205,13 @@
     --erd-accent-soft: color-mix(in srgb, #3e6ae1 24%, transparent);
     --erd-accent-text: #8fb0ff;
 
-    /* ERD group colors */
-    --erd-group-common: #6938EF;
-    --erd-group-account: #1570EF;
-    --erd-group-customer: #0E9384;
-    --erd-group-release: #DC6803;
-    --erd-group-resource: #B42318;
+    /* ERD group colors — Dark (라이트 600 계열을 400 계열로 올려 어두운 캔버스/
+       패널에서 묻히지 않게 한다. 색상 정체성(hue)은 유지). */
+    --erd-group-common: #A78BFA;
+    --erd-group-account: #60A5FA;
+    --erd-group-customer: #2DD4BF;
+    --erd-group-release: #FB923C;
+    --erd-group-resource: #F87171;
 }
 
 @layer base {
@@ -218,6 +229,35 @@
   h1, h2 {
     font-family: var(--font-display);
     }
+}
+
+/* 스크롤바 단일 출처 — 앱 전체에 얇고 테마에 맞는 스크롤바(F1/G1: 호출부에서
+   개별 정의 금지). Firefox는 scrollbar-width/color, Chromium/WebKit은 ::-webkit.
+   thumb는 --erd-border-2(테마별 정의), track는 투명. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--erd-border-2) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--erd-border-2);
+  border-radius: 9999px;
+  /* 트랙 가장자리 여백 — 얇은 막대처럼 보이게 투명 테두리로 인셋 */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--erd-text-3);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* TopBar secondary button — shared style for Info / Import SQL / Export triggers */
@@ -249,10 +289,48 @@
   box-shadow: 0 0 0 3px var(--erd-accent-soft) !important;
 }
 
-/* Focus ring for TopBar inline-styled buttons */
+/* TopBar control 단일 스타일 출처(F1/F2): 기본/hover/선택(aria-pressed)을
+   디자인 토큰으로만 표현한다. 호출부는 인라인으로 색을 박지 않는다.
+   - 기본: 표면색 + 하이라인 테두리 + 보조 텍스트색
+   - hover: --erd-hover 표면 + 텍스트 진하게 (웹표준 보조 버튼 hover)
+   - 선택(toggle on): accent 톤 — 은은한 accent 배경 + accent 테두리/텍스트 */
+.erd-topbar-btn {
+  border: 1px solid var(--erd-border-2);
+  background: var(--erd-surface);
+  color: var(--erd-text-2);
+  transition: background 80ms ease, border-color 80ms ease, color 80ms ease;
+}
+.erd-topbar-btn:hover:not(:disabled) {
+  background: var(--erd-hover);
+  border-color: var(--erd-border-2);
+  color: var(--erd-text);
+}
+.erd-topbar-btn[aria-pressed='true'] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.erd-topbar-btn[aria-pressed='true']:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 90%, #000);
+  border-color: color-mix(in srgb, var(--primary) 90%, #000);
+  color: var(--primary-foreground);
+}
+/* Focus ring for TopBar inline-styled buttons — main(gold) tint */
 .erd-topbar-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--erd-accent-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* TopBar 검색 박스: 옆 버튼들과 동일한 표면/하이라인 테두리(탑바 배경과
+   구분되게). 포커스 시 메인(골드) 테두리 + 톤 링. */
+.erd-search-frame {
+  background: var(--erd-surface);
+  border: 1px solid var(--erd-border-2);
+  transition: border-color 80ms ease, box-shadow 80ms ease;
+}
+.erd-search-frame:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
 /* ERD node styles */
@@ -293,6 +371,19 @@
   cursor: default !important;
 }
 
+/* 선택된 엣지의 좌우전환·Reset 버튼은 EdgeLabelRenderer
+   (.react-flow__edgelabel-renderer)에 그려진다. React Flow는 이 레이어를
+   NodeRenderer보다 "먼저" 렌더하므로(viewport DOM 순서상 노드가 뒤), 카드와 겹치는
+   버튼이 노드 HTML(z=0)에 가려 클릭이 카드로 새어 들어갔다. z=1로 올리면 기본
+   노드 위로 떠 클릭이 버튼에 닿는다. 컨테이너는 pointer-events:none(버튼만 auto)
+   이라 다른 클릭은 막지 않는다.
+   주의: z를 1000+로 주면 React Flow가 드래그/커넥션에 쓰는 내부 레이어(~1000,
+   connectionline=1001)와 충돌해 세그먼트 핸들 드래그 커밋이 깨진다(실측). 엣지
+   선택 중에는 노드가 elevate되지 않으므로(단일 선택) z=1로 충분하다. */
+.react-flow__edgelabel-renderer {
+  z-index: 1;
+}
+
 /* DBML editor: active-table block highlight (Phase 5) */
 .cm-active-table {
   background: var(--erd-accent-soft) !important;
@@ -316,9 +407,25 @@
   box-shadow: none;
   outline: none;
   pointer-events: none; /* 그룹 영역 통과 — .erd-group-handle만 auto로 재활성 (요청 1) */
+  /* 그룹 본체는 라벨(.erd-group-handle)로만 드래그 — 동작 없는 본체에서 RF base.css가
+     주는 grab(손) 커서를 기본 커서로 덮는다(pane/edge와 동일하게 !important로 RF를 이김).
+     라벨은 자식 요소라 자체 cursor:grab을 유지한다. */
+  cursor: default !important;
 }
 
 /* 그룹 라벨 크롬 hover 시에만 정렬 버튼 노출 (요청 2: 항상 노출 아님) */
 .erd-group-handle:hover .erd-group-arrange {
   display: inline-flex !important;
+}
+/* Selection 카드 헤더: 평소엔 grip 숨김, hover 시 이동 핸들로 노출. 드래그 중엔
+   grabbing 커서. (요청: 헤더 hover 시 이동 아이콘 + 드래그 이동) */
+.erd-selcard-grip {
+  opacity: 0;
+  transition: opacity 80ms ease;
+}
+.erd-selcard-handle:hover .erd-selcard-grip {
+  opacity: 1;
+}
+.erd-selcard-handle:active {
+  cursor: grabbing;
 }

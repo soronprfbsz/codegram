@@ -7,7 +7,7 @@ export function flag(value: boolean): string {
 
 /** One column of the standard 테이블 정의서 table. */
 export interface StandardColumnDescriptor {
-  /** Korean header label. */
+  /** i18n key for the header label (translated by the view / exporters). */
   header: string
   /** Map a derived column to its cell string. */
   value: (col: TableDocColumn) => string
@@ -17,20 +17,22 @@ export interface StandardColumnDescriptor {
  * The single source of truth for the standard 테이블 정의서 column set, in
  * FINAL order. Every exporter (xlsx/pdf) and the HTML view derives its header
  * row and per-column cells from this descriptor so the three never drift.
+ * `header` is an i18n KEY (not a literal) — consumers translate via `t()` so the
+ * preview and exports follow the active language.
  */
 export const STANDARD_COLUMNS: readonly StandardColumnDescriptor[] = [
-  { header: '컬럼명', value: (c) => c.name },
-  { header: '데이터타입', value: (c) => c.type },
-  { header: 'PK', value: (c) => flag(c.pk) },
-  { header: 'FK', value: (c) => flag(c.fk) },
-  { header: 'NN', value: (c) => flag(c.notNull) },
-  { header: 'UNIQUE', value: (c) => flag(c.unique) },
-  { header: '기본값', value: (c) => c.default },
-  { header: '설명', value: (c) => c.note },
+  { header: 'tableDoc.colName', value: (c) => c.name },
+  { header: 'tableDoc.colType', value: (c) => c.type },
+  { header: 'tableDoc.colPk', value: (c) => flag(c.pk) },
+  { header: 'tableDoc.colFk', value: (c) => flag(c.fk) },
+  { header: 'tableDoc.colNn', value: (c) => flag(c.notNull) },
+  { header: 'tableDoc.colUnique', value: (c) => flag(c.unique) },
+  { header: 'tableDoc.colDefault', value: (c) => c.default },
+  { header: 'tableDoc.colNote', value: (c) => c.note },
 ]
 
-/** Header row in FINAL order. */
-export const STANDARD_COLUMN_HEADER: readonly string[] = STANDARD_COLUMNS.map(
+/** Header i18n keys in FINAL order (translate via `t()` at the use site). */
+export const STANDARD_COLUMN_HEADER_KEYS: readonly string[] = STANDARD_COLUMNS.map(
   (c) => c.header,
 )
 

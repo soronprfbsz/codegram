@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { MoreHorizontal } from 'lucide-react'
 import {
   ProjectGlyph,
@@ -9,10 +10,14 @@ import {
   type ProjectUpdatePayload,
 } from '@/entities/project'
 import {
-  PROJECT_COLOR_KEYS,
-  PROJECT_COLORS,
+  PROJECT_BG_COLOR_KEYS,
+  PROJECT_ICON_COLOR_KEYS,
+  PROJECT_FG_COLORS,
+  PROJECT_BG_COLORS,
   PROJECT_GLYPH_PALETTE,
   GLYPH_MAX_LENGTH,
+  resolveGlyphIcon,
+  CHECKER_SWATCH,
 } from '@/entities/project/model/glyph'
 import {
   DropdownMenu,
@@ -28,6 +33,7 @@ import {
   DialogDescription,
 } from '@/shared/ui/dialog'
 import { Button } from '@/shared/ui/button'
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog'
 import { cn } from '@/shared/lib/utils'
 
 export interface ProjectRowProps {
@@ -47,6 +53,7 @@ export interface ProjectRowProps {
  * widgets layer: composes the project entity + shared UI only.
  */
 export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const updateProject = useUpdateProject(project.id)
   const deleteProject = useDeleteProject()
@@ -57,11 +64,13 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
   const [draftName, setDraftName] = useState(project.name)
   const [draftGlyph, setDraftGlyph] = useState<string | null>(project.glyph)
   const [draftColor, setDraftColor] = useState<string | null>(project.color)
+  const [draftBgColor, setDraftBgColor] = useState<string | null>(project.bg_color)
 
   function openEdit() {
     setDraftName(project.name)
     setDraftGlyph(project.glyph)
     setDraftColor(project.color)
+    setDraftBgColor(project.bg_color)
     setEditOpen(true)
   }
 
@@ -73,6 +82,7 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
     // The API payload can't clear a glyph (glyph?: string), so only send a set value.
     if (glyph && glyph !== project.glyph) payload.glyph = glyph
     if (draftColor && draftColor !== project.color) payload.color = draftColor
+    if (draftBgColor && draftBgColor !== project.bg_color) payload.bg_color = draftBgColor
 
     if (Object.keys(payload).length > 0) await updateProject.mutateAsync(payload)
     setEditOpen(false)
@@ -100,52 +110,57 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
           collapsed ? 'justify-center px-0' : 'pr-8',
         )}
       >
-        <ProjectGlyph glyph={project.glyph} color={project.color} size={20} className="opacity-90" />
+        <ProjectGlyph glyph={project.glyph} color={project.color} bgColor={project.bg_color} size={20} className="opacity-90" />
         {!collapsed && <span className="truncate">{project.name}</span>}
       </Link>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={`${project.name} 메뉴`}
-            data-testid={`sidebar-project-menu-${project.id}`}
-            className={cn(
-              'absolute top-1/2 right-1 grid size-6 -translate-y-1/2 place-items-center rounded-md text-sidebar-foreground/60 transition',
-              'opacity-0 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus:opacity-100 group-hover/row:opacity-100 data-[state=open]:opacity-100',
-              collapsed && 'right-0.5',
-            )}
-          >
-            <MoreHorizontal size={15} />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={openEdit}>편집</DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() => setConfirmOpen(true)}
-            className="text-destructive focus:text-destructive"
-          >
-            삭제
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Management menu (편집/삭제) only in the expanded sidebar. In the
+          collapsed icon rail it would overlap the glyph in the narrow row —
+          stealing the project's click, hiding the glyph on hover, and lingering
+          (focus 복귀) after close — so the rail is navigation-only. */}
+      {!collapsed && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={t('projectRow.menu', { name: project.name })}
+              data-testid={`sidebar-project-menu-${project.id}`}
+              className={cn(
+                'absolute top-1/2 right-1 grid size-6 -translate-y-1/2 place-items-center rounded-md text-sidebar-foreground/60 transition',
+                'opacity-0 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus:opacity-100 group-hover/row:opacity-100 data-[state=open]:opacity-100',
+              )}
+            >
+              <MoreHorizontal size={15} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={openEdit}>{t('projectRow.edit')}</DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => setConfirmOpen(true)}
+              className="text-destructive focus:text-destructive"
+            >
+              {t('projectRow.delete')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       {/* Edit dialog: name + glyph + color */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>프로젝트 편집</DialogTitle>
+            <DialogTitle>{t('projectRow.editTitle')}</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-4">
             {/* Live preview + name */}
             <div className="flex items-center gap-3">
-              <ProjectGlyph glyph={draftGlyph} color={draftColor} size={40} />
+              <ProjectGlyph glyph={draftGlyph} color={draftColor} bgColor={draftBgColor} size={40} />
               <input
                 value={draftName}
                 autoFocus
-                aria-label="프로젝트 이름"
-                placeholder="프로젝트 이름"
+                aria-label={t('projectRow.name')}
+                placeholder={t('projectRow.name')}
                 onChange={(e) => setDraftName(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSaveEdit()
@@ -154,22 +169,47 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
               />
             </div>
 
-            {/* Color */}
+            {/* 아이콘·글씨색 (투명 제외) */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">색상</span>
+              <span className="text-xs font-medium text-muted-foreground">{t('glyph.iconColorLabel')}</span>
               <div className="flex flex-wrap gap-1.5">
-                {PROJECT_COLOR_KEYS.map((key) => (
+                {PROJECT_ICON_COLOR_KEYS.map((key) => (
                   <button
                     key={key}
                     type="button"
-                    aria-label={`색상 ${key}`}
+                    aria-label={t('glyph.iconColorAria', { key })}
                     onClick={() => setDraftColor(key)}
                     className={cn(
                       'size-6 rounded-full border border-border',
                       draftColor === key &&
                         'ring-2 ring-ring ring-offset-1 ring-offset-background',
                     )}
-                    style={{ backgroundColor: PROJECT_COLORS[key] }}
+                    style={{ backgroundColor: PROJECT_FG_COLORS[key] }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 배경색 (투명 포함) */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">{t('glyph.bgColorLabel')}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {PROJECT_BG_COLOR_KEYS.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-label={t('glyph.bgColorAria', { key })}
+                    onClick={() => setDraftBgColor(key)}
+                    className={cn(
+                      'size-6 rounded-full border border-border',
+                      draftBgColor === key &&
+                        'ring-2 ring-ring ring-offset-1 ring-offset-background',
+                    )}
+                    style={
+                      key === 'transparent'
+                        ? CHECKER_SWATCH
+                        : { backgroundColor: PROJECT_BG_COLORS[key] }
+                    }
                   />
                 ))}
               </div>
@@ -177,29 +217,34 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
 
             {/* Glyph */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">아이콘</span>
+              <span className="text-xs font-medium text-muted-foreground">{t('projectRow.icon')}</span>
               <div className="grid grid-cols-8 gap-1">
-                {PROJECT_GLYPH_PALETTE.map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    aria-label={`아이콘 ${g}`}
-                    onClick={() => setDraftGlyph(g)}
-                    className={cn(
-                      'grid size-7 place-items-center rounded text-base hover:bg-muted',
-                      draftGlyph === g && 'bg-muted ring-1 ring-ring',
-                    )}
-                  >
-                    {g}
-                  </button>
-                ))}
+                {PROJECT_GLYPH_PALETTE.map((g) => {
+                  const Icon = resolveGlyphIcon(g)
+                  const name = g.slice(1)
+                  return (
+                    <button
+                      key={g}
+                      type="button"
+                      data-testid={`glyph-option-${name}`}
+                      aria-label={t('glyph.iconAria', { name })}
+                      onClick={() => setDraftGlyph(g)}
+                      className={cn(
+                        'grid size-7 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground',
+                        draftGlyph === g && 'bg-muted text-foreground ring-1 ring-ring',
+                      )}
+                    >
+                      {Icon ? <Icon size={17} /> : <span className="text-base">{g}</span>}
+                    </button>
+                  )
+                })}
               </div>
               <input
                 value={draftGlyph ?? ''}
                 onChange={(e) => setDraftGlyph(e.target.value || null)}
                 maxLength={GLYPH_MAX_LENGTH}
-                aria-label="아이콘 직접 입력"
-                placeholder="직접 입력 (이모지/문자)"
+                aria-label={t('projectRow.iconCustomAria')}
+                placeholder={t('projectRow.iconCustomPlaceholder')}
                 className="mt-1 h-8 w-full rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-primary"
               />
             </div>
@@ -207,38 +252,25 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setEditOpen(false)}>
-              취소
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveEdit} disabled={updateProject.isPending}>
-              저장
+              {t('common.save')}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>프로젝트를 삭제할까요?</DialogTitle>
-            <DialogDescription>
-              «{project.name}» 을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              취소
-            </Button>
-            <Button
-              onClick={handleDelete}
-              disabled={deleteProject.isPending}
-              className="bg-destructive text-white hover:bg-destructive/90"
-            >
-              삭제
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Delete confirmation — 공통 모달 */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        testId="project-row-delete-confirm"
+        title={t('projectRow.deleteTitle')}
+        description={t('projectRow.deleteDesc', { name: project.name })}
+        confirmDisabled={deleteProject.isPending}
+        onConfirm={handleDelete}
+      />
     </li>
   )
 }

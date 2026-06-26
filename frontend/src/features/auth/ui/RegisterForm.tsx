@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
@@ -18,6 +19,7 @@ import { useLogin } from '@/features/auth/api/useLogin'
  * user in with the same credentials, then navigate home.
  */
 export function RegisterForm() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -33,15 +35,15 @@ export function RegisterForm() {
     setError(null)
 
     if (!email || !password || !confirmPassword) {
-      setError('All fields are required')
+      setError(t('auth.allFieldsRequired'))
       return
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('auth.passwordsNoMatch'))
       return
     }
     if (password.length < 8) {
-      setError('Password must be at least 8 characters')
+      setError(t('auth.passwordTooShort'))
       return
     }
 
@@ -50,7 +52,7 @@ export function RegisterForm() {
       await login.mutateAsync({ email, password })
       navigate('/')
     } catch {
-      setError('Registration failed. The email may already be in use.')
+      setError(t('auth.registrationFailed'))
     }
   }
 
@@ -58,13 +60,13 @@ export function RegisterForm() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle asChild>
-          <h2>Sign up</h2>
+          <h2>{t('auth.signup')}</h2>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div className="space-y-2">
-            <Label htmlFor="register-email">Email</Label>
+            <Label htmlFor="register-email">{t('auth.email')}</Label>
             <Input
               id="register-email"
               type="email"
@@ -76,7 +78,7 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="register-password">Password</Label>
+            <Label htmlFor="register-password">{t('auth.password')}</Label>
             <Input
               id="register-password"
               type="password"
@@ -89,7 +91,7 @@ export function RegisterForm() {
 
           <div className="space-y-2">
             <Label htmlFor="register-confirm-password">
-              Confirm password
+              {t('auth.confirmPassword')}
             </Label>
             <Input
               id="register-confirm-password"
@@ -108,7 +110,7 @@ export function RegisterForm() {
           )}
 
           <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? 'Creating account…' : 'Sign up'}
+            {isPending ? t('auth.creatingAccount') : t('auth.signup')}
           </Button>
         </form>
       </CardContent>

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
@@ -17,6 +18,7 @@ import { useLogin } from '@/features/auth/api/useLogin'
  * where the route guard confirms the authenticated state.
  */
 export function LoginForm() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +30,7 @@ export function LoginForm() {
     setError(null)
 
     if (!email || !password) {
-      setError('Email and password are required')
+      setError(t('auth.emailPasswordRequired'))
       return
     }
 
@@ -36,7 +38,7 @@ export function LoginForm() {
       await login.mutateAsync({ email, password })
       navigate('/')
     } catch {
-      setError('Login failed. Check your email and password.')
+      setError(t('auth.loginFailed'))
     }
   }
 
@@ -44,13 +46,13 @@ export function LoginForm() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle asChild>
-          <h2>Log in</h2>
+          <h2>{t('auth.login')}</h2>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div className="space-y-2">
-            <Label htmlFor="login-email">Email</Label>
+            <Label htmlFor="login-email">{t('auth.email')}</Label>
             <Input
               id="login-email"
               type="email"
@@ -62,7 +64,7 @@ export function LoginForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="login-password">Password</Label>
+            <Label htmlFor="login-password">{t('auth.password')}</Label>
             <Input
               id="login-password"
               type="password"
@@ -84,7 +86,7 @@ export function LoginForm() {
             className="w-full"
             disabled={login.isPending}
           >
-            {login.isPending ? 'Logging in…' : 'Log in'}
+            {login.isPending ? t('auth.loggingIn') : t('auth.login')}
           </Button>
         </form>
       </CardContent>

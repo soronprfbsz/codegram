@@ -1,5 +1,6 @@
 import { Parser, CompilerError } from '@dbml/core'
 import type {
+  DbmlCheck,
   DbmlColumn,
   DbmlEnum,
   DbmlNote,
@@ -30,6 +31,9 @@ interface NormalizedModel {
   enumValues: IdMap
   tableGroups: IdMap
   notes: IdMap
+  indexes: IdMap
+  indexColumns: IdMap
+  checks: IdMap
 }
 
 /** Coerce a possibly-null/undefined string into an optional non-empty string. */
@@ -58,10 +62,58 @@ function tableId(model: NormalizedModel, table: Record<string, unknown>): string
   return `${schemaName(model, table.schemaId)}.${String(table.name)}`
 }
 
+/**
+ * The set of endpoint ids that represent a FOREIGN-KEY column (the child side of
+ * a relationship), so a column referenced BY others (e.g. a PK that other tables
+ * point at) is NOT mistaken for a FK. Per ref: the FK side is the "many" (`*`)
+ * endpoint; for a 1-1 (`-`, both `1`) the `from` endpoint is treated as the FK.
+ */
+function fkEndpointIds(model: NormalizedModel): Set<string> {
+  const fk = new Set<string>()
+  for (const ref of Object.values(model.refs)) {
+    const ids = Array.isArray(ref.endpointIds) ? ref.endpointIds.map(String) : []
+    if (ids.length !== 2) continue
+    const r0 = model.endpoints[ids[0]]?.relation
+    const r1 = model.endpoints[ids[1]]?.relation
+    if (r0 === '*') fk.add(ids[0])
+    if (r1 === '*') fk.add(ids[1])
+    if (r0 !== '*' && r1 !== '*') fk.add(ids[0]) // 1-1: the from-side holds the FK
+  }
+  return fk
+}
+
+/**
+ * Column names a table marks PK via an `indexes { col [pk] }` block (incl.
+ * composite PKs). @dbml/core records these on the index, NOT on `field.pk`, so
+ * without this an index-declared PK (common in SQL-imported/introspected DBML)
+ * shows no PK badge.
+ */
+function pkColumnsFromIndexes(
+  model: NormalizedModel,
+  table: Record<string, unknown>,
+): Set<string> {
+  const pk = new Set<string>()
+  const indexIds = Array.isArray(table.indexIds) ? table.indexIds : []
+  for (const iid of indexIds) {
+    const idx = model.indexes[String(iid)]
+    if (!idx || idx.pk !== true) continue
+    const columnIds = Array.isArray(idx.columnIds) ? idx.columnIds : []
+    for (const cid of columnIds) {
+      const col = model.indexColumns[String(cid)]
+      if (col && col.type === 'column' && typeof col.value === 'string') {
+        pk.add(col.value)
+      }
+    }
+  }
+  return pk
+}
+
 function mapColumn(
   field: Record<string, unknown>,
   schema: string,
   tableName: string,
+  fkEndpoints: Set<string>,
+  pkFromIndex: Set<string>,
 ): DbmlColumn {
   const name = String(field.name)
   const type = field.type as { type_name?: unknown } | undefined
@@ -72,7 +124,7 @@ function mapColumn(
     name,
     type:
       type && typeof type.type_name === 'string' ? type.type_name : 'unknown',
-    pk: field.pk === true,
+    pk: field.pk === true || pkFromIndex.has(name),
     notNull: field.not_null === true,
     unique: field.unique === true,
     increment: field.increment === true,
@@ -81,17 +133,36 @@ function mapColumn(
         ? String(dbdefault.value)
         : undefined,
     note: optStr(field.note),
-    isFk: Array.isArray(endpointIds) && endpointIds.length > 0,
+    isFk:
+      Array.isArray(endpointIds) &&
+      endpointIds.some((eid) => fkEndpoints.has(String(eid))),
   }
+}
+
+/** Table-level CHECK constraints from the table's `checkIds` (Checks block). */
+function mapTableChecks(
+  model: NormalizedModel,
+  table: Record<string, unknown>,
+): DbmlCheck[] {
+  const checkIds = Array.isArray(table.checkIds) ? table.checkIds : []
+  const checks: DbmlCheck[] = []
+  for (const cid of checkIds) {
+    const check = model.checks[String(cid)]
+    const expression = check ? optStr(check.expression) : undefined
+    if (expression) checks.push({ expression, name: optStr(check.name) })
+  }
+  return checks
 }
 
 function mapTable(
   model: NormalizedModel,
   table: Record<string, unknown>,
+  fkEndpoints: Set<string>,
 ): DbmlTable {
   const name = String(table.name)
   const schema = schemaName(model, table.schemaId)
   const fieldIds = Array.isArray(table.fieldIds) ? table.fieldIds : []
+  const pkFromIndex = pkColumnsFromIndexes(model, table)
   return {
     id: tableId(model, table),
     name,
@@ -99,8 +170,9 @@ function mapTable(
     note: optStr(table.note),
     headerColor: optStr(table.headerColor),
     columns: fieldIds.map((fid) =>
-      mapColumn(model.fields[String(fid)], schema, name),
+      mapColumn(model.fields[String(fid)], schema, name, fkEndpoints, pkFromIndex),
     ),
+    checks: mapTableChecks(model, table),
   }
 }
 
@@ -176,8 +248,9 @@ function mapNote(note: Record<string, unknown>): DbmlNote {
 }
 
 function toSchema(model: NormalizedModel): DbmlSchema {
+  const fkEndpoints = fkEndpointIds(model)
   return {
-    tables: Object.values(model.tables).map((t) => mapTable(model, t)),
+    tables: Object.values(model.tables).map((t) => mapTable(model, t, fkEndpoints)),
     refs: Object.values(model.refs).map((r) => mapRef(model, r)),
     enums: Object.values(model.enums).map((e) => mapEnum(model, e)),
     tableGroups: Object.values(model.tableGroups).map((g) =>

@@ -53,6 +53,7 @@ def test_project_read_from_attributes() -> None:
         updated_at = datetime.now(timezone.utc)
         glyph = "🗄️"
         color = "blue"
+        bg_color = "transparent"
 
     dto = ProjectRead.model_validate(FakeORM())
     assert dto.name == "My ERD"
@@ -62,3 +63,4 @@ def test_project_read_from_attributes() -> None:
     assert isinstance(dto.user_id, uuid.UUID)
     assert dto.glyph == "🗄️"
     assert dto.color == "blue"
+    assert dto.bg_color == "transparent"

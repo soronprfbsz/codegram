@@ -89,9 +89,9 @@ describe('deriveDisplayGroups', () => {
       ],
     }
     const groups = deriveDisplayGroups(schema)
-    expect(groups[0].color).toBe('#6938EF') // index 0
-    expect(groups[1].color).toBe('#1570EF') // index 1
-    expect(groups[2].color).toBe('#0E9384') // index 2
+    expect(groups[0].color).toBe('var(--erd-group-common)') // index 0
+    expect(groups[1].color).toBe('var(--erd-group-account)') // index 1
+    expect(groups[2].color).toBe('var(--erd-group-customer)') // index 2
   })
 
   it('color palette wraps at 5 groups', () => {
@@ -109,7 +109,7 @@ describe('deriveDisplayGroups', () => {
       })),
     }
     const groups = deriveDisplayGroups(schema)
-    expect(groups[5].color).toBe('#6938EF') // index 5 wraps to 0
+    expect(groups[5].color).toBe('var(--erd-group-common)') // index 5 wraps to 0
   })
 
   it('uses group.color override when set, ignoring the palette', () => {

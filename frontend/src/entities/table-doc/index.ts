@@ -1,7 +1,7 @@
 export { deriveTableDoc } from './lib/deriveTableDoc'
 export {
   STANDARD_COLUMNS,
-  STANDARD_COLUMN_HEADER,
+  STANDARD_COLUMN_HEADER_KEYS,
   columnRow,
   flag,
   fkLocalCell,
@@ -11,6 +11,7 @@ export type { StandardColumnDescriptor } from './lib/columns'
 export type {
   TableDocColumn,
   TableDocFkTarget,
+  TableDocCheck,
   TableDocTable,
   TableDocEnumValue,
   TableDocEnum,

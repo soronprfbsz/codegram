@@ -16,6 +16,7 @@ const PROJECT: Project = {
   layout: {},
   glyph: null,
   color: null,
+  bg_color: null,
   created_at: '2026-06-05T00:00:00Z',
   updated_at: '2026-06-05T00:00:00Z',
 }
@@ -94,11 +95,11 @@ describe('ProjectRow context menu', () => {
     await openMenu(user)
     fireEvent.click(await screen.findByRole('menuitem', { name: '편집' }))
 
-    await user.click(await screen.findByRole('button', { name: '색상 blue' }))
-    await user.click(screen.getByRole('button', { name: '아이콘 📊' }))
+    await user.click(await screen.findByRole('button', { name: '아이콘·글씨색 blue' }))
+    await user.click(screen.getByTestId('glyph-option-chart'))
     await user.click(screen.getByRole('button', { name: '저장' }))
     await waitFor(() =>
-      expect(mutateAsync).toHaveBeenCalledWith({ glyph: '📊', color: 'blue' }),
+      expect(mutateAsync).toHaveBeenCalledWith({ glyph: '@chart', color: 'blue' }),
     )
   })
 

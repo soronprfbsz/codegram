@@ -8,7 +8,7 @@ async function registerAndLogin(page: Page, email: string, password: string) {
   const loginResponse = page.waitForResponse(
     (resp) => resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -110,8 +110,8 @@ async function createProjectWithRef(page: Page): Promise<string> {
       resp.request().method() === 'POST' &&
       resp.status() === 201,
   )
-  await page.getByPlaceholder('Project name').fill('Edge Path Project')
-  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByPlaceholder('프로젝트 이름').fill('Edge Path Project')
+  await page.getByRole('button', { name: '만들기' }).click()
   const created = await (await createResponse).json()
   const projectId = created.id as string
   await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
@@ -221,15 +221,16 @@ test.describe('Manual edge paths', () => {
     await resetPatch
   })
 
-  test('swap a target endpoint to the other side, persist across reload', async ({ page }) => {
+  test('flip a target endpoint by dragging it to the other side, persist across reload', async ({ page }) => {
     const email = `edgeswap-${Date.now()}@example.com`
     await registerAndLogin(page, email, 'password123')
     const projectId = await createProjectWithRef(page)
 
-    // 엣지 선택 → 선택 강조(흐르는 dash 오버레이) + 스왑 버튼 표시
+    // 엣지 선택 → 선택 강조(흐르는 dash 오버레이) + 끝점(드래그 핸들) 표시
     await clickEdgeMidpoint(page)
     await expect(page.getByTestId('edge-flow')).toBeVisible()
-    await expect(page.getByTestId('edge-swap-target')).toBeVisible()
+    const endpoint = page.getByTestId('edge-endpoint-target')
+    await expect(endpoint).toBeVisible()
 
     const dBefore = await page
       .locator('.react-flow__edge-path')
@@ -247,7 +248,15 @@ test.describe('Manual edge paths', () => {
         (e) => e.targetSide === 'right',
       )
     })
-    await page.getByTestId('edge-swap-target').click()
+    // 새 인터랙션: 끝점을 잡아 대상 노드 중심 너머(오른쪽)로 끌어다 놓으면
+    // 오른쪽 앵커로 flip 된다(기존 스왑 버튼 대체).
+    const box = (await endpoint.boundingBox())!
+    const cx = box.x + box.width / 2
+    const cy = box.y + box.height / 2
+    await page.mouse.move(cx, cy)
+    await page.mouse.down()
+    await page.mouse.move(cx + 300, cy, { steps: 8 })
+    await page.mouse.up()
     await swapPatch
 
     // 엔드포인트가 반대편으로 옮겨가 경로가 달라진다
@@ -273,6 +282,9 @@ test.describe('Manual edge paths', () => {
     const email = `selinfo-${Date.now()}@example.com`
     await registerAndLogin(page, email, 'password123')
     await createProjectWithRef(page)
+
+    // 정보 패널은 기본 hidden — Selection 섹션을 보려면 탑바 정보 버튼으로 연다.
+    await page.getByTestId('info-panel-button').click()
 
     // 테이블 노드 클릭 → Selection 섹션에 x/y 표시
     await page
@@ -303,12 +315,15 @@ test.describe('Manual edge paths', () => {
     await registerAndLogin(page, email, 'password123')
     await createProjectWithRef(page)
 
+    // 정보 패널은 기본 hidden — Selection 섹션을 보려면 탑바 정보 버튼으로 연다.
+    await page.getByTestId('info-panel-button').click()
+
     await clickEdgeMidpoint(page)
     await expect(page.getByTestId('selection-section')).toBeVisible()
     // 'Auto'를 전역으로 찾으면 캔버스의 'Auto-arrange' 버튼과 substring 매칭되어
     // strict-mode 위반(2+ 요소)으로 죽는다 — 섹션으로 스코프 + exact 매칭.
     await expect(
-      page.getByTestId('selection-section').getByText('Auto', { exact: true }),
+      page.getByTestId('selection-section').getByText('자동', { exact: true }),
     ).toBeVisible()
   })
 })

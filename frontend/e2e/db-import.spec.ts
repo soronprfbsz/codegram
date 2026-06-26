@@ -10,7 +10,7 @@ async function registerAndLogin(page: Page, email: string, password: string) {
     (resp) =>
       resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -23,7 +23,7 @@ test('connect to database creates a new project with ERD canvas', async ({
   await registerAndLogin(page, email, password)
 
   // Open the DB connect dialog.
-  await page.getByRole('button', { name: 'Connect to Database' }).click()
+  await page.getByRole('button', { name: '데이터베이스 연결' }).click()
 
   // Fill in connection details pointing at the stack's own Postgres.
   await page.getByTestId('db-connect-dialect').selectOption('postgresql')
@@ -39,7 +39,7 @@ test('connect to database creates a new project with ERD canvas', async ({
     (resp) =>
       resp.url().includes('/api/introspect') && resp.status() === 200,
   )
-  await page.getByRole('button', { name: 'Connect' }).click()
+  await page.getByRole('button', { name: '연결' }).click()
   await introspectResponse
 
   // The dialog creates a project and navigates to the editor.

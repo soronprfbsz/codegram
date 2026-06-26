@@ -22,6 +22,23 @@ vi.mock('xlsx', () => ({
 }))
 
 import { buildTableDocXlsxBlob } from './buildXlsx'
+import type { TableDocLabels } from './labels'
+
+// Korean labels (mirrors the previous hardcoded strings) so existing assertions
+// hold AND we verify the builder emits exactly the labels it is given.
+const LABELS: TableDocLabels = {
+  columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
+  fkColumn: '컬럼',
+  fkReference: '참조',
+  enumColEnum: 'Enum',
+  enumColValue: '값',
+  enumColNote: '설명',
+  enumsSheet: 'Enums',
+  checks: 'CHECK 제약',
+  checkName: '이름',
+  checkValues: '허용값',
+  checkExpression: '표현식',
+}
 
 const model: TableDocModel = {
   tables: [
@@ -104,12 +121,12 @@ describe('buildTableDocXlsxBlob', () => {
   })
 
   it('creates one workbook', () => {
-    buildTableDocXlsxBlob(model)
+    buildTableDocXlsxBlob(model, LABELS)
     expect(bookNew).toHaveBeenCalledTimes(1)
   })
 
   it('feeds the standard column header + one row per column to aoa_to_sheet', () => {
-    buildTableDocXlsxBlob(model)
+    buildTableDocXlsxBlob(model, LABELS)
     // First table sheet: header row then 2 column rows.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const firstCall = (aoaToSheet.mock.calls as any)[0][0] as unknown[][]
@@ -146,7 +163,7 @@ describe('buildTableDocXlsxBlob', () => {
   })
 
   it('appends one sheet per table plus an Enums sheet, clamping names to 31 chars', () => {
-    buildTableDocXlsxBlob(model)
+    buildTableDocXlsxBlob(model, LABELS)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sheetNames = (bookAppendSheet.mock.calls as any[]).map((c) => c[2] as string)
     expect(sheetNames).toEqual([
@@ -158,7 +175,7 @@ describe('buildTableDocXlsxBlob', () => {
   })
 
   it('builds the Enums sheet rows from enum values', () => {
-    buildTableDocXlsxBlob(model)
+    buildTableDocXlsxBlob(model, LABELS)
     // The Enums sheet is the LAST aoa_to_sheet call.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enumAoa = ((aoaToSheet.mock.calls as any).at(-1) as any[])[0] as unknown[][]
@@ -167,8 +184,36 @@ describe('buildTableDocXlsxBlob', () => {
     expect(enumAoa[2]).toEqual(['public.role', 'member', ''])
   })
 
+  it('appends a CHECK section to a table sheet when the table has checks', () => {
+    const withChecks: TableDocModel = {
+      tables: [
+        {
+          id: 'core.fa',
+          schema: 'core',
+          name: 'fa',
+          note: '',
+          columns: [
+            { name: 'reason', type: 'TEXT', pk: false, fk: false, notNull: true, unique: false, default: '', note: '' },
+          ],
+          fkTargets: [],
+          checks: [
+            { name: 'fa_reason_chk', expression: "reason IN ('a', 'b')", values: ['a', 'b'] },
+          ],
+        },
+      ],
+      enums: [],
+    }
+    buildTableDocXlsxBlob(withChecks, LABELS)
+    // First sheet AOA: header + 1 column row + blank + title + check header + check row.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const aoa = (aoaToSheet.mock.calls as any)[0][0] as unknown[][]
+    expect(aoa).toContainEqual(['CHECK 제약'])
+    expect(aoa).toContainEqual(['이름', '허용값', '표현식'])
+    expect(aoa).toContainEqual(['fa_reason_chk', 'a, b', "reason IN ('a', 'b')"])
+  })
+
   it('writes an xlsx array buffer and returns a Blob', () => {
-    const blob = buildTableDocXlsxBlob(model)
+    const blob = buildTableDocXlsxBlob(model, LABELS)
     expect(write).toHaveBeenCalledWith(expect.anything(), {
       bookType: 'xlsx',
       type: 'array',
@@ -202,7 +247,7 @@ describe('buildTableDocXlsxBlob', () => {
       ],
       enums: [],
     }
-    expect(() => buildTableDocXlsxBlob(collidingModel)).not.toThrow()
+    expect(() => buildTableDocXlsxBlob(collidingModel, LABELS)).not.toThrow()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sheetNames = (bookAppendSheet.mock.calls as any[]).map((c) => c[2] as string)
     // All distinct, all within the 31-char limit.
@@ -218,7 +263,7 @@ describe('buildTableDocXlsxBlob', () => {
     const emptyModel: TableDocModel = { tables: [], enums: [] }
     let blob!: Blob
     expect(() => {
-      blob = buildTableDocXlsxBlob(emptyModel)
+      blob = buildTableDocXlsxBlob(emptyModel, LABELS)
     }).not.toThrow()
     // The Enums sheet is always appended, so the workbook is never zero-sheet.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -234,7 +279,7 @@ describe('buildTableDocXlsxBlob', () => {
       ],
       enums: [],
     }
-    buildTableDocXlsxBlob(emptyColsModel)
+    buildTableDocXlsxBlob(emptyColsModel, LABELS)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const firstAoa = (aoaToSheet.mock.calls as any)[0][0] as unknown[][]
     // Header row only — no body rows.

@@ -84,7 +84,7 @@ describe('ErdCanvas selection — CanvasSelection union', () => {
     })
   })
 
-  it('onEdgeClick fires onSelect with an edge selection (enum links ignored)', () => {
+  it('onEdgeClick fires onSelect for relation AND enum-link edges (enum links are editable too)', () => {
     const onSelect = vi.fn()
     render(<ErdCanvas schema={schema} onSelect={onSelect} />)
 
@@ -97,8 +97,9 @@ describe('ErdCanvas selection — CanvasSelection union', () => {
     expect(onSelect).toHaveBeenCalledWith({ kind: 'edge', edgeId: relEdge.id })
 
     onSelect.mockClear()
+    // Enum links are now selectable/editable just like relation edges.
     props.onEdgeClick({}, { id: 'enumlink:x', data: { isEnumLink: true } })
-    expect(onSelect).not.toHaveBeenCalled()
+    expect(onSelect).toHaveBeenCalledWith({ kind: 'edge', edgeId: 'enumlink:x' })
   })
 
   it('onPaneClick fires onSelect(null)', () => {
@@ -184,10 +185,12 @@ describe('ErdCanvas Auto-arrange', () => {
       />,
     )
 
-    const button = screen.getByRole('button', { name: /auto-arrange/i })
+    const button = screen.getByTestId('auto-arrange-button')
     expect(button).toBeInTheDocument()
 
     await user.click(button)
+    // 확인 다이얼로그에서 초기화 진행을 눌러야 실제 정렬이 수행된다.
+    await user.click(screen.getByTestId('auto-arrange-confirm-ok'))
 
     // Emitted a fresh layout (positions derived from dagre, not the saved 999).
     expect(onLayoutChange).toHaveBeenCalled()
@@ -274,7 +277,8 @@ describe('ErdCanvas manual edge paths — commit & clear', () => {
         onEdgePathsChange={onEdgePathsChange}
       />,
     )
-    await user.click(screen.getByRole('button', { name: /auto-arrange/i }))
+    await user.click(screen.getByTestId('auto-arrange-button'))
+    await user.click(screen.getByTestId('auto-arrange-confirm-ok'))
     expect(onEdgePathsChange).toHaveBeenCalledWith({})
   })
 })

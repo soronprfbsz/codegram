@@ -32,6 +32,7 @@ class ProjectUpdate(BaseModel):
     layout: dict[str, Any] | None = Field(default=None)
     glyph: str | None = Field(default=None, max_length=8)
     color: str | None = Field(default=None, max_length=16)
+    bg_color: str | None = Field(default=None, max_length=16)
 
 
 class ProjectRead(BaseModel):
@@ -45,6 +46,7 @@ class ProjectRead(BaseModel):
     dbml_text: str
     glyph: str | None
     color: str | None
+    bg_color: str | None
     layout: dict[str, Any]
     created_at: datetime
     updated_at: datetime

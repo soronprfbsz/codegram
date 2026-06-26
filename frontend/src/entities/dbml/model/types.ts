@@ -31,6 +31,14 @@ export interface DbmlColumn {
 }
 
 /** A table (entity) with its columns. */
+/** A table-level CHECK constraint (from a DBML `Checks { ... }` block). */
+export interface DbmlCheck {
+  /** The raw check expression, e.g. "http_status >= 100 AND http_status <= 599". */
+  expression: string
+  /** Constraint name, when present. */
+  name?: string
+}
+
 export interface DbmlTable {
   /** Stable key: `${schema}.${name}`. */
   id: string
@@ -42,6 +50,8 @@ export interface DbmlTable {
   /** Header color (hex, e.g. "#3498db"), when set via [headercolor: ...]. */
   headerColor?: string
   columns: DbmlColumn[]
+  /** Table-level CHECK constraints (DBML `Checks` block); empty when none. */
+  checks: DbmlCheck[]
 }
 
 /**

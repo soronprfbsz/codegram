@@ -46,4 +46,35 @@ describe('computeSyncedPositions', () => {
     expect(out['public.b'].y).toBeGreaterThanOrEqual(66 + 80)
     expect(out['public.c'].y).toBeGreaterThanOrEqual(66 + 80)
   })
+
+  // Grouped survivors: a preserved group keeps its members' relative frame and
+  // the group box position, instead of scrambling them to absolute (the bug the
+  // merge-sync change fixes).
+  const GROUPED_A_B = `Table a {\n  id int [pk]\n}\nTable b {\n  id int [pk]\n}\nTableGroup g [color: #1570EF] {\n  a\n  b\n}`
+  const GROUPED_A_B_NEW = `${GROUPED_A_B}\nTable c {\n  id int [pk]\n}`
+
+  it('preserves a grouped member verbatim (relative coords + parentId)', () => {
+    const current = {
+      'group:g': { x: 500, y: 500 },
+      'public.a': { x: 12, y: 20, parentId: 'group:g' },
+      'public.b': { x: 12, y: 120, parentId: 'group:g' },
+    }
+    const out = computeSyncedPositions(current, schemaOf(GROUPED_A_B))
+    expect(out['public.a']).toEqual({ x: 12, y: 20, parentId: 'group:g' })
+    expect(out['public.b']).toEqual({ x: 12, y: 120, parentId: 'group:g' })
+    expect(out['group:g']).toEqual({ x: 500, y: 500 })
+  })
+
+  it('places a new table below grouped members using ABSOLUTE positions', () => {
+    const current = {
+      'group:g': { x: 500, y: 500 },
+      'public.a': { x: 12, y: 20, parentId: 'group:g' },
+      'public.b': { x: 12, y: 120, parentId: 'group:g' },
+    }
+    const out = computeSyncedPositions(current, schemaOf(GROUPED_A_B_NEW))
+    // member b absolute bottom = 500 + 120 + 66 = 686; new c must sit below + gap.
+    expect(out['public.c']).toBeDefined()
+    expect(out['public.c'].parentId).toBeUndefined()
+    expect(out['public.c'].y).toBeGreaterThanOrEqual(686 + 80)
+  })
 })

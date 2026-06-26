@@ -178,6 +178,31 @@ describe('RelationEdge selection handles (Task 5)', () => {
     expect(container.querySelector('[data-testid^="edge-seg-"]')).toBeTruthy()
   })
 
+  it('an enum link is editable: selected + manual path shows segment handles + reset, but NO swap (no crow-foot)', () => {
+    const { container } = renderEdge({
+      ...baseProps,
+      id: 'enumlink:public.users.role',
+      data: {
+        relation: 'n-1',
+        sourceMarker: 'many',
+        targetMarker: 'one',
+        isEnumLink: true,
+        isEdgeSelected: true,
+        waypoints: [
+          { x: 50, y: 0 },
+          { x: 50, y: 100 },
+        ],
+      },
+    } as RelationEdgeProps)
+
+    // Same editing affordances as a relation edge: segment drag handles appear.
+    expect(container.querySelector('[data-testid="edge-handles"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid^="edge-seg-"]')).toBeTruthy()
+    // ...while staying a dashed type-association with NO crow-foot markers.
+    expect(container.querySelector('marker[id^="crowfoot-"]')).toBeNull()
+    expect((container.querySelector('path.react-flow__edge-path') as SVGPathElement).style.strokeDasharray).not.toBe('')
+  })
+
   it('renders NO handles when not selected', () => {
     const { container } = renderEdge({
       ...baseProps,
@@ -316,16 +341,18 @@ describe('RelationEdge segment drag interaction (Task 5)', () => {
     expect(plain.querySelector('[data-testid="edge-flow"]')).toBeNull()
   })
 
-  it('endpoint swap buttons flip each end to the OPPOSITE side', () => {
-    // baseProps: source exits RIGHT, target enters LEFT (default anchors).
+  it('renders draggable endpoint handles and NO swap buttons (flip is by drag now)', () => {
     const ctx = makeCtx()
-    renderSelectedEdge(ctx)
-
-    fireEvent.click(screen.getByTestId('edge-swap-source'))
-    expect(ctx.setEdgeSide).toHaveBeenCalledWith('e1', 'source', 'left')
-
-    fireEvent.click(screen.getByTestId('edge-swap-target'))
-    expect(ctx.setEdgeSide).toHaveBeenCalledWith('e1', 'target', 'right')
+    const { container } = renderSelectedEdge(ctx)
+    // Both endpoints are present and grabbable (drag toward a node side to flip).
+    const src = container.querySelector('[data-testid="edge-endpoint-source"]') as SVGCircleElement
+    const tgt = container.querySelector('[data-testid="edge-endpoint-target"]') as SVGCircleElement
+    expect(src).toBeTruthy()
+    expect(tgt).toBeTruthy()
+    expect(src.style.cursor).toBe('grab')
+    // The old click-to-flip buttons are gone.
+    expect(container.querySelector('[data-testid="edge-swap-source"]')).toBeNull()
+    expect(container.querySelector('[data-testid="edge-swap-target"]')).toBeNull()
   })
 
   it('pointercancel aborts the drag without committing and reverts the path', () => {

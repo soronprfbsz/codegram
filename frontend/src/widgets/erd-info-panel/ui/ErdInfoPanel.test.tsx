@@ -46,6 +46,11 @@ const baseSchema: DbmlSchema = {
   ],
 }
 
+/** Groups are collapsed by default — expand every section to reveal its rows. */
+function expandAllGroups() {
+  screen.queryAllByLabelText('그룹 펼치기').forEach((b) => fireEvent.click(b))
+}
+
 describe('ErdInfoPanel — schema summary stats', () => {
   it('renders stat values from a schema', () => {
     render(
@@ -91,6 +96,7 @@ describe('ErdInfoPanel — table list rendering', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />,
     )
+    expandAllGroups()
     expect(screen.getByTestId('tablelist-row-users')).toBeInTheDocument()
     expect(screen.getByTestId('tablelist-row-posts')).toBeInTheDocument()
   })
@@ -109,6 +115,7 @@ describe('ErdInfoPanel — table list rendering', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />,
     )
+    expandAllGroups()
     // users has 2 columns; the users row should contain "2"
     const usersRow = screen.getByTestId('tablelist-row-users')
     expect(usersRow.textContent).toContain('2')
@@ -124,6 +131,7 @@ describe('ErdInfoPanel — selection', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={onSelect} />,
     )
+    expandAllGroups()
     fireEvent.click(screen.getByTestId('tablelist-row-users'))
     expect(onSelect).toHaveBeenCalledWith('public.users')
   })
@@ -133,6 +141,7 @@ describe('ErdInfoPanel — selection', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={onSelect} />,
     )
+    expandAllGroups()
     fireEvent.keyDown(screen.getByTestId('tablelist-row-posts'), { key: 'Enter' })
     expect(onSelect).toHaveBeenCalledWith('public.posts')
   })
@@ -142,6 +151,7 @@ describe('ErdInfoPanel — selection', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={onSelect} />,
     )
+    expandAllGroups()
     fireEvent.keyDown(screen.getByTestId('tablelist-row-posts'), { key: ' ' })
     expect(onSelect).toHaveBeenCalledWith('public.posts')
   })
@@ -150,6 +160,7 @@ describe('ErdInfoPanel — selection', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected="users" onSelect={() => {}} />,
     )
+    expandAllGroups()
     const row = screen.getByTestId('tablelist-row-users')
     // The selected row has either the class or inline style for accent-soft bg.
     const hasClass = row.classList.contains('tlist-item-selected')
@@ -161,6 +172,7 @@ describe('ErdInfoPanel — selection', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected="users" onSelect={() => {}} />,
     )
+    expandAllGroups()
     const row = screen.getByTestId('tablelist-row-posts')
     expect(row.classList.contains('tlist-item-selected')).toBe(false)
     expect(row.style.background).not.toBe('var(--erd-accent-soft)')
@@ -172,6 +184,7 @@ describe('ErdInfoPanel — accessibility', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />,
     )
+    expandAllGroups()
     const row = screen.getByTestId('tablelist-row-users')
     expect(row).toHaveAttribute('role', 'button')
   })
@@ -180,6 +193,7 @@ describe('ErdInfoPanel — accessibility', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />,
     )
+    expandAllGroups()
     const row = screen.getByTestId('tablelist-row-users')
     expect(row).toHaveAttribute('tabindex', '0')
   })
@@ -222,75 +236,5 @@ describe('ErdInfoPanel — create group', () => {
   it('renders no + button without groupOps (read-only mode)', () => {
     render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
     expect(screen.queryByTestId('group-create-button')).toBeNull()
-  })
-})
-
-describe('ErdInfoPanel — table search', () => {
-  it('filters the list to tables matching the query', () => {
-    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
-    const input = screen.getByTestId('table-search-input')
-    fireEvent.change(input, { target: { value: 'post' } })
-    expect(screen.getByTestId('tablelist-row-posts')).toBeTruthy()
-    expect(screen.queryByTestId('tablelist-row-users')).toBeNull()
-  })
-
-  it('matches by column name and shows a hint on the row', () => {
-    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
-    fireEvent.change(screen.getByTestId('table-search-input'), { target: { value: 'email' } })
-    expect(screen.getByTestId('tablelist-row-users')).toBeTruthy()
-    expect(screen.queryByTestId('tablelist-row-posts')).toBeNull()
-    expect(screen.getByTestId('tablelist-hint-users').textContent).toBe('컬럼: email')
-  })
-
-  it('Enter navigates to the top match with its matched column ids', () => {
-    const onNavigate = vi.fn()
-    render(
-      <ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} onNavigateToTable={onNavigate} />,
-    )
-    const input = screen.getByTestId('table-search-input')
-    fireEvent.change(input, { target: { value: 'email' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    expect(onNavigate).toHaveBeenCalledWith('public.users', ['public.users.email'])
-  })
-
-  it('clicking a filtered row navigates (center) instead of plain select', () => {
-    const onNavigate = vi.fn()
-    const onSelect = vi.fn()
-    render(
-      <ErdInfoPanel schema={baseSchema} selected={null} onSelect={onSelect} onNavigateToTable={onNavigate} />,
-    )
-    fireEvent.change(screen.getByTestId('table-search-input'), { target: { value: 'post' } })
-    fireEvent.click(screen.getByTestId('tablelist-row-posts'))
-    expect(onNavigate).toHaveBeenCalledWith('public.posts', [])
-    expect(onSelect).not.toHaveBeenCalled()
-  })
-
-  it('ArrowDown moves the cursor so Enter picks the next match', () => {
-    const onNavigate = vi.fn()
-    render(
-      <ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} onNavigateToTable={onNavigate} />,
-    )
-    const input = screen.getByTestId('table-search-input')
-    // "id" matches both users and posts (both have an id column).
-    fireEvent.change(input, { target: { value: 'id' } })
-    fireEvent.keyDown(input, { key: 'ArrowDown' })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    // Display order: users (group core) first, posts (ungrouped) second.
-    expect(onNavigate).toHaveBeenCalledWith('public.posts', ['public.posts.id'])
-  })
-
-  it('the clear button restores the full list', () => {
-    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
-    fireEvent.change(screen.getByTestId('table-search-input'), { target: { value: 'post' } })
-    expect(screen.queryByTestId('tablelist-row-users')).toBeNull()
-    fireEvent.click(screen.getByTestId('table-search-clear'))
-    expect(screen.getByTestId('tablelist-row-users')).toBeTruthy()
-    expect(screen.getByTestId('tablelist-row-posts')).toBeTruthy()
-  })
-
-  it('shows a no-results message when nothing matches', () => {
-    render(<ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />)
-    fireEvent.change(screen.getByTestId('table-search-input'), { target: { value: 'zzz_nope' } })
-    expect(screen.getByText('검색 결과 없음')).toBeTruthy()
   })
 })

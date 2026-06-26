@@ -1,4 +1,5 @@
 import { ChevronDown, Image } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -7,6 +8,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/shared/ui/dropdown-menu'
+import { TopbarButton, TOPBAR_ICON_SIZE, TOPBAR_ICON_STROKE } from '@/shared/ui/topbar-control'
 import * as diagramExport from '@/features/export-diagram'
 import type { DiagramExportContext } from '@/features/export-diagram'
 import { SQL_DIALECTS, SQL_DIALECT_VALUES, type DbmlSchema } from '@/entities/dbml'
@@ -39,6 +41,7 @@ export interface ExportMenuProps {
  * the table-doc entity, and the table-doc-view overlay store.
  */
 export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: ExportMenuProps) {
+  const { t } = useTranslation()
   const openTableDoc = useTableDocViewStore((s) => s.openWith)
 
   function preview() {
@@ -54,53 +57,31 @@ export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: Expo
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="erd-topbar-btn"
-          disabled={disabled}
-          aria-label="Export"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
-            padding: '8px 12px',
-            fontSize: 13,
-            fontWeight: 500,
-            lineHeight: 1,
-            background: 'var(--erd-surface)',
-            border: '1px solid var(--erd-border-2)',
-            color: 'var(--erd-text)',
-            borderRadius: 8,
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            opacity: disabled ? 0.5 : 1,
-            whiteSpace: 'nowrap',
-            fontFamily: 'inherit',
-          }}
-        >
-          <Image size={15} strokeWidth={2} />
-          Export..
-          <ChevronDown size={15} strokeWidth={2} />
-        </button>
+        <TopbarButton disabled={disabled} aria-label={t('exportMenu.export')}>
+          <Image size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
+          {t('exportMenu.export')}
+          <ChevronDown size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
+        </TopbarButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuItem onSelect={preview}>테이블 정의서 미리보기</DropdownMenuItem>
+        <DropdownMenuItem onSelect={preview}>{t('exportMenu.tableDocPreview')}</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Diagram</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('exportMenu.diagram')}</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => void diagramExport.exportDiagramPng(diagram)}>
-          Diagram PNG
+          {t('exportMenu.diagramPng')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void diagramExport.exportDiagramSvg(diagram)}>
-          Diagram SVG
+          {t('exportMenu.diagramSvg')}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => void diagramExport.exportDiagramPdf(diagram)}>
-          Diagram PDF
+          {t('exportMenu.diagramPdf')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>Table Doc</DropdownMenuLabel>
-        <DropdownMenuItem onSelect={exportExcel}>Table Doc Excel</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => void exportPdf()}>Table Doc PDF</DropdownMenuItem>
+        <DropdownMenuLabel>{t('exportMenu.tableDoc')}</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={exportExcel}>{t('exportMenu.tableDocExcel')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void exportPdf()}>{t('exportMenu.tableDocPdf')}</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel>SQL</DropdownMenuLabel>
+        <DropdownMenuLabel>{t('exportMenu.sql')}</DropdownMenuLabel>
         {SQL_DIALECT_VALUES.map((d) => (
           <DropdownMenuItem key={d} onSelect={() => downloadSql(dbmlText, d)}>
             {`SQL · ${SQL_DIALECTS[d].label}`}

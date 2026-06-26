@@ -42,11 +42,12 @@ describe('EnumNode', () => {
     expect(screen.getByText('guest')).toBeInTheDocument()
   })
 
-  it('renders a single target handle for optional enum-link edges', () => {
+  it('renders left + right target handles so the enum-link can flip its anchor side', () => {
     const { container } = renderNode({
       ...baseProps,
       data: { enumName: 'user_role', values: ['admin'] },
     } as EnumNodeProps)
-    expect(container.querySelectorAll('.react-flow__handle')).toHaveLength(1)
+    // Default `in` (left) + alternate `in@right` (right), mirroring table columns.
+    expect(container.querySelectorAll('.react-flow__handle')).toHaveLength(2)
   })
 })

@@ -1,5 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
+import i18n from '@/shared/i18n'
 import { render, screen } from '@testing-library/react'
+
+// 이 스위트는 영어 라벨/문구를 단언하므로 인터페이스 언어를 en으로 고정한다.
+beforeAll(async () => {
+  await i18n.changeLanguage('en')
+})
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -61,6 +67,7 @@ const sampleProject: entities.Project = {
   layout: {},
   glyph: null,
   color: null,
+  bg_color: null,
   created_at: '2026-06-05T00:00:00Z',
   updated_at: '2026-06-05T00:00:00Z',
 }
@@ -108,7 +115,9 @@ describe('ProjectList', () => {
     renderList()
     const user = userEvent.setup()
 
+    // 카드의 삭제 버튼 → 확인 다이얼로그 → 삭제 진행 클릭
     await user.click(screen.getByRole('button', { name: /delete/i }))
+    await user.click(screen.getByTestId('project-delete-confirm-ok'))
 
     expect(deleteMutateAsync).toHaveBeenCalledWith('p-1')
   })

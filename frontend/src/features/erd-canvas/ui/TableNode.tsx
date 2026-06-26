@@ -37,15 +37,15 @@ function TableNodeImpl({ data }: TableNodeProps) {
         width: 240,
         borderRadius: 12,
         border: isSelected
-          ? '1px solid var(--erd-sel)'
+          ? '1px solid var(--primary)'
           : '1px solid var(--erd-border)',
         background: 'var(--erd-node)',
         boxShadow: isSelected
-          ? '0 0 0 3px var(--erd-accent-soft), var(--erd-shadow)'
+          ? '0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent), var(--erd-shadow)'
           : 'var(--erd-shadow-sm)',
         cursor: 'pointer',
         overflow: 'hidden',
-        fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+        fontFamily: 'var(--font-mono)',
         transition: 'border-color 80ms ease, box-shadow 80ms ease',
       }}
       className="erd-table-node"
@@ -64,7 +64,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
       >
         <span
           style={{
-            fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+            fontFamily: 'var(--font-mono)',
             fontSize: 13,
             fontWeight: 600,
             letterSpacing: '-0.01em',
@@ -79,7 +79,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
         </span>
         <span
           style={{
-            fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+            fontFamily: 'var(--font-mono)',
             fontSize: 10.5,
             color: 'var(--erd-text-3)',
             flexShrink: 0,
@@ -173,7 +173,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
                     data-testid={`marker-pk-${col.id}`}
                     title="Primary key"
                     style={{
-                      fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                      fontFamily: 'var(--font-mono)',
                       fontSize: 8.5,
                       fontWeight: 700,
                       padding: '1px 3px',
@@ -192,7 +192,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
                     data-testid={`marker-fk-${col.id}`}
                     title="Foreign key"
                     style={{
-                      fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                      fontFamily: 'var(--font-mono)',
                       fontSize: 8.5,
                       fontWeight: 700,
                       padding: '1px 3px',
@@ -210,13 +210,14 @@ function TableNodeImpl({ data }: TableNodeProps) {
               {/* Field name */}
               <span
                 style={{
-                  fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                  fontFamily: 'var(--font-mono)',
                   flex: 1,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   color: 'var(--erd-text)',
-                  fontWeight: col.pk ? 600 : 400,
+                  // 비PK 컬럼명도 500으로(기존 400) — 저배율에서 얇은 글자 가독성 보강.
+                  fontWeight: col.pk ? 600 : 500,
                 }}
               >
                 {col.name}
@@ -243,7 +244,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
               {/* Type */}
               <span
                 style={{
-                  fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                  fontFamily: 'var(--font-mono)',
                   fontSize: 10.5,
                   color: 'var(--erd-text-3)',
                   flexShrink: 0,
@@ -265,7 +266,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
                   {col.nn && (
                     <span
                       style={{
-                        fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                        fontFamily: 'var(--font-mono)',
                         fontSize: 8.5,
                         fontWeight: 700,
                         padding: '1px 3px',
@@ -282,7 +283,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
                   {col.unique && (
                     <span
                       style={{
-                        fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                        fontFamily: 'var(--font-mono)',
                         fontSize: 9,
                         color: 'var(--erd-text-3)',
                       }}

@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from '@/app'
 import { applyStoredTheme } from '@/shared/store/theme'
+import '@/shared/i18n'
 import './index.css'
 
 applyStoredTheme()

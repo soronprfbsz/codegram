@@ -1,10 +1,11 @@
 """Aggregate API router mounted under /api."""
 from fastapi import APIRouter
 
-from app.api.routes import auth, health, introspect, projects
+from app.api.routes import auth, health, introspect, projects, snapshots
 
 api_router = APIRouter()
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(projects.router)
+api_router.include_router(snapshots.router)
 api_router.include_router(introspect.router)

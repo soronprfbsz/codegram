@@ -1,18 +1,12 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import {
-  STANDARD_COLUMN_HEADER,
   columnRow,
   fkLocalCell,
   fkTargetCell,
   type TableDocModel,
 } from '@/entities/table-doc'
-
-/** Standard 테이블 정의서 column header, FINAL order (shared descriptor). */
-const COLUMN_HEAD = [[...STANDARD_COLUMN_HEADER]]
-/** FK section header — aligned with the HTML view (`컬럼` / `참조`). */
-const FK_HEAD = [['컬럼', '참조']]
-const ENUM_HEAD = [['Enum', '값', '설명']]
+import type { TableDocLabels } from './labels'
 
 /** Page margin (mm) and the gap between stacked sections. */
 const MARGIN = 14
@@ -64,11 +58,17 @@ function finalY(doc: jsPDF): number {
  *
  * Async because it embeds a Korean TTF (fetched lazily). No download, no React.
  */
-export async function buildTableDocPdfBlob(model: TableDocModel): Promise<Blob> {
+export async function buildTableDocPdfBlob(
+  model: TableDocModel,
+  labels: TableDocLabels,
+): Promise<Blob> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   await ensureKoreanFont(doc)
   // Embedded font applies to autoTable cells too (header + body carry Hangul).
   const tableStyles = { font: FONT_NAME, fontStyle: 'normal' as const }
+  const columnHead = [labels.columnHeaders]
+  const fkHead = [[labels.fkColumn, labels.fkReference]]
+  const enumHead = [[labels.enumColEnum, labels.enumColValue, labels.enumColNote]]
   let cursorY = MARGIN
 
   for (const table of model.tables) {
@@ -79,7 +79,7 @@ export async function buildTableDocPdfBlob(model: TableDocModel): Promise<Blob> 
 
     autoTable(doc, {
       startY: cursorY,
-      head: COLUMN_HEAD,
+      head: columnHead,
       body: table.columns.map(columnRow),
       styles: tableStyles,
     })
@@ -90,7 +90,23 @@ export async function buildTableDocPdfBlob(model: TableDocModel): Promise<Blob> 
         fkLocalCell(fk),
         fkTargetCell(fk),
       ])
-      autoTable(doc, { startY: cursorY, head: FK_HEAD, body: fkBody, styles: tableStyles })
+      autoTable(doc, { startY: cursorY, head: fkHead, body: fkBody, styles: tableStyles })
+      cursorY = finalY(doc) + SECTION_GAP
+    }
+
+    const checks = Array.isArray(table.checks) ? table.checks : []
+    if (checks.length > 0) {
+      const checkBody = checks.map((chk) => [
+        chk.name,
+        chk.values.join(', '),
+        chk.expression,
+      ])
+      autoTable(doc, {
+        startY: cursorY,
+        head: [[labels.checkName, labels.checkValues, labels.checkExpression]],
+        body: checkBody,
+        styles: tableStyles,
+      })
       cursorY = finalY(doc) + SECTION_GAP
     }
   }
@@ -102,7 +118,7 @@ export async function buildTableDocPdfBlob(model: TableDocModel): Promise<Blob> 
       value.note,
     ]),
   )
-  autoTable(doc, { startY: cursorY, head: ENUM_HEAD, body: enumBody, styles: tableStyles })
+  autoTable(doc, { startY: cursorY, head: enumHead, body: enumBody, styles: tableStyles })
 
   return doc.output('blob')
 }

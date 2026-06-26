@@ -15,6 +15,7 @@ const project: Project = {
   layout: {},
   glyph: null,
   color: null,
+  bg_color: null,
   created_at: '2026-06-19T00:00:00Z',
   updated_at: '2026-06-19T00:00:00Z',
 }
@@ -42,7 +43,7 @@ describe('ProjectGlyphPicker', () => {
     render(<ProjectGlyphPicker project={project} />, { wrapper })
 
     await user.click(screen.getByLabelText('프로젝트 아이콘 변경'))
-    await user.click(screen.getByLabelText('색상 blue'))
+    await user.click(screen.getByLabelText('아이콘·글씨색 blue'))
 
     expect(spy).toHaveBeenCalledWith(
       '/projects/p-1',
@@ -59,22 +60,22 @@ describe('ProjectGlyphPicker', () => {
 
     await user.click(screen.getByLabelText('프로젝트 아이콘 변경'))
 
-    expect(screen.getByLabelText('색상 blue')).toHaveClass('ring-2')
-    expect(screen.getByLabelText('색상 red')).not.toHaveClass('ring-2')
+    expect(screen.getByLabelText('아이콘·글씨색 blue')).toHaveClass('ring-2')
+    expect(screen.getByLabelText('아이콘·글씨색 red')).not.toHaveClass('ring-2')
   })
 
-  it('PATCHes glyph when an emoji is clicked', async () => {
+  it('PATCHes glyph when an icon is clicked', async () => {
     const spy = vi
       .spyOn(client, 'apiFetch')
-      .mockResolvedValue({ ...project, glyph: '🗄️' })
+      .mockResolvedValue({ ...project, glyph: '@db' })
     const user = setup()
     render(<ProjectGlyphPicker project={project} />, { wrapper })
 
     await user.click(screen.getByLabelText('프로젝트 아이콘 변경'))
-    await user.click(screen.getByRole('button', { name: '🗄️' }))
+    await user.click(screen.getByTestId('glyph-option-db'))
 
     expect(JSON.parse(spy.mock.calls[0][1]!.body as string)).toEqual({
-      glyph: '🗄️',
+      glyph: '@db',
     })
   })
 })

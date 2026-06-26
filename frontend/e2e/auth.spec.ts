@@ -11,7 +11,7 @@ test.describe('Authentication flow', () => {
     await page.goto('/')
     await page.waitForURL('**/login')
     await expect(
-      page.getByRole('heading', { name: 'Log in' }),
+      page.getByRole('heading', { name: '로그인' }),
     ).toBeVisible()
   })
 
@@ -25,7 +25,7 @@ test.describe('Authentication flow', () => {
     // Register
     await page.goto('/register')
     await expect(
-      page.getByRole('heading', { name: 'Sign up' }),
+      page.getByRole('heading', { name: '회원가입' }),
     ).toBeVisible()
 
     await page.locator('#register-email').fill(email)
@@ -36,14 +36,14 @@ test.describe('Authentication flow', () => {
       (resp) =>
         resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
     )
-    await page.getByRole('button', { name: 'Sign up' }).click()
+    await page.getByRole('button', { name: '회원가입' }).click()
     await loginResponse
 
     // Authenticated home shows the user email + logout button
     await page.waitForURL((url) => url.pathname === '/')
     await expect(page.getByText(email)).toBeVisible()
     await expect(
-      page.getByRole('button', { name: /log out/i }),
+      page.getByRole('button', { name: /로그아웃/ }),
     ).toBeVisible()
 
     // The httpOnly JWT cookie is set
@@ -53,10 +53,10 @@ test.describe('Authentication flow', () => {
     expect(authCookie?.httpOnly).toBe(true)
 
     // Log out → redirected to /login
-    await page.getByRole('button', { name: /log out/i }).click()
+    await page.getByRole('button', { name: /로그아웃/ }).click()
     await page.waitForURL('**/login')
     await expect(
-      page.getByRole('heading', { name: 'Log in' }),
+      page.getByRole('heading', { name: '로그인' }),
     ).toBeVisible()
 
     // The auth cookie is cleared
@@ -76,9 +76,9 @@ test.describe('Authentication flow', () => {
     await page.locator('#register-email').fill(email)
     await page.locator('#register-password').fill(password)
     await page.locator('#register-confirm-password').fill(password)
-    await page.getByRole('button', { name: 'Sign up' }).click()
+    await page.getByRole('button', { name: '회원가입' }).click()
     await page.waitForURL((url) => url.pathname === '/')
-    await page.getByRole('button', { name: /log out/i }).click()
+    await page.getByRole('button', { name: /로그아웃/ }).click()
     await page.waitForURL('**/login')
 
     // Now log in explicitly
@@ -88,7 +88,7 @@ test.describe('Authentication flow', () => {
       (resp) =>
         resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
     )
-    await page.getByRole('button', { name: 'Log in' }).click()
+    await page.getByRole('button', { name: '로그인' }).click()
     await loginResponse
 
     await page.waitForURL((url) => url.pathname === '/')

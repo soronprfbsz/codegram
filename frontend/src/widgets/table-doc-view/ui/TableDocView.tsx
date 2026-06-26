@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   STANDARD_COLUMNS,
   fkLocalCell,
@@ -21,6 +22,7 @@ export interface TableDocViewProps {
 }
 
 function TableSection({ table }: { table: TableDocTable }) {
+  const { t } = useTranslation()
   return (
     <section className="flex flex-col gap-2">
       <h3 className="text-lg font-semibold">{`${table.schema}.${table.name}`}</h3>
@@ -36,7 +38,7 @@ function TableSection({ table }: { table: TableDocTable }) {
                 scope="col"
                 className="border px-2 py-1 text-left font-medium"
               >
-                {c.header}
+                {t(c.header)}
               </th>
             ))}
           </tr>
@@ -55,15 +57,15 @@ function TableSection({ table }: { table: TableDocTable }) {
       </table>
       {table.fkTargets.length > 0 ? (
         <div className="flex flex-col gap-1">
-          <h4 className="text-sm font-medium">FK 관계</h4>
+          <h4 className="text-sm font-medium">{t('tableDoc.fkRelations')}</h4>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b bg-muted">
                 <th scope="col" className="border px-2 py-1 text-left font-medium">
-                  컬럼
+                  {t('tableDoc.column')}
                 </th>
                 <th scope="col" className="border px-2 py-1 text-left font-medium">
-                  참조
+                  {t('tableDoc.reference')}
                 </th>
               </tr>
             </thead>
@@ -72,6 +74,48 @@ function TableSection({ table }: { table: TableDocTable }) {
                 <tr key={i} className="border-b">
                   <td className="border px-2 py-1">{fkLocalCell(fk)}</td>
                   <td className="border px-2 py-1">{fkTargetCell(fk)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      {table.checks.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <h4 className="text-sm font-medium">{t('tableDoc.checks')}</h4>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b bg-muted">
+                <th scope="col" className="border px-2 py-1 text-left font-medium">
+                  {t('tableDoc.checkName')}
+                </th>
+                <th scope="col" className="border px-2 py-1 text-left font-medium">
+                  {t('tableDoc.checkValues')}
+                </th>
+                <th scope="col" className="border px-2 py-1 text-left font-medium">
+                  {t('tableDoc.checkExpression')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {table.checks.map((chk, i) => (
+                <tr key={i} className="border-b">
+                  <td className="border px-2 py-1">{chk.name}</td>
+                  <td className="border px-2 py-1">
+                    {chk.values.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {chk.values.map((v) => (
+                          <span
+                            key={v}
+                            className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs"
+                          >
+                            {v}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td className="border px-2 py-1 font-mono text-xs">{chk.expression}</td>
                 </tr>
               ))}
             </tbody>
@@ -94,6 +138,7 @@ export function TableDocView({
   onDownloadExcel,
   onDownloadPdf,
 }: TableDocViewProps): React.JSX.Element | null {
+  const { t } = useTranslation()
   if (!open) return null
 
   return (
@@ -102,7 +147,7 @@ export function TableDocView({
       className="fixed inset-0 z-50 flex flex-col bg-background"
     >
       <header className="flex items-center justify-between border-b p-4">
-        <h2 className="text-xl font-bold">테이블 정의서</h2>
+        <h2 className="text-xl font-bold">{t('tableDoc.title')}</h2>
         <div className="flex items-center gap-2">
           {onDownloadExcel ? (
             <Button
@@ -110,7 +155,7 @@ export function TableDocView({
               data-testid="table-doc-download-excel"
               onClick={onDownloadExcel}
             >
-              Excel 다운로드
+              {t('tableDoc.downloadExcel')}
             </Button>
           ) : null}
           {onDownloadPdf ? (
@@ -119,11 +164,11 @@ export function TableDocView({
               data-testid="table-doc-download-pdf"
               onClick={onDownloadPdf}
             >
-              PDF 다운로드
+              {t('tableDoc.downloadPdf')}
             </Button>
           ) : null}
           <Button variant="outline" onClick={onClose}>
-            Close
+            {t('common.close')}
           </Button>
         </div>
       </header>
@@ -133,7 +178,7 @@ export function TableDocView({
         ))}
         {model.enums.length > 0 ? (
           <section className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold">Enums</h2>
+            <h2 className="text-lg font-semibold">{t('tableDoc.enums')}</h2>
             {model.enums.map((en) => (
               <div key={en.id} className="flex flex-col gap-1">
                 <h3 className="text-base font-medium">{`${en.schema}.${en.name}`}</h3>

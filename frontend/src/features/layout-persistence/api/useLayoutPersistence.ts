@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { EdgePaths, LayoutPositions, StoredLayout } from '@/entities/layout'
 
 interface UseLayoutPersistenceOptions {
@@ -27,6 +27,13 @@ interface UseLayoutPersistenceResult {
   edgePaths: EdgePaths
   /** Replace edge paths (called from ErdCanvas commit/reset). */
   setEdgePaths: (next: EdgePaths) => void
+  /**
+   * Re-seed BOTH live and baseline from a layout JSONB. Used by snapshot
+   * restore: the seed effect is keyed on project.id only, so a same-id restore
+   * won't re-fire it; this resets the baseline too so the restored layout
+   * doesn't look "changed" and trigger a redundant autosave PATCH.
+   */
+  reseed: (projectLayout: Record<string, unknown> | undefined) => void
 }
 
 /** Read `positions` out of an arbitrary project.layout JSONB, treating a
@@ -87,6 +94,18 @@ export function useLayoutPersistence({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId])
 
+  const reseed = useCallback(
+    (projectLayout: Record<string, unknown> | undefined) => {
+      const seeded = readSeededPositions(projectLayout)
+      setPositions(seeded)
+      setBaselinePositions(seeded)
+      const seededEdges = readSeededEdges(projectLayout)
+      setEdgePaths(seededEdges)
+      setBaselineEdges(seededEdges)
+    },
+    [],
+  )
+
   const layout = useMemo<StoredLayout>(
     () => ({ version: 1, positions, edges: edgePaths }),
     [positions, edgePaths],
@@ -96,5 +115,5 @@ export function useLayoutPersistence({
     [baselinePositions, baselineEdges],
   )
 
-  return { positions, setPositions, layout, layoutBaseline, edgePaths, setEdgePaths }
+  return { positions, setPositions, layout, layoutBaseline, edgePaths, setEdgePaths, reseed }
 }

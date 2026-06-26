@@ -17,7 +17,7 @@ async function registerAndLogin(page: Page, email: string) {
     (resp) =>
       resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -115,6 +115,13 @@ test.describe('ERD redesign — 3-zone layout', () => {
         timeout: 8000,
       })
       .toBeGreaterThanOrEqual(2)
+
+    // 정보 패널은 기본 hidden, 그룹은 기본 접힘 — 패널을 열고 모든 그룹을 펼친다.
+    await page.getByTestId('info-panel-button').click()
+    // 펼치면 aria가 '그룹 접기'로 바뀌므로 남은 '그룹 펼치기'를 매번 첫 항목부터 클릭.
+    while ((await page.getByLabel('그룹 펼치기').count()) > 0) {
+      await page.getByLabel('그룹 펼치기').first().click()
+    }
 
     // Click the 'users' row in the info panel table list
     const usersRow = page.getByTestId('tablelist-row-users')

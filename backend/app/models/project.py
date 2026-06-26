@@ -53,6 +53,10 @@ class Project(Base):
     color: Mapped[str | None] = mapped_column(
         String(16), nullable=True, default=None
     )
+    # 배경색(아이콘/글씨색은 `color`). null이면 프런트가 color 틴트로 폴백.
+    bg_color: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, default=None
+    )
     layout: Mapped[dict[str, Any]] = mapped_column(
         JSON().with_variant(JSONB, "postgresql"),
         default=dict,

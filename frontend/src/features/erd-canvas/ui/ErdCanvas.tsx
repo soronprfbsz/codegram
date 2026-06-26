@@ -12,7 +12,21 @@ import {
   type XYPosition,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { Maximize, Minimize, Grid2x2, Plus, Minus, Maximize2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Maximize, Minimize, Wand2, Plus, Minus, Maximize2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/shared/ui/dialog'
+import { Button } from '@/shared/ui/button'
+import {
+  TopbarIconButton,
+  TOPBAR_ICON_SIZE,
+  TOPBAR_ICON_STROKE,
+} from '@/shared/ui/topbar-control'
 import type { DbmlSchema } from '@/entities/dbml'
 import {
   schemaToFlow,
@@ -79,6 +93,12 @@ export interface ErdCanvasProps {
    * table search to mark the column(s) that matched the query.
    */
   searchHighlightColIds?: string[]
+  /**
+   * Read-only render (snapshot preview): nodes are not draggable and the
+   * Auto-arrange control is hidden. Combined with omitting the mutation
+   * callbacks, this guarantees the preview can never become "current".
+   */
+  readOnly?: boolean
 }
 
 export interface ErdCaptureHandle {
@@ -282,7 +302,7 @@ function ZoomBar() {
   )
 }
 
-function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, containerRef, selection, onSelect, onSelectionInfo, searchHighlightColIds }: ErdCanvasInnerProps) {
+function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, containerRef, selection, onSelect, onSelectionInfo, searchHighlightColIds, readOnly }: ErdCanvasInnerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [helperLines, setHelperLines] = useState<{ vertical?: number; horizontal?: number }>({})
   useEffect(() => {
@@ -515,6 +535,11 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     })
   }, [fitView, rf, onCaptureReady, edgePathCtx])
 
+  const { t } = useTranslation()
+  // Auto-arrange 확인 다이얼로그 — 전체 레이아웃(수동 위치/엣지 경로)을 버리고
+  // 자동 배치로 초기화하므로 되돌리기 어렵다. 확인 후에만 수행한다.
+  const [confirmArrangeOpen, setConfirmArrangeOpen] = useState(false)
+
   function handleAutoArrange() {
     // Discard ALL saved positions: reconcile with an EMPTY set => pure dagre.
     const dagreNodes = reconcileLayout(flow.nodes, flow.edges, {})
@@ -593,10 +618,11 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     () =>
       edges.map((e) => {
         const stored = edgePaths?.[e.id]
-        const isEnumLink = (e.data as { isEnumLink?: boolean } | undefined)?.isEnumLink
         let sourceHandle = e.sourceHandle
         let targetHandle = e.targetHandle
-        if (!isEnumLink && e.sourceHandle && e.targetHandle) {
+        // Anchor-side resolution applies to relation AND enum links alike (both
+        // carry a sourceHandle + targetHandle and both support drag-to-flip).
+        if (e.sourceHandle && e.targetHandle) {
           const { sourceSide, targetSide } = resolveEdgeSides(
             nodeAbsX.get(e.source) ?? 0,
             nodeAbsX.get(e.target) ?? 0,
@@ -672,24 +698,6 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   }, [selection, nodes, flow.edges, edgePaths, reportedPath, onSelectionInfo])
 
   // Secondary button style (spec: --erd-surface bg, 1px --erd-border-2, radius 8)
-  const secondaryBtnStyle: React.CSSProperties = {
-    fontFamily: 'inherit',
-    fontWeight: 500,
-    fontSize: 13,
-    lineHeight: 1,
-    border: '1px solid var(--erd-border-2)',
-    background: 'var(--erd-surface)',
-    color: 'var(--erd-text)',
-    borderRadius: 8,
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 7,
-    padding: '8px 12px',
-    transition: 'background 80ms ease, border-color 80ms ease',
-    boxShadow: 'var(--erd-shadow-sm)',
-  }
-
   return (
     <EdgePathContext.Provider value={edgePathCtx}>
     <GroupActionContext.Provider value={groupActionCtx}>
@@ -727,14 +735,18 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
           })
         } else if (node.type === 'enum' || node.type === 'sticky') {
           onSelect?.({ kind: 'node', nodeId: node.id, nodeType: node.type })
+        } else if (node.type === 'group') {
+          // 그룹 본체(빈 공간)는 클릭을 가로채는 pass-through 백드롭 — 멤버 카드가
+          // 아니라 그룹을 클릭한 것이므로 캔버스(pane) 클릭처럼 선택을 해제한다.
+          onSelect?.(null)
         }
       }}
       onEdgeClick={(_, edge) => {
-        if ((edge.data as RelationEdgeData | undefined)?.isEnumLink) return
         onSelect?.({ kind: 'edge', edgeId: edge.id })
       }}
       onPaneClick={() => onSelect?.(null)}
       nodesConnectable={false}
+      nodesDraggable={!readOnly}
       deleteKeyCode={null}
       // 캔버스 이동은 휠(가운데) 클릭 드래그로만. 좌클릭 드래그는 패닝에서 제외해
       // 선 이동·세그먼트 핸들·Reset/스왑 버튼 클릭을 가로채지 않게 한다. (panOnDrag
@@ -742,7 +754,8 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
       panOnDrag={[1]}
       selectionOnDrag={false}
       fitView
-      minZoom={0.2}
+      // 큰 스키마를 한눈에 보도록 줌아웃 하한을 더 낮춘다(기존 0.2 → 0.05).
+      minZoom={0.05}
       proOptions={{ hideAttribution: true }}
       style={{ background: 'var(--erd-canvas)' }}
     >
@@ -753,37 +766,30 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
 
       {/* Top-right controls panel */}
       <Panel position="top-right">
+        {/* 캔버스 컨트롤은 탑바 컨트롤과 같은 공용 단위(TopbarIconButton)로
+            스타일을 일치시킨다(F1: 단일 출처). 자동 정렬은 아이콘만 표시. */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            style={secondaryBtnStyle}
-            onClick={handleAutoArrange}
-            onMouseOver={(e) => {
-              ;(e.currentTarget as HTMLButtonElement).style.background =
-                'var(--erd-hover)'
-            }}
-            onMouseOut={(e) => {
-              ;(e.currentTarget as HTMLButtonElement).style.background =
-                'var(--erd-surface)'
-            }}
-          >
-            <Grid2x2 size={15} strokeWidth={2} />
-            Auto-arrange
-          </button>
-          <button
-            style={{ ...secondaryBtnStyle, padding: 8 }}
-            aria-label="Toggle fullscreen"
+          {!readOnly && (
+            <TopbarIconButton
+              data-testid="auto-arrange-button"
+              aria-label={t('autoArrange.button')}
+              title={t('autoArrange.button')}
+              onClick={() => setConfirmArrangeOpen(true)}
+            >
+              <Wand2 size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
+            </TopbarIconButton>
+          )}
+          <TopbarIconButton
+            aria-label={t('autoArrange.fullscreen')}
+            title={t('autoArrange.fullscreen')}
             onClick={toggleFullscreen}
-            onMouseOver={(e) => {
-              ;(e.currentTarget as HTMLButtonElement).style.background =
-                'var(--erd-hover)'
-            }}
-            onMouseOut={(e) => {
-              ;(e.currentTarget as HTMLButtonElement).style.background =
-                'var(--erd-surface)'
-            }}
           >
-            {isFullscreen ? <Minimize size={16} strokeWidth={2} /> : <Maximize size={16} strokeWidth={2} />}
-          </button>
+            {isFullscreen ? (
+              <Minimize size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
+            ) : (
+              <Maximize size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
+            )}
+          </TopbarIconButton>
         </div>
       </Panel>
 
@@ -792,6 +798,30 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
         <ZoomBar />
       </Panel>
     </ReactFlow>
+
+    {/* Auto-arrange 확인 — 현재 구성이 전부 초기화된다는 경고 후에만 수행 */}
+    <Dialog open={confirmArrangeOpen} onOpenChange={setConfirmArrangeOpen}>
+      <DialogContent data-testid="auto-arrange-confirm">
+        <DialogHeader>
+          <DialogTitle>{t('autoArrange.confirmTitle')}</DialogTitle>
+          <DialogDescription>{t('autoArrange.confirmDesc')}</DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setConfirmArrangeOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            data-testid="auto-arrange-confirm-ok"
+            onClick={() => {
+              setConfirmArrangeOpen(false)
+              handleAutoArrange()
+            }}
+          >
+            {t('autoArrange.confirmOk')}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
     </EdgeRoutesProvider>
     </GroupActionContext.Provider>
     </EdgePathContext.Provider>
@@ -809,7 +839,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect, onSelectionInfo, searchHighlightColIds }: ErdCanvasProps) {
+function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect, onSelectionInfo, searchHighlightColIds, readOnly }: ErdCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
@@ -857,6 +887,7 @@ function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChan
           onSelect={onSelect}
           onSelectionInfo={onSelectionInfo}
           searchHighlightColIds={searchHighlightColIds}
+          readOnly={readOnly}
         />
       </ReactFlowProvider>
     </div>

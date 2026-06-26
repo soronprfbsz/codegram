@@ -10,7 +10,7 @@ async function registerAndLogin(page: Page, email: string, password: string) {
     (resp) =>
       resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -34,8 +34,8 @@ test.describe('Project CRUD & autosave', () => {
         resp.request().method() === 'POST' &&
         resp.status() === 201,
     )
-    await page.getByPlaceholder('Project name').fill('E2E Project')
-    await page.getByRole('button', { name: 'Create' }).click()
+    await page.getByPlaceholder('프로젝트 이름').fill('E2E Project')
+    await page.getByRole('button', { name: '만들기' }).click()
     const created = await (await createResponse).json()
     const projectId = created.id as string
 
@@ -81,15 +81,15 @@ test.describe('Project CRUD & autosave', () => {
         resp.request().method() === 'POST' &&
         resp.status() === 201,
     )
-    await page.getByPlaceholder('Project name').fill('Before Rename')
-    await page.getByRole('button', { name: 'Create' }).click()
+    await page.getByPlaceholder('프로젝트 이름').fill('Before Rename')
+    await page.getByRole('button', { name: '만들기' }).click()
     const created = await (await createResponse).json()
     const projectId = created.id as string
     await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
 
     // Back to the dashboard via the sidebar. The editor opens with the sidebar
     // collapsed to a rail (logo hidden), so expand it first, then click the logo.
-    await page.getByRole('button', { name: 'Expand sidebar' }).click()
+    await page.getByRole('button', { name: '사이드바 펼치기' }).click()
     await page.getByRole('link', { name: 'Codegram' }).click()
     await page.waitForURL((url) => url.pathname === '/')
 
@@ -99,11 +99,11 @@ test.describe('Project CRUD & autosave', () => {
         resp.request().method() === 'PATCH' &&
         resp.status() === 200,
     )
-    await page.getByRole('button', { name: 'Rename' }).click()
+    await page.getByRole('button', { name: '이름 변경' }).click()
     const renameInput = page.getByRole('listitem').getByRole('textbox')
     await expect(renameInput).toHaveValue('Before Rename')
     await renameInput.fill('After Rename')
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('button', { name: '저장' }).click()
     await renameResponse
 
     // The new name shows in the dashboard list and survives a reload.
@@ -129,14 +129,14 @@ test.describe('Project CRUD & autosave', () => {
         resp.request().method() === 'POST' &&
         resp.status() === 201,
     )
-    await page.getByPlaceholder('Project name').fill('Secret')
-    await page.getByRole('button', { name: 'Create' }).click()
+    await page.getByPlaceholder('프로젝트 이름').fill('Secret')
+    await page.getByRole('button', { name: '만들기' }).click()
     const created = await (await createResponse).json()
     const projectId = created.id as string
 
     // Log out user A.
     await page.goto('/')
-    await page.getByRole('button', { name: /log out/i }).click()
+    await page.getByRole('button', { name: /로그아웃/ }).click()
     await page.waitForURL('**/login')
     await context.clearCookies()
 
@@ -145,6 +145,6 @@ test.describe('Project CRUD & autosave', () => {
     await registerAndLogin(page, emailB, password)
 
     await page.goto(`/editor/${projectId}`)
-    await expect(page.getByText(/project not found/i)).toBeVisible()
+    await expect(page.getByText(/프로젝트를 찾을 수 없습니다/)).toBeVisible()
   })
 })

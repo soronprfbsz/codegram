@@ -4,6 +4,8 @@ import CodeMirror, {
 } from '@uiw/react-codemirror'
 import type { Extension } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
+import { lintGutter, setDiagnostics, type Diagnostic } from '@codemirror/lint'
+import type { DbmlParseError } from '@/entities/dbml'
 import { useThemeStore } from '@/shared/store/theme'
 import { dbmlLanguage } from '../lib/dbml-language'
 import { tableLineRange } from '../lib/tableLineRange'
@@ -20,7 +22,32 @@ const EDITOR_EXTENSIONS: Extension[] = [
   EditorView.contentAttributes.of({ 'aria-label': 'DBML editor' }),
   dbmlLanguage,
   activeTableField,
+  // Gutter markers + the lint state field that setDiagnostics() writes to, so
+  // parse errors show as a gutter dot + underline + hover tooltip on the line.
+  lintGutter(),
 ]
+
+/**
+ * Map our parse errors (1-based line/column) to CodeMirror diagnostics.
+ * An error with a valid line underlines from its column to the line end; one
+ * without usable position info falls back to marking the first line.
+ */
+function toDiagnostics(
+  doc: EditorView['state']['doc'],
+  errors: DbmlParseError[],
+): Diagnostic[] {
+  return errors.map((e) => {
+    if (typeof e.line === 'number' && e.line >= 1 && e.line <= doc.lines) {
+      const ln = doc.line(e.line)
+      const col = typeof e.column === 'number' && e.column >= 1 ? e.column : 1
+      const from = Math.min(ln.from + col - 1, ln.to)
+      const to = ln.to > from ? ln.to : Math.min(doc.length, from + 1)
+      return { from, to: Math.max(to, from), severity: 'error', message: e.message }
+    }
+    const ln = doc.line(1)
+    return { from: ln.from, to: ln.to, severity: 'error', message: e.message }
+  })
+}
 const EDITOR_BASIC_SETUP = {
   lineNumbers: true,
   highlightActiveLineGutter: true,
@@ -49,6 +76,17 @@ export interface DbmlEditorProps {
    * Pass null (or omit) to clear any active block highlight.
    */
   selectedTable?: string | null
+  /**
+   * Parse errors to surface in the gutter/underline. When the latest parse
+   * succeeded (or is pending) pass none/empty to clear the markers.
+   */
+  errors?: DbmlParseError[]
+  /**
+   * Imperative "jump to position" request. Set a new object (changed `nonce`)
+   * to scroll + move the cursor to `line`/`column`; repeated jumps to the same
+   * spot re-fire because the nonce changes. Null/omit to do nothing.
+   */
+  gotoLine?: { line: number; column?: number; nonce: number } | null
 }
 
 /**
@@ -63,7 +101,10 @@ export interface DbmlEditorProps {
  * features layer: depends on shared + CodeMirror (FSD downward imports).
  */
 const DbmlEditorImpl = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
-  function DbmlEditor({ value, onChange, height = '70vh', selectedTable }, ref) {
+  function DbmlEditor(
+    { value, onChange, height = '70vh', selectedTable, errors, gotoLine },
+    ref,
+  ) {
     const handleChange = useCallback(
       (val: string) => onChange(val),
       [onChange],
@@ -108,6 +149,32 @@ const DbmlEditorImpl = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
         }
       }
     }, [selectedTable, value])
+
+    // Push parse errors into CodeMirror as diagnostics (gutter + underline +
+    // tooltip). Empty/none clears them. `value` is a dep so offsets are remapped
+    // against the current document.
+    useEffect(() => {
+      const view = viewRef.current
+      if (!view) return
+      view.dispatch(setDiagnostics(view.state, toDiagnostics(view.state.doc, errors ?? [])))
+    }, [errors, value])
+
+    // Jump to a requested line/column (e.g. clicking a parse-error row): move
+    // the cursor there, scroll it into the center, and focus the editor.
+    useEffect(() => {
+      const view = viewRef.current
+      if (!view || !gotoLine) return
+      const doc = view.state.doc
+      if (gotoLine.line < 1 || gotoLine.line > doc.lines) return
+      const ln = doc.line(gotoLine.line)
+      const col = typeof gotoLine.column === 'number' ? Math.max(1, gotoLine.column) : 1
+      const pos = Math.min(ln.from + col - 1, ln.to)
+      view.dispatch({
+        selection: { anchor: pos },
+        effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+      })
+      view.focus()
+    }, [gotoLine])
 
     return (
       <div data-testid="dbml-editor" className="h-full overflow-hidden rounded border">

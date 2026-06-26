@@ -36,7 +36,7 @@ function table(
   columns: DbmlColumn[],
   over: Partial<DbmlTable> = {},
 ): DbmlTable {
-  return { id: `${schema}.${name}`, name, schema, columns, ...over }
+  return { id: `${schema}.${name}`, name, schema, columns, checks: [], ...over }
 }
 
 function ref(
@@ -73,6 +73,32 @@ function emptySchema(over: Partial<DbmlSchema> = {}): DbmlSchema {
 }
 
 // --- tests ------------------------------------------------------------------
+
+describe('deriveTableDoc — checks', () => {
+  it('carries table checks into the doc model (empty when none)', () => {
+    const schema = emptySchema({
+      tables: [
+        table('public', 'a', [col('public', 'a', 'id', { pk: true })], {
+          checks: [{ expression: 'id > 0', name: 'a_id_chk' }],
+        }),
+        table('public', 'b', [col('public', 'b', 'id', { pk: true })]),
+        table('public', 'c', [col('public', 'c', 'kind')], {
+          checks: [{ expression: "kind IN ('x', 'y')", name: 'c_kind_chk' }],
+        }),
+      ],
+    })
+    const model = deriveTableDoc(schema)
+    const a = model.tables.find((t) => t.name === 'a')!
+    const b = model.tables.find((t) => t.name === 'b')!
+    const c = model.tables.find((t) => t.name === 'c')!
+    // Non-enum check: raw expression preserved, no synthesized values.
+    expect(a.checks).toEqual([{ expression: 'id > 0', name: 'a_id_chk', values: [] }])
+    expect(b.checks).toEqual([])
+    // Enum-style check: allowed values synthesized AND the raw check kept.
+    expect(c.checks[0].expression).toBe("kind IN ('x', 'y')")
+    expect(c.checks[0].values).toEqual(['x', 'y'])
+  })
+})
 
 describe('deriveTableDoc — standard columns', () => {
   it('maps one table with all standard columns and id/schema/name', () => {

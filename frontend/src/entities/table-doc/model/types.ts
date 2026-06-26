@@ -49,6 +49,19 @@ export interface TableDocTable {
   columns: TableDocColumn[]
   /** FK relationships where THIS table is the FK-holding side (may be empty). */
   fkTargets: TableDocFkTarget[]
+  /** Table-level CHECK constraints (may be empty). */
+  checks: TableDocCheck[]
+}
+
+/** One table-level CHECK constraint in the table detail. */
+export interface TableDocCheck {
+  /** The raw check expression. */
+  expression: string
+  /** Constraint name ('' when absent). */
+  name: string
+  /** Allowed values when the check is an enum-style list (`IN`/`ANY(ARRAY)`);
+   *  empty for non-enum checks (e.g. numeric ranges). */
+  values: string[]
 }
 
 /** One value within an enum in the Enum list section. */

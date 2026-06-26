@@ -8,7 +8,7 @@ import {
   Position,
   type EdgeProps,
 } from '@xyflow/react'
-import { ArrowLeftRight, RotateCw } from 'lucide-react'
+import { RotateCw } from 'lucide-react'
 import type { RelationEdgeData } from '@/entities/erd'
 import type { DbmlRelation } from '@/entities/dbml'
 import {
@@ -24,7 +24,9 @@ export { GROUP_CLEARANCE }
 import {
   buildManualPath,
   dragSegment,
+  clampSegmentDrag,
   type PathPoint,
+  type CardRect,
 } from '@/entities/layout'
 import { useEdgePathContext } from '../lib/edgePathContext'
 import { useRegisterRoute, useAdjustedRoutes } from '../lib/edgeRoutesContext'
@@ -44,6 +46,10 @@ const LANE_GAP = 14
  * (Default BaseEdge interactionWidth is 20 = ±10, wider than the 14px lane.)
  */
 const EDGE_HIT_WIDTH = 12
+
+/** Min clearance a manually-dragged segment keeps from any card (matches the
+ *  auto-router's card clearance, so manual + auto paths obey the same rule). */
+const CARD_CLEARANCE = 14
 
 /** 장애물 선택용 최소 노드 형태(테스트 가능하도록 InternalNode에서 분리). */
 export interface ObstacleNode {
@@ -236,7 +242,7 @@ function RelationEdgeImpl({
     // bundle/corridor post-passes as a "phantom occupant": its corridor slot is
     // preserved, so pulling one edge out to a manual path no longer makes its
     // siblings re-center/re-spread. (Only `dragging` and enum links opt out.)
-    if (dragging || isEnumLink) return null
+    if (dragging) return null
     const obsNodes: ObstacleNode[] = []
     for (const n of nodeLookup.values()) {
       if (
@@ -297,15 +303,19 @@ function RelationEdgeImpl({
   const bundleKey = `${sourceHandleId ?? source}|${targetPosition === Position.Left ? 'L' : 'R'}`
 
   useEffect(() => {
+    // Enum links are editable but stay OUT of the relation bundle/corridor
+    // post-passes — they route + spread on their own raw orthoPoints, so they
+    // never perturb the carefully-tuned cardinality-edge bundling.
+    if (isEnumLink) return
     registerRoute?.(id, orthoPoints ?? null, bundleKey)
     return () => registerRoute?.(id, null)
-  }, [registerRoute, id, orthoPoints, bundleKey])
+  }, [registerRoute, id, orthoPoints, bundleKey, isEnumLink])
 
   // Manual path: stored waypoints + live endpoints, bridged to stay orthogonal.
   // Cheap (no A*), so it does NOT fall back to smoothstep during node drags —
   // the waypoints stay put and only the end segments stretch (dbdiagram 실측).
   const manualPoints = useMemo(() => {
-    if (!manualWaypoints || isEnumLink) return null
+    if (!manualWaypoints) return null
     return buildManualPath(
       { x: sourceX, y: sourceY },
       { x: targetX, y: targetY },
@@ -313,7 +323,7 @@ function RelationEdgeImpl({
     )
   }, [manualWaypoints, isEnumLink, sourceX, sourceY, targetX, targetY])
 
-  const isEdgeSelected = (data?.isEdgeSelected ?? false) && !isEnumLink
+  const isEdgeSelected = data?.isEdgeSelected ?? false
   const ctx = useEdgePathContext()
   const { screenToFlowPosition } = useReactFlow()
 
@@ -364,11 +374,28 @@ function RelationEdgeImpl({
     const a = st.full[st.segmentIndex]
     const b = st.full[st.segmentIndex + 1]
     const horizontal = Math.abs(a.y - b.y) < 0.5
-    const next = dragSegment(
-      st.full,
-      st.segmentIndex,
+    // Keep the dragged segment OUT of every card's min-clearance zone — no line
+    // may be moved through/into a card (the same clearance the auto-router uses).
+    const cards: CardRect[] = []
+    for (const n of nodeLookup.values()) {
+      if (n.type !== 'table' && n.type !== 'enum') continue
+      const pos = n.internals.positionAbsolute
+      cards.push({
+        x: pos.x,
+        y: pos.y,
+        width: n.measured?.width ?? 240,
+        height: n.measured?.height ?? 80,
+      })
+    }
+    const coord = clampSegmentDrag(
+      a,
+      b,
+      horizontal,
       horizontal ? flowPos.y : flowPos.x,
+      cards,
+      CARD_CLEARANCE,
     )
+    const next = dragSegment(st.full, st.segmentIndex, coord)
     // Stash on the ref too: the pointerup commit reads st.draft directly, so
     // correctness does not depend on React having flushed the state update.
     st.draft = next
@@ -393,6 +420,43 @@ function RelationEdgeImpl({
     setDraftWaypoints(null)
   }
 
+  // Endpoint drag-to-FLIP: grab an endpoint; as the pointer crosses the node's
+  // horizontal center, the REAL edge re-anchors to that side LIVE (so what you
+  // see IS exactly where the line will land — no separate guide that can drift).
+  // Crossing back reverts; releasing keeps the current side.
+  const endpointDragRef = useRef<{ end: 'source' | 'target'; side: 'left' | 'right' } | null>(null)
+
+  const sideFromPointer = (end: 'source' | 'target', clientX: number, clientY: number) => {
+    const fp = screenToFlowPosition({ x: clientX, y: clientY })
+    const node = nodeLookup.get(end === 'source' ? source : target)
+    if (!node) return null
+    const cx = node.internals.positionAbsolute.x + (node.measured?.width ?? 240) / 2
+    return fp.x < cx ? ('left' as const) : ('right' as const)
+  }
+  function onEndpointDown(e: React.PointerEvent, end: 'source' | 'target') {
+    e.stopPropagation()
+    e.preventDefault()
+    ;(e.target as Element).setPointerCapture(e.pointerId)
+    const curSide: 'left' | 'right' =
+      (end === 'source' ? sourcePosition : targetPosition) === Position.Left ? 'left' : 'right'
+    endpointDragRef.current = { end, side: curSide }
+  }
+  function onEndpointMove(e: React.PointerEvent) {
+    const st = endpointDragRef.current
+    if (!st) return
+    const side = sideFromPointer(st.end, e.clientX, e.clientY)
+    if (side && side !== st.side) {
+      st.side = side
+      ctx.setEdgeSide(id, st.end, side) // live re-route — this IS the preview
+    }
+  }
+  function onEndpointUp() {
+    endpointDragRef.current = null
+  }
+  function onEndpointAbort() {
+    endpointDragRef.current = null
+  }
+
   const isActive = data?.active ?? false
   // SVG presentation ATTRIBUTES (stroke="...") do NOT support var() — only CSS
   // (the `style` prop) does. Marker paths therefore set stroke via `style`.
@@ -401,22 +465,9 @@ function RelationEdgeImpl({
   const strokeWidth = emphasized ? 2 : 1.5
 
   // Column -> enum links are a type association, NOT a cardinality relationship:
-  // dashed, smoothstep, no crow-foot markers.
-  if (isEnumLink) {
-    return (
-      <BaseEdge
-        id={id}
-        path={smoothPath}
-        interactionWidth={EDGE_HIT_WIDTH}
-        style={{
-          stroke: 'var(--erd-edge)',
-          strokeWidth: 1.5,
-          strokeDasharray: '4 4',
-        }}
-      />
-    )
-  }
-
+  // dashed + no crow-foot markers. They are otherwise edited EXACTLY like a
+  // relation edge (select, drag segment handles to reposition, reset) — so they
+  // flow through the same render below; only the markers + dash differ.
   const relation = data?.relation ?? '1-n'
   const startKind = startMarkerKind(relation)
   const endKind = endMarkerKind(relation)
@@ -428,6 +479,7 @@ function RelationEdgeImpl({
 
   return (
     <>
+      {!isEnumLink && (
       <defs>
         <marker
           id={`crowfoot-start-${mid}`}
@@ -460,6 +512,7 @@ function RelationEdgeImpl({
           />
         </marker>
       </defs>
+      )}
       {/* Selection halo — soft accent glow UNDER the line (가시성 강조) */}
       {isEdgeSelected && (
         <path
@@ -478,11 +531,12 @@ function RelationEdgeImpl({
         id={id}
         path={edgePath}
         interactionWidth={EDGE_HIT_WIDTH}
-        markerStart={`url(#crowfoot-start-${mid})`}
-        markerEnd={`url(#crowfoot-end-${mid})`}
+        markerStart={isEnumLink ? undefined : `url(#crowfoot-start-${mid})`}
+        markerEnd={isEnumLink ? undefined : `url(#crowfoot-end-${mid})`}
         style={{
           stroke: strokeColor,
           strokeWidth,
+          ...(isEnumLink && { strokeDasharray: '4 4' }),
           transition: 'stroke 80ms ease, stroke-width 80ms ease',
         }}
       />
@@ -506,19 +560,31 @@ function RelationEdgeImpl({
       )}
       {isEdgeSelected && renderedPoints && (
         <g data-testid="edge-handles">
-          {/* Anchored endpoints — visual only (끝점은 컬럼에 앵커, 편집 불가) */}
-          <circle
-            cx={renderedPoints[0].x}
-            cy={renderedPoints[0].y}
-            r={3.5}
-            style={{ fill: 'var(--erd-accent)', pointerEvents: 'none' }}
-          />
-          <circle
-            cx={renderedPoints[renderedPoints.length - 1].x}
-            cy={renderedPoints[renderedPoints.length - 1].y}
-            r={3.5}
-            style={{ fill: 'var(--erd-accent)', pointerEvents: 'none' }}
-          />
+          {/* Draggable endpoints — drag toward a node side to FLIP the anchor. */}
+          {([
+            ['source', renderedPoints[0]],
+            ['target', renderedPoints[renderedPoints.length - 1]],
+          ] as const).map(([end, p]) => (
+            <circle
+              key={end}
+              data-testid={`edge-endpoint-${end}`}
+              cx={p.x}
+              cy={p.y}
+              r={5}
+              style={{
+                fill: 'var(--erd-accent)',
+                stroke: 'var(--erd-surface)',
+                strokeWidth: 1.5,
+                cursor: 'grab',
+                pointerEvents: 'all',
+              }}
+              onPointerDown={(e) => onEndpointDown(e, end)}
+              onPointerMove={onEndpointMove}
+              onPointerUp={onEndpointUp}
+              onPointerCancel={onEndpointAbort}
+              onLostPointerCapture={onEndpointAbort}
+            />
+          ))}
           {/* Interior corner dots — visual markers (드래그는 세그먼트 핸들로) */}
           {renderedPoints.slice(1, -1).map((p, i) => (
             <circle
@@ -583,52 +649,19 @@ function RelationEdgeImpl({
               justifyContent: 'center',
               boxShadow: 'var(--erd-shadow-sm)',
             })
-            // Swap buttons float just OUTSIDE each endpoint, along the exit
-            // direction, lifted off the line so they don't cover the marker.
-            const srcDx = sourcePosition === Position.Left ? -22 : 22
-            const tgtDx = targetPosition === Position.Left ? -22 : 22
-            return (
-              <>
-                <button
-                  data-testid="edge-swap-source"
-                  title="좌/우 전환 (source)"
-                  onClick={() =>
-                    ctx.setEdgeSide(
-                      id,
-                      'source',
-                      sourcePosition === Position.Left ? 'right' : 'left',
-                    )
-                  }
-                  style={floatBtnStyle(sourceX + srcDx, sourceY - 20)}
-                >
-                  <ArrowLeftRight size={13} strokeWidth={2} />
-                </button>
-                <button
-                  data-testid="edge-swap-target"
-                  title="좌/우 전환 (target)"
-                  onClick={() =>
-                    ctx.setEdgeSide(
-                      id,
-                      'target',
-                      targetPosition === Position.Left ? 'right' : 'left',
-                    )
-                  }
-                  style={floatBtnStyle(targetX + tgtDx, targetY - 20)}
-                >
-                  <ArrowLeftRight size={13} strokeWidth={2} />
-                </button>
-                {manualWaypoints && (
-                  <button
-                    data-testid="edge-reset"
-                    title="Reset line"
-                    onClick={() => ctx.resetPath(id)}
-                    style={floatBtnStyle(midPoint.x + 18, midPoint.y - 18)}
-                  >
-                    <RotateCw size={14} strokeWidth={2} />
-                  </button>
-                )}
-              </>
-            )
+            // Anchor-side is now flipped by DRAGGING the endpoint to the other
+            // side of its node (see edge-endpoint handles), so the old swap
+            // buttons are gone — only the Reset-line button remains here.
+            return manualWaypoints ? (
+              <button
+                data-testid="edge-reset"
+                title="Reset line"
+                onClick={() => ctx.resetPath(id)}
+                style={floatBtnStyle(midPoint.x + 18, midPoint.y - 18)}
+              >
+                <RotateCw size={14} strokeWidth={2} />
+              </button>
+            ) : null
           })()}
         </EdgeLabelRenderer>
       )}

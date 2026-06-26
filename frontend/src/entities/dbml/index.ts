@@ -1,5 +1,9 @@
 export { parseDbml } from './lib/parse'
+export { mergeDbml } from './lib/mergeDbml'
+export { parseEnumCheck, extractEnumCheckValues } from './lib/enumCheck'
+export type { EnumCheck } from './lib/enumCheck'
 export type {
+  DbmlCheck,
   DbmlColumn,
   DbmlEnum,
   DbmlEnumValue,
@@ -18,6 +22,7 @@ export {
   deleteGroup,
   setGroupColor,
   moveTableToGroup,
+  moveTablesToGroup,
 } from './lib/groupOps'
 export type { GroupOpResult } from './lib/groupOps'
 export { searchTables } from './lib/searchTables'

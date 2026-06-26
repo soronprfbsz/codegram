@@ -10,7 +10,7 @@ async function registerAndLogin(page: Page, email: string, password: string) {
     (resp) =>
       resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
-  await page.getByRole('button', { name: 'Sign up' }).click()
+  await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
@@ -34,8 +34,8 @@ test.describe('Editor ERD canvas', () => {
         resp.request().method() === 'POST' &&
         resp.status() === 201,
     )
-    await page.getByPlaceholder('Project name').fill('ERD Project')
-    await page.getByRole('button', { name: 'Create' }).click()
+    await page.getByPlaceholder('프로젝트 이름').fill('ERD Project')
+    await page.getByRole('button', { name: '만들기' }).click()
     const created = await (await createResponse).json()
     const projectId = created.id as string
     await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)

@@ -70,4 +70,21 @@ describe('packGroupedLayout', () => {
     expect(Number.isFinite(f.position.x)).toBe(true)
     expect(Number.isFinite(f.position.y)).toBe(true)
   })
+
+  it('unrelated (edge-less) ungrouped tables spread into a balanced grid, not one tall column', () => {
+    // A group + many unrelated ungrouped tables with NO edges: before the fix
+    // dagre piled them all into rank 0 (a single vertical column).
+    const g = group('group:G')
+    const m = table('public.inG', 2, 'group:G')
+    const free = Array.from({ length: 9 }, (_, i) => table(`public.t${i}`, 2))
+    const out = packGroupedLayout([g, m, ...free], [])
+    const freeOut = out.filter((n) => n.id.startsWith('public.t'))
+    const distinctX = new Set(freeOut.map((n) => Math.round(n.position.x)))
+    const distinctY = new Set(freeOut.map((n) => Math.round(n.position.y)))
+    // Must use more than one column (otherwise it's the old vertical stack).
+    expect(distinctX.size).toBeGreaterThan(1)
+    expect(distinctY.size).toBeGreaterThan(1)
+    // And it must not be a 1-wide column: rows ≈ ceil(9/cols) < 9.
+    expect(distinctY.size).toBeLessThan(free.length)
+  })
 })

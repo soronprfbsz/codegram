@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { useLogout } from '@/features/auth/api/useLogout'
 
@@ -7,6 +8,7 @@ import { useLogout } from '@/features/auth/api/useLogout'
  * to /login. The session query is reset to null inside the mutation.
  */
 export function LogoutButton() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const logout = useLogout()
 
@@ -24,7 +26,7 @@ export function LogoutButton() {
       onClick={handleClick}
       disabled={logout.isPending}
     >
-      {logout.isPending ? 'Logging out…' : 'Log out'}
+      {logout.isPending ? t('auth.loggingOut') : t('auth.logout')}
     </Button>
   )
 }

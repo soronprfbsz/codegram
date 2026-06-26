@@ -89,6 +89,7 @@ async def update_project(
             layout=payload.layout,
             glyph=payload.glyph,
             color=payload.color,
+            bg_color=payload.bg_color,
         )
     except ProjectNotFoundError:
         raise HTTPException(

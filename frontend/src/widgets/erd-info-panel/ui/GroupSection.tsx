@@ -1,5 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react'
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog'
 import type { TableSearchMatch } from '@/entities/dbml'
 import type { DisplayGroup } from '@/entities/erd'
 import type { GroupOpHandlers } from '../model/types'
@@ -48,11 +50,24 @@ export function GroupSection({
   matches,
   activeTableId,
 }: GroupSectionProps) {
+  const { t } = useTranslation()
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(group.label)
+  // 그룹 삭제도 공통 확인 모달로 재확인(파괴적 작업).
+  const [confirmDelete, setConfirmDelete] = useState(false)
   // Synchronous flag for the menu's onCloseAutoFocus: React state may not have
   // flushed by the time radix restores focus to the trigger, so guard via ref.
   const renamingRef = useRef(false)
+
+  // 선택된 행을 패널 스크롤 영역 안으로 끌어온다(캔버스에서 선택 시 그룹이
+  // 펼쳐진 뒤 해당 행이 화면에 보이도록). 이 그룹에 선택 행이 있을 때만 ref가
+  // 채워지므로, selected/collapsed 변화 시 그 행으로만 스크롤한다.
+  const selectedRowRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (selectedRowRef.current) {
+      selectedRowRef.current.scrollIntoView({ block: 'nearest' })
+    }
+  }, [selected, collapsed])
 
   const isUngrouped = group.key === '__ungrouped'
 
@@ -94,7 +109,7 @@ export function GroupSection({
             alignItems: 'center',
             flexShrink: 0,
           }}
-          aria-label={collapsed ? 'Expand group' : 'Collapse group'}
+          aria-label={collapsed ? t('groupSection.expand') : t('groupSection.collapse')}
         >
           {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
         </button>
@@ -159,6 +174,21 @@ export function GroupSection({
           <span style={{ flex: 1 }}>{group.label}</span>
         )}
 
+        {/* Table count for this group */}
+        <span
+          data-testid={`group-count-${group.key}`}
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: 'var(--erd-text-3)',
+            fontFamily: 'var(--font-mono, ui-monospace)',
+            flexShrink: 0,
+            letterSpacing: 0,
+          }}
+        >
+          {group.tables.length}
+        </span>
+
         {/* Group ⋯ menu — only for named groups when groupOps present */}
         {!isUngrouped && groupOps && (
           <DropdownMenu>
@@ -178,7 +208,7 @@ export function GroupSection({
                   flexShrink: 0,
                   borderRadius: 4,
                 }}
-                aria-label="Group options"
+                aria-label={t('groupSection.options')}
               >
                 <MoreHorizontal size={12} />
               </button>
@@ -193,13 +223,13 @@ export function GroupSection({
                 }
               }}
             >
-              <DropdownMenuLabel>Color</DropdownMenuLabel>
+              <DropdownMenuLabel>{t('groupSection.color')}</DropdownMenuLabel>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 10px', maxWidth: 150 }}>
                 {GROUP_COLOR_PRESETS.map((c) => (
                   <button
                     key={c}
                     data-testid={`swatch-${c}`}
-                    aria-label={`Set color ${c}`}
+                    aria-label={t('groupSection.setColor', { color: c })}
                     onClick={() => groupOps.onSetGroupColor(group.label, c)}
                     style={{
                       width: 18,
@@ -214,7 +244,7 @@ export function GroupSection({
                 {/* Custom color picker — a rainbow swatch hosting a native color input. */}
                 <label
                   data-testid="swatch-custom"
-                  title="Custom color"
+                  title={t('groupSection.customColor')}
                   style={{
                     position: 'relative',
                     width: 18,
@@ -230,7 +260,7 @@ export function GroupSection({
                 >
                   <input
                     type="color"
-                    aria-label="Custom color"
+                    aria-label={t('groupSection.customColor')}
                     // Uncontrolled: the DBML is the source of truth, so we don't
                     // bind `value` (a controlled color input would revert the
                     // user's pick before onChange commits). The Radix menu
@@ -251,7 +281,7 @@ export function GroupSection({
                 </label>
               </div>
               <DropdownMenuItem onSelect={() => groupOps.onSetGroupColor(group.label, null)}>
-                Default color
+                {t('groupSection.defaultColor')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -261,10 +291,10 @@ export function GroupSection({
                   setRenaming(true)
                 }}
               >
-                Rename
+                {t('groupSection.rename')}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => groupOps.onDeleteGroup(group.label)}>
-                Delete
+              <DropdownMenuItem onSelect={() => setConfirmDelete(true)}>
+                {t('groupSection.delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -283,6 +313,7 @@ export function GroupSection({
         return (
           <div
             key={table.id}
+            ref={isSelected ? selectedRowRef : undefined}
             role="button"
             tabIndex={0}
             data-testid={`tablelist-row-${table.name}`}
@@ -298,9 +329,13 @@ export function GroupSection({
               alignItems: 'center',
               gap: 10,
               // Left-indented to nest under the group header (chevron + dot offset).
-              padding: '8px 14px 8px 33px',
+              // 좌우 margin으로 선택/hover 하이라이트가 패널 양끝에 붙지 않게 inset.
+              padding: '8px 8px 8px 27px',
+              marginLeft: 6,
+              marginRight: 6,
               cursor: 'pointer',
-              borderRadius: 8,
+              // radius는 디자인 토큰(--radius-lg) 사용(버튼 계열과 동일 출처).
+              borderRadius: 'var(--radius-lg)',
               transition: 'background 80ms ease',
               background: isSelected
                 ? 'var(--erd-accent-soft)'
@@ -384,13 +419,13 @@ export function GroupSection({
                       flexShrink: 0,
                       borderRadius: 4,
                     }}
-                    aria-label="Move table"
+                    aria-label={t('groupSection.moveTable')}
                   >
                     <MoreHorizontal size={12} />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuLabel>Move to</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t('groupSection.moveTo')}</DropdownMenuLabel>
                   {moveTargets.map((n) => (
                     <DropdownMenuItem key={n} onSelect={() => groupOps.onMoveTable(table.id, n)}>
                       {n}
@@ -398,7 +433,7 @@ export function GroupSection({
                   ))}
                   {currentGroup !== null && (
                     <DropdownMenuItem onSelect={() => groupOps.onMoveTable(table.id, null)}>
-                      Ungrouped
+                      {t('groupSection.ungrouped')}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -407,6 +442,17 @@ export function GroupSection({
           </div>
         )
       })}
+
+      {groupOps && (
+        <ConfirmDialog
+          open={confirmDelete}
+          onOpenChange={setConfirmDelete}
+          testId={`group-delete-confirm-${group.key}`}
+          title={t('groupSection.deleteConfirmTitle')}
+          description={t('groupSection.deleteConfirmDesc', { name: group.label })}
+          onConfirm={() => groupOps.onDeleteGroup(group.label)}
+        />
+      )}
     </div>
   )
 }

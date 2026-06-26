@@ -12,13 +12,18 @@ export interface DisplayGroup {
   tables: DbmlTable[]
 }
 
-/** 5-color cycle palette (matches the 5 group accents in the design spec). */
+/**
+ * 5색 순환 팔레트. 값은 테마별 CSS 변수(`--erd-group-*`, index.css 라이트/다크)
+ * 단일 출처를 참조한다 — hex를 여기 중복 정의하면 다크에서 라이트용 짙은 색이
+ * 그대로 쓰여 저휘도로 묻힌다(G1). CSS 컨텍스트(color-mix/배경/글자색)에서만
+ * 소비되므로 var()로 충분하다.
+ */
 const COLOR_PALETTE = [
-  '#6938EF',
-  '#1570EF',
-  '#0E9384',
-  '#DC6803',
-  '#B42318',
+  'var(--erd-group-common)',
+  'var(--erd-group-account)',
+  'var(--erd-group-customer)',
+  'var(--erd-group-release)',
+  'var(--erd-group-resource)',
 ] as const
 
 /**

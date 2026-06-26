@@ -32,6 +32,23 @@ vi.mock('jspdf-autotable', () => ({
 }))
 
 import { buildTableDocPdfBlob } from './buildPdf'
+import type { TableDocLabels } from './labels'
+
+// Korean labels (mirrors the previous hardcoded strings) so existing assertions
+// hold AND we verify the builder emits exactly the labels it is given.
+const LABELS: TableDocLabels = {
+  columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
+  fkColumn: '컬럼',
+  fkReference: '참조',
+  enumColEnum: 'Enum',
+  enumColValue: '값',
+  enumColNote: '설명',
+  enumsSheet: 'Enums',
+  checks: 'CHECK 제약',
+  checkName: '이름',
+  checkValues: '허용값',
+  checkExpression: '표현식',
+}
 
 const model: TableDocModel = {
   tables: [
@@ -128,7 +145,7 @@ describe('buildTableDocPdfBlob', () => {
   })
 
   it('renders one column autoTable per table with the standard header', async () => {
-    await buildTableDocPdfBlob(model)
+    await buildTableDocPdfBlob(model, LABELS)
     // 2 tables (column tables) + 1 FK table + 1 enum table = 4 autoTable calls.
     expect(autoTable).toHaveBeenCalledTimes(4)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -143,7 +160,7 @@ describe('buildTableDocPdfBlob', () => {
   })
 
   it('renders an FK autoTable for the table that has fkTargets', async () => {
-    await buildTableDocPdfBlob(model)
+    await buildTableDocPdfBlob(model, LABELS)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fkOpts = (autoTable.mock.calls as any)[1][1]
     expect(fkOpts.head).toEqual([['컬럼', '참조']])
@@ -152,7 +169,7 @@ describe('buildTableDocPdfBlob', () => {
   })
 
   it('chains each section below the previous one (startY grows)', async () => {
-    await buildTableDocPdfBlob(model)
+    await buildTableDocPdfBlob(model, LABELS)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const startYs = (autoTable.mock.calls as any[]).map(
       (c: any) => c[1].startY as number,
@@ -163,7 +180,7 @@ describe('buildTableDocPdfBlob', () => {
   })
 
   it('renders a final enum autoTable', async () => {
-    await buildTableDocPdfBlob(model)
+    await buildTableDocPdfBlob(model, LABELS)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enumOpts = ((autoTable.mock.calls as any).at(-1) as any[])[1]
     expect(enumOpts.head).toEqual([['Enum', '값', '설명']])
@@ -171,9 +188,36 @@ describe('buildTableDocPdfBlob', () => {
   })
 
   it('returns the jsPDF blob output', async () => {
-    const blob = await buildTableDocPdfBlob(model)
+    const blob = await buildTableDocPdfBlob(model, LABELS)
     expect(fakeDoc.output).toHaveBeenCalledWith('blob')
     expect(blob).toBeInstanceOf(Blob)
+  })
+
+  it('renders a CHECK autoTable for a table that has checks', async () => {
+    const withChecks: TableDocModel = {
+      tables: [
+        {
+          id: 'core.fa',
+          schema: 'core',
+          name: 'fa',
+          note: '',
+          columns: [
+            { name: 'reason', type: 'TEXT', pk: false, fk: false, notNull: true, unique: false, default: '', note: '' },
+          ],
+          fkTargets: [],
+          checks: [
+            { name: 'fa_reason_chk', expression: "reason IN ('a', 'b')", values: ['a', 'b'] },
+          ],
+        },
+      ],
+      enums: [],
+    }
+    await buildTableDocPdfBlob(withChecks, LABELS)
+    // calls: column autoTable, CHECK autoTable, enum autoTable
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const checkOpts = (autoTable.mock.calls as any)[1][1]
+    expect(checkOpts.head).toEqual([['이름', '허용값', '표현식']])
+    expect(checkOpts.body).toEqual([['fa_reason_chk', 'a, b', "reason IN ('a', 'b')"]])
   })
 
   it('groups composite-FK target columns under the target table', async () => {
@@ -197,7 +241,7 @@ describe('buildTableDocPdfBlob', () => {
       ],
       enums: [],
     }
-    await buildTableDocPdfBlob(compositeModel)
+    await buildTableDocPdfBlob(compositeModel, LABELS)
     // calls: column autoTable, FK autoTable, enum autoTable
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const fkOpts = (autoTable.mock.calls as any)[1][1]
@@ -220,7 +264,7 @@ describe('buildTableDocPdfBlob', () => {
       ],
       enums: [],
     }
-    await buildTableDocPdfBlob(emptyColsModel)
+    await buildTableDocPdfBlob(emptyColsModel, LABELS)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const colOpts = (autoTable.mock.calls as any)[0][1]
     expect(colOpts.body).toEqual([])
@@ -239,7 +283,7 @@ describe('buildTableDocPdfBlob', () => {
         },
       ],
     }
-    await buildTableDocPdfBlob(enumOnlyModel)
+    await buildTableDocPdfBlob(enumOnlyModel, LABELS)
     expect(autoTable).toHaveBeenCalledTimes(1)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enumOpts = (autoTable.mock.calls as any)[0][1]

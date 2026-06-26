@@ -1,3 +1,4 @@
+import { extractEnumCheckValues } from '@/entities/dbml'
 import type { DbmlSchema, DbmlRef } from '@/entities/dbml'
 import type {
   TableDocColumn,
@@ -105,6 +106,11 @@ export function deriveTableDoc(schema: DbmlSchema): TableDocModel {
       note: t.note ?? '',
       columns,
       fkTargets: fkTargetsByTable.get(t.id) ?? [],
+      checks: t.checks.map((c) => ({
+        expression: c.expression,
+        name: c.name ?? '',
+        values: extractEnumCheckValues(c.expression),
+      })),
     }
   })
 

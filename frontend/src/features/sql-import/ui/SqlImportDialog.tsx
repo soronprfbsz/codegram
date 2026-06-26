@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   importSqlToDbml,
   SQL_DIALECTS,
@@ -43,6 +44,7 @@ export function SqlImportDialog({
   hasExistingContent,
   onImport,
 }: SqlImportDialogProps) {
+  const { t } = useTranslation()
   const [dialect, setDialect] = useState<SqlDialect>('postgres')
   const [sqlText, setSqlText] = useState('')
   const [errors, setErrors] = useState<DbmlParseError[] | null>(null)
@@ -89,7 +91,7 @@ export function SqlImportDialog({
       setErrors(null)
       setPendingDbml(null)
     } catch {
-      setErrors([{ message: 'Could not read the selected file' }])
+      setErrors([{ message: t('sqlImport.couldNotReadFile') }])
     }
   }
 
@@ -97,11 +99,8 @@ export function SqlImportDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Import SQL</DialogTitle>
-          <DialogDescription>
-            Paste a SQL schema or upload a .sql file. The converted DBML
-            replaces the current editor content.
-          </DialogDescription>
+          <DialogTitle>{t('sqlImport.title')}</DialogTitle>
+          <DialogDescription>{t('sqlImport.desc')}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-1.5">
@@ -109,7 +108,7 @@ export function SqlImportDialog({
             htmlFor="sql-import-dialect"
             className="text-sm font-medium"
           >
-            Dialect
+            {t('sqlImport.dialect')}
           </label>
           <select
             id="sql-import-dialect"
@@ -136,13 +135,13 @@ export function SqlImportDialog({
             setSqlText(e.target.value)
             setPendingDbml(null)
           }}
-          placeholder="CREATE TABLE …"
+          placeholder={t('sqlImport.textareaPlaceholder')}
           rows={8}
           className="w-full rounded-md border border-border bg-background p-2 font-mono text-sm outline-none"
         />
 
         <label className="text-sm">
-          <span className="mb-1 block font-medium">Or upload a .sql file</span>
+          <span className="mb-1 block font-medium">{t('sqlImport.uploadLabel')}</span>
           <input
             type="file"
             accept=".sql,text/plain"
@@ -167,7 +166,7 @@ export function SqlImportDialog({
                 {typeof err.line === 'number' &&
                   typeof err.column === 'number' && (
                     <span className="ml-2 text-xs text-red-500">
-                      (line {err.line}, column {err.column})
+                      {t('sqlImport.lineColumn', { line: err.line, column: err.column })}
                     </span>
                   )}
               </li>
@@ -178,26 +177,26 @@ export function SqlImportDialog({
         {pendingDbml !== null ? (
           <div className="flex flex-col gap-2">
             <p className="text-sm text-amber-700">
-              This replaces the current editor content.
+              {t('sqlImport.replaceWarn')}
             </p>
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => setPendingDbml(null)}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={() => commit(pendingDbml)}>
-                Confirm overwrite
+                {t('sqlImport.confirmOverwrite')}
               </Button>
             </div>
           </div>
         ) : (
           <div className="flex justify-end gap-2">
             <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline">{t('common.cancel')}</Button>
             </DialogClose>
-            <Button onClick={handleImport}>Import</Button>
+            <Button onClick={handleImport}>{t('sqlImport.import')}</Button>
           </div>
         )}
       </DialogContent>

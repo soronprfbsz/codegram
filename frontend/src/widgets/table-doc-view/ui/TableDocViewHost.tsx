@@ -1,4 +1,9 @@
-import { buildTableDocXlsxBlob, buildTableDocPdfBlob } from '@/features/export-table-doc'
+import { useTranslation } from 'react-i18next'
+import {
+  buildTableDocXlsxBlob,
+  buildTableDocPdfBlob,
+  tableDocLabels,
+} from '@/features/export-table-doc'
 import { downloadBlob } from '@/shared/lib/download'
 import { TableDocView } from './TableDocView'
 import { useTableDocViewStore } from '../model/store'
@@ -12,6 +17,7 @@ const EMPTY = { tables: [], enums: [] }
  * the Excel/PDF download actions (reusing the export-table-doc builders).
  */
 export function TableDocViewHost() {
+  const { t } = useTranslation()
   const model = useTableDocViewStore((s) => s.model)
   const close = useTableDocViewStore((s) => s.close)
   return (
@@ -20,11 +26,21 @@ export function TableDocViewHost() {
       open={model !== null}
       onClose={close}
       onDownloadExcel={
-        model ? () => downloadBlob(buildTableDocXlsxBlob(model), 'table-definition.xlsx') : undefined
+        model
+          ? () =>
+              downloadBlob(
+                buildTableDocXlsxBlob(model, tableDocLabels(t)),
+                'table-definition.xlsx',
+              )
+          : undefined
       }
       onDownloadPdf={
         model
-          ? async () => downloadBlob(await buildTableDocPdfBlob(model), 'table-definition.pdf')
+          ? async () =>
+              downloadBlob(
+                await buildTableDocPdfBlob(model, tableDocLabels(t)),
+                'table-definition.pdf',
+              )
           : undefined
       }
     />

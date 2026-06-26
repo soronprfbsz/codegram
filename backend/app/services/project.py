@@ -64,6 +64,7 @@ class ProjectService:
         layout: dict[str, Any] | None = None,
         glyph: str | None = None,
         color: str | None = None,
+        bg_color: str | None = None,
     ) -> Project:
         """Partially update an owned project; raise NotFound otherwise."""
         project = await self.get_project(project_id, user_id)
@@ -74,6 +75,7 @@ class ProjectService:
             layout=layout,
             glyph=glyph,
             color=color,
+            bg_color=bg_color,
         )
 
     async def delete_project(
