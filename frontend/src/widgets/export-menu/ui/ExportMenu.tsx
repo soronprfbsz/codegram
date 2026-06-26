@@ -35,11 +35,11 @@ export interface ExportMenuProps {
  * The editor TopBar "Export.." dropdown — the single export hub for the open
  * project. A flat, section-labelled menu (Radix nested submenus are unreliable
  * in this app, so we keep one open surface): a 테이블 정의서 preview plus
- * Diagram (PNG/SVG/PDF, live-canvas capture), Table Doc (Excel/PDF), and SQL
+ * Diagram (PNG/SVG/PDF, live-canvas capture), Table Doc (Excel/PDF/Word), and SQL
  * dumps. Diagram capture needs the mounted canvas; Table Doc/SQL derive from the
  * open project's schema/dbml — so this lives in the editor, not the sidebar.
  *
- * Heavy exports (Table Doc Excel/PDF) build the file in a Web Worker and show a
+ * Heavy exports (Table Doc Excel/PDF/Word) build the file in a Web Worker and show a
  * progress overlay so a large export never freezes the UI (client-side blobs
  * can't stream, so there is no native browser progress bar). Diagram capture is
  * DOM-bound (stays on the main thread) but still shows the overlay; SQL is

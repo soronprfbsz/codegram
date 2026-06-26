@@ -15,7 +15,7 @@ const EMPTY = { tables: [], enums: [] }
 /**
  * Mounts the 테이블 정의서 HTML overlay once at the app shell, driven by
  * {@link useTableDocViewStore}. Any surface opens it via `openWith(model)`; this
- * host owns the single render + close wiring plus the Excel/PDF download actions.
+ * host owns the single render + close wiring plus the Excel/PDF/Word download actions.
  * Downloads build the file in a Web Worker (with a progress overlay) so a large
  * table-doc export never freezes the UI — same path as the topbar Export menu.
  */

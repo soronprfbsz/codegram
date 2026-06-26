@@ -15,8 +15,8 @@ export interface StandardColumnDescriptor {
 
 /**
  * The single source of truth for the standard 테이블 정의서 column set, in
- * FINAL order. Every exporter (xlsx/pdf) and the HTML view derives its header
- * row and per-column cells from this descriptor so the three never drift.
+ * FINAL order. Every exporter (xlsx/pdf/docx) and the HTML view derives its header
+ * row and per-column cells from this descriptor so they never drift.
  * `header` is an i18n KEY (not a literal) — consumers translate via `t()` so the
  * preview and exports follow the active language.
  */
