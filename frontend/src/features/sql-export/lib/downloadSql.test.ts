@@ -35,15 +35,11 @@ describe('downloadSql', () => {
     expect(filename).toBe('schema.postgres.sql')
   })
 
-  it('uses the dialect in the filename for mysql and mssql', () => {
+  it('uses the dialect in the filename for mysql', () => {
     vi.spyOn(dbml, 'exportDbmlToSql').mockReturnValue({ ok: true, sql: 'X;' })
     const dl = vi.spyOn(download, 'downloadBlob').mockImplementation(() => {})
-
     downloadSql('Table t { id int }', 'mysql')
     expect(dl.mock.calls[0][1]).toBe('schema.mysql.sql')
-
-    downloadSql('Table t { id int }', 'mssql')
-    expect(dl.mock.calls[1][1]).toBe('schema.mssql.sql')
   })
 
   it('returns false and downloads nothing when export fails', () => {

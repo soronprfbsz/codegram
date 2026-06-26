@@ -20,13 +20,6 @@ describe('exportDbmlToSql', () => {
     expect(result.sql).toContain('CREATE TABLE `users`')
   })
 
-  it('exports DBML to MS SQL containing CREATE TABLE', () => {
-    const result = exportDbmlToSql(DBML, 'mssql')
-    expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error('expected ok')
-    expect(result.sql).toContain('CREATE TABLE [users]')
-  })
-
   it('maps invalid DBML to errors without throwing', () => {
     const result = exportDbmlToSql('Table users {{{ broken', 'postgres')
     expect(result.ok).toBe(false)

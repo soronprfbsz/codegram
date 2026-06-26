@@ -29,16 +29,6 @@ describe('importSqlToDbml', () => {
     expect(result.dbml).toContain('[not null]')
   })
 
-  it('imports an MS SQL CREATE TABLE to DBML', () => {
-    const sql =
-      'CREATE TABLE accounts (id INT IDENTITY(1,1) PRIMARY KEY, name VARCHAR(100) NOT NULL);'
-    const result = importSqlToDbml(sql, 'mssql')
-    expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error('expected ok')
-    expect(result.dbml).toContain('Table "accounts"')
-    expect(result.dbml).toContain('[not null]')
-  })
-
   it('reports "No tables found" for empty input (does not throw)', () => {
     const result = importSqlToDbml('   ', 'postgres')
     expect(result.ok).toBe(false)

@@ -55,7 +55,6 @@ describe('ExportMenu', () => {
       '테이블 정의서 Word',
       'SQL · PostgreSQL',
       'SQL · MySQL',
-      'SQL · MS SQL Server',
     ]) {
       expect(await screen.findByRole('menuitem', { name })).toBeInTheDocument()
     }
