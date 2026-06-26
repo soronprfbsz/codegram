@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event'
 import { ExportMenu } from './ExportMenu'
 import * as tableDocEntity from '@/entities/table-doc'
@@ -38,6 +38,7 @@ describe('ExportMenu', () => {
     vi.restoreAllMocks()
     useTableDocViewStore.setState({ model: null })
     vi.spyOn(tableDocEntity, 'deriveTableDoc').mockReturnValue(MODEL)
+    vi.spyOn(exportTableDoc, 'buildTableDocBlob').mockResolvedValue(new Blob(['x']))
   })
 
   it('renders the unified sections: preview + Diagram + Table Doc + SQL', async () => {
@@ -51,6 +52,7 @@ describe('ExportMenu', () => {
       '다이어그램 PDF',
       '테이블 정의서 Excel',
       '테이블 정의서 PDF',
+      '테이블 정의서 Word',
       'SQL · PostgreSQL',
       'SQL · MySQL',
       'SQL · MS SQL Server',
@@ -67,15 +69,26 @@ describe('ExportMenu', () => {
     expect(useTableDocViewStore.getState().model).toBe(MODEL)
   })
 
-  it('Table Doc Excel builds the blob and downloads it', async () => {
-    const xlsx = vi.spyOn(exportTableDoc, 'buildTableDocXlsxBlob').mockReturnValue(new Blob(['x']))
+  it('Table Doc Excel builds the blob via the worker wrapper and downloads it', async () => {
+    const build = vi.spyOn(exportTableDoc, 'buildTableDocBlob').mockResolvedValue(new Blob(['x']))
     const dl = vi.spyOn(download, 'downloadBlob').mockImplementation(() => {})
     const user = setup()
     renderMenu()
     await openMenu(user)
     fireEvent.click(await screen.findByRole('menuitem', { name: '테이블 정의서 Excel' }))
-    expect(xlsx).toHaveBeenCalledTimes(1)
-    expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.xlsx')
+    await waitFor(() => expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.xlsx'))
+    expect(build).toHaveBeenCalledWith('xlsx', expect.anything(), expect.anything())
+  })
+
+  it('Table Doc Word builds the blob via the worker wrapper and downloads it', async () => {
+    const build = vi.spyOn(exportTableDoc, 'buildTableDocBlob').mockResolvedValue(new Blob(['x']))
+    const dl = vi.spyOn(download, 'downloadBlob').mockImplementation(() => {})
+    const user = setup()
+    renderMenu()
+    await openMenu(user)
+    fireEvent.click(await screen.findByRole('menuitem', { name: '테이블 정의서 Word' }))
+    await waitFor(() => expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.docx'))
+    expect(build).toHaveBeenCalledWith('docx', expect.anything(), expect.anything())
   })
 
   it('SQL · PostgreSQL downloads from the dbml text', async () => {
