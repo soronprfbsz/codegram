@@ -153,3 +153,65 @@ export function mergeDbml(
     return incoming
   }
 }
+
+/** What a DB sync would actually do, for a pre-apply confirmation preview. */
+export interface SyncChangePreview {
+  /** Tables added to the synced schemas (present in the live DB, not yet here). */
+  added: number
+  /** `${schema}.${name}` of tables a synced schema will LOSE (in the project but
+   *  absent from the live DB) — the only data-loss direction, so it is named. */
+  removedTables: string[]
+  /** Schemas present in the project but NOT being synced — kept verbatim. */
+  preservedSchemas: string[]
+}
+
+/**
+ * Compute what {@link mergeDbml} would change, WITHOUT applying it, so the sync
+ * confirmation can show a concrete preview ("public +2 · core 유지 · 삭제 0")
+ * instead of generic prose. Uses the SAME schema-scoping as mergeDbml (synced
+ * schemas reconcile against INCOMING; others are preserved), so the preview can
+ * never disagree with the actual merge. Parse failure → an empty (no-op) preview
+ * so the caller can fall back to generic copy.
+ */
+export function previewSyncChanges(
+  current: string,
+  incoming: string,
+  syncedSchemas: string[],
+): SyncChangePreview {
+  const empty: SyncChangePreview = { added: 0, removedTables: [], preservedSchemas: [] }
+  let rawOld: RawDb
+  let rawNew: RawDb
+  try {
+    rawOld = Parser.parseDBMLToJSONv2(current) as unknown as RawDb
+    rawNew = Parser.parseDBMLToJSONv2(incoming) as unknown as RawDb
+  } catch {
+    return empty
+  }
+
+  const oldTables = rawOld.tables ?? []
+  const newTables = rawNew.tables ?? []
+  const synced = new Set(
+    syncedSchemas.length ? syncedSchemas : newTables.map(schemaOf),
+  )
+
+  const oldSyncedKeys = new Set(
+    oldTables.filter((t) => synced.has(schemaOf(t))).map(keyOf),
+  )
+  const newSyncedKeys = new Set(
+    newTables.filter((t) => synced.has(schemaOf(t))).map(keyOf),
+  )
+
+  let added = 0
+  for (const k of newSyncedKeys) if (!oldSyncedKeys.has(k)) added++
+  const removedTables: string[] = []
+  for (const k of oldSyncedKeys) if (!newSyncedKeys.has(k)) removedTables.push(k)
+  const preservedSchemas = [
+    ...new Set(oldTables.map(schemaOf).filter((s) => !synced.has(s))),
+  ]
+
+  return {
+    added,
+    removedTables: removedTables.sort(),
+    preservedSchemas: preservedSchemas.sort(),
+  }
+}

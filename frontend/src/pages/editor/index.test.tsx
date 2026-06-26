@@ -691,7 +691,9 @@ describe('EditorPage — DB Sync wiring', () => {
 
     expect(screen.getByText(/데이터베이스에서 동기화할까요/)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '동기화' }))
+    // Confirm button name carries the removal count when a synced-schema table
+    // is dropped, so match the trailing "동기화" rather than the exact string.
+    await user.click(screen.getByRole('button', { name: /동기화$/ }))
 
     await waitFor(() => {
       expandAllGroups() // groups collapse by default; reveal rows once parsed
@@ -713,7 +715,13 @@ describe('EditorPage — DB Sync wiring', () => {
     await openImportMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: 'DB에서 동기화' }))
     await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
-    await user.click(screen.getByRole('button', { name: '동기화' }))
+
+    // Preview surfaces the actual effect: public.old is removed (synced schema,
+    // absent from the live DB) and the non-synced 'private' schema is kept.
+    expect(screen.getByTestId('sync-removals')).toHaveTextContent('public.old')
+    expect(screen.getByTestId('sync-preview')).toHaveTextContent('private')
+
+    await user.click(screen.getByRole('button', { name: /동기화$/ }))
 
     await waitFor(() => {
       expandAllGroups()

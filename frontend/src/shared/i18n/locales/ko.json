@@ -113,8 +113,12 @@
     "preview": "미리보기",
     "previewRestore": "이 상태로 원복",
     "syncTitle": "데이터베이스에서 동기화할까요?",
-    "syncDesc": "데이터베이스 스키마를 현재 DBML에 병합합니다. 새 테이블이 추가되고, 삭제된 테이블은 제거되며, 기존 테이블의 컬럼은 데이터베이스 기준으로 갱신됩니다. 테이블 그룹·노트·색상·위치는 그대로 보존되고, 새 테이블만 빈 공간에 배치됩니다.",
-    "syncConfirm": "동기화"
+    "syncPreviewIntro": "선택한 스키마만 데이터베이스 기준으로 맞춥니다. 선택하지 않은 스키마는 그대로 유지됩니다. 이 동기화로 적용될 변경:",
+    "syncAdded": "추가될 테이블: {{count}}개",
+    "syncPreserved": "유지(동기화 안 함): {{schemas}}",
+    "syncRemoved": "삭제될 테이블: {{count}}개",
+    "syncConfirm": "동기화",
+    "syncConfirmWithRemovals": "{{count}}개 삭제하고 동기화"
   },
   "infoPanel": {
     "schemaSummary": "스키마 요약",

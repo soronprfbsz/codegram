@@ -48,6 +48,7 @@ import { DbConnectDialog } from '@/features/db-import'
 import {
   parseDbml,
   mergeDbml,
+  previewSyncChanges,
   createGroup,
   renameGroup,
   deleteGroup,
@@ -375,6 +376,13 @@ export function EditorPage() {
       </div>
     )
   }
+
+  // Pre-apply preview for the sync confirmation (only computed while the dialog
+  // is open). Mirrors mergeDbml's scoping so it can't disagree with the merge.
+  const syncPreview = pendingSync
+    ? previewSyncChanges(dbmlText, pendingSync.dbml, pendingSync.schemas)
+    : null
+  const syncRemovalCount = syncPreview?.removedTables.length ?? 0
 
   return (
     <div
@@ -838,14 +846,46 @@ export function EditorPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('editor.syncTitle')}</DialogTitle>
-            <DialogDescription>{t('editor.syncDesc')}</DialogDescription>
+            <DialogDescription>{t('editor.syncPreviewIntro')}</DialogDescription>
           </DialogHeader>
+          {syncPreview && (
+            <div className="flex flex-col gap-2 text-sm" data-testid="sync-preview">
+              <div>{t('editor.syncAdded', { count: syncPreview.added })}</div>
+              {syncPreview.preservedSchemas.length > 0 && (
+                <div className="text-muted-foreground">
+                  {t('editor.syncPreserved', {
+                    schemas: syncPreview.preservedSchemas.join(', '),
+                  })}
+                </div>
+              )}
+              {syncRemovalCount > 0 && (
+                <div
+                  data-testid="sync-removals"
+                  className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-destructive"
+                >
+                  <div className="font-medium">
+                    {t('editor.syncRemoved', { count: syncRemovalCount })}
+                  </div>
+                  <ul className="mt-1 list-disc pl-5">
+                    {syncPreview.removedTables.map((name) => (
+                      <li key={name}>{name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setPendingSync(null)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={() => { if (pendingSync) applySync(pendingSync.dbml, pendingSync.schemas) }}>
-              {t('editor.syncConfirm')}
+            <Button
+              variant={syncRemovalCount > 0 ? 'destructive' : 'default'}
+              onClick={() => { if (pendingSync) applySync(pendingSync.dbml, pendingSync.schemas) }}
+            >
+              {syncRemovalCount > 0
+                ? t('editor.syncConfirmWithRemovals', { count: syncRemovalCount })
+                : t('editor.syncConfirm')}
             </Button>
           </div>
         </DialogContent>

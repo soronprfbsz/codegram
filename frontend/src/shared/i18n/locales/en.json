@@ -113,8 +113,12 @@
     "preview": "Preview",
     "previewRestore": "Restore this version",
     "syncTitle": "Sync from database?",
-    "syncDesc": "This merges the database's schema into the current DBML: new tables are added, dropped tables are removed, and existing tables' columns are updated to match the database. Table groups, notes, colors, and positions are preserved, and only new tables are placed in empty space.",
-    "syncConfirm": "Sync"
+    "syncPreviewIntro": "Only the selected schemas are reconciled against the database; unselected schemas are kept as-is. Changes this sync will apply:",
+    "syncAdded": "Tables to add: {{count}}",
+    "syncPreserved": "Kept (not synced): {{schemas}}",
+    "syncRemoved": "Tables to remove: {{count}}",
+    "syncConfirm": "Sync",
+    "syncConfirmWithRemovals": "Remove {{count}} & sync"
   },
   "infoPanel": {
     "schemaSummary": "Schema summary",

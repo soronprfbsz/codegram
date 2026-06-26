@@ -97,7 +97,9 @@ test('db-sync: introspect merges schema, preserves positions, removes dropped ta
   await introspectResponse
 
   // ── Step 4: sync confirm dialog — click Sync ─────────────────────────────
-  const syncBtn = page.getByRole('button', { name: '동기화', exact: true })
+  // Confirm button name carries the removal count ("N개 삭제하고 동기화") when a
+  // synced-schema table is dropped, so match the trailing "동기화".
+  const syncBtn = page.getByRole('button', { name: /동기화$/ })
   await expect(syncBtn).toBeVisible({ timeout: 10000 })
   await syncBtn.click()
 
@@ -234,7 +236,9 @@ test('db-sync: partial re-sync (public only) preserves non-synced sales schema t
   await introspectResponse
 
   // ── Confirm sync ──────────────────────────────────────────────────────────
-  const syncBtn = page.getByRole('button', { name: '동기화', exact: true })
+  // Confirm button name carries the removal count ("N개 삭제하고 동기화") when a
+  // synced-schema table is dropped, so match the trailing "동기화".
+  const syncBtn = page.getByRole('button', { name: /동기화$/ })
   await expect(syncBtn).toBeVisible({ timeout: 10000 })
   await syncBtn.click()
 
