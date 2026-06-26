@@ -27,3 +27,7 @@ test-results/
 
 # Brainstorming visual companion
 .superpowers/
+
+# Local deploy overrides + script state (not committed)
+deploy/docker-compose.override.yml
+deploy/.deps-hash
