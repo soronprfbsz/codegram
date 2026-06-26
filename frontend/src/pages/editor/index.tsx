@@ -321,6 +321,16 @@ export function EditorPage() {
   // "ERD 불러오는 중" 오버레이를 덮어 일관되게 보여준다. 한 번 준비되면 같은
   // 프로젝트 내 편집(타이핑 debounce)에선 다시 닫지 않는다(깜빡임 방지).
   const [readyProjectId, setReadyProjectId] = useState<string | null>(null)
+  // 캔버스가 "다 그려졌다"(모든 카드 measured + 라우팅 settle)는 ErdCanvas 신호를
+  // 받은 프로젝트 id. readyProjectId(파싱 settle)와 AND되어 오버레이를 닫는다.
+  const [canvasReadyId, setCanvasReadyId] = useState<string | null>(null)
+  // onCanvasReady는 ErdCanvas가 1회성으로 부른다 — 최신 project.id를 ref로 읽어
+  // 콜백 identity를 안정시킨다(불필요한 캔버스 재렌더 방지).
+  const projectIdRef = useRef<string | undefined>(undefined)
+  projectIdRef.current = project?.id
+  const handleCanvasReady = useCallback(() => {
+    if (projectIdRef.current) setCanvasReadyId(projectIdRef.current)
+  }, [])
 
   // Seed the editor (and the autosave baseline) once the project loads.
   // 프로젝트 전환 시 우측 패널은 항상 '모두 hide'로 초기화한다(요구사항 4).
@@ -332,6 +342,7 @@ export function EditorPage() {
     setActivePanel(null)
     setPreviewId(null)
     setReadyProjectId(null) // 전환 시 캔버스를 다시 로딩 게이트로
+    setCanvasReadyId(null)
   }, [project?.id])
 
   // 현재 프로젝트의 DBML이 시드되고 첫 파싱이 settle되면 게이트를 연다.
@@ -345,7 +356,14 @@ export function EditorPage() {
     if (settled) setReadyProjectId(project.id)
   }, [project, dbmlText, parse.status, readyProjectId])
 
-  const canvasLoading = !project || readyProjectId !== project.id
+  // 그릴 게 있는 캔버스만 measured/라우팅 settle을 기다린다. 빈 스키마(테이블 0개)는
+  // ErdCanvas가 ErdCanvasInner를 마운트하지 않아 onCanvasReady가 오지 않으므로,
+  // 이 경우엔 캔버스 게이트를 즉시 통과시킨다(파싱 settle만으로 충분).
+  const hasDrawableCanvas = !!schema && schema.tables.length > 0
+  const canvasLoading =
+    !project ||
+    readyProjectId !== project.id ||
+    (hasDrawableCanvas && canvasReadyId !== project.id)
 
   function applySync(incoming: string, syncedSchemas: string[]) {
     // Merge the freshly-introspected schema INTO the current DBML instead of
@@ -660,12 +678,14 @@ export function EditorPage() {
           style={{ position: 'relative', minWidth: 0, minHeight: 0 }}
         >
           <ErdCanvas
+            key={project.id}
             schema={schema}
             savedPositions={positions}
             edgePaths={edgePaths}
             onLayoutChange={handleLayoutChange}
             onEdgePathsChange={setEdgePaths}
             onCaptureReady={handleCaptureReady}
+            onCanvasReady={handleCanvasReady}
             selection={selection}
             onSelect={handleCanvasSelect}
             onSelectionInfo={setSelectionInfo}
