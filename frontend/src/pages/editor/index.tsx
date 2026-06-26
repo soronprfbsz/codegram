@@ -359,7 +359,18 @@ export function EditorPage() {
   // 그릴 게 있는 캔버스만 measured/라우팅 settle을 기다린다. 빈 스키마(테이블 0개)는
   // ErdCanvas가 ErdCanvasInner를 마운트하지 않아 onCanvasReady가 오지 않으므로,
   // 이 경우엔 캔버스 게이트를 즉시 통과시킨다(파싱 settle만으로 충분).
-  const hasDrawableCanvas = !!schema && schema.tables.length > 0
+  // 캔버스에 주는 스키마: ErdCanvas는 "현재 프로젝트의 스키마"만 봐야 한다. 전환
+  // 직후 dbmlText가 아직 이전 프로젝트 텍스트인 동안(시드 전)이나, 시드 후 첫 파싱
+  // 이 settle되기 전(parse pending)에는 이전 프로젝트의 lastValidSchema 폴백을 주지
+  // 않는다 — 빈 캔버스로 두고 오버레이가 덮는다. 파싱이 한 번 settle된 뒤
+  // (readyProjectId===id)에야 폴백을 허용한다(같은 프로젝트 편집 중 일시적 파싱
+  // 에러에도 마지막 유효 다이어그램 유지). 이래야 ErdCanvas가 stale 스키마로 조기
+  // settle해 canvasReadyId를 엉뚱한 프로젝트에 대해 발화하는 일이 없다(전환 시
+  // 재구성이 사용자 눈에 노출되던 원인).
+  const settledOnce = !!project && readyProjectId === project.id
+  const currentText = !!project && dbmlText === project.dbml_text
+  const canvasSchema = settledOnce ? schema : currentText ? parse.schema : undefined
+  const hasDrawableCanvas = !!canvasSchema && canvasSchema.tables.length > 0
   const canvasLoading =
     !project ||
     readyProjectId !== project.id ||
@@ -679,7 +690,7 @@ export function EditorPage() {
         >
           <ErdCanvas
             key={project.id}
-            schema={schema}
+            schema={canvasSchema}
             savedPositions={positions}
             edgePaths={edgePaths}
             onLayoutChange={handleLayoutChange}
