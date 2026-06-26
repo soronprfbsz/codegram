@@ -5,6 +5,7 @@ import {
   Panel,
   useNodesState,
   useReactFlow,
+  useStore,
   useViewport,
   type NodeTypes,
   type EdgeTypes,
@@ -80,6 +81,13 @@ export interface ErdCanvasProps {
    */
   onCaptureReady?: (handle: ErdCaptureHandle) => void
   /**
+   * Fired ONCE per canvas instance after EVERY relevant card has been measured
+   * and the measured-based edge routing (merge/spread) has had a frame to settle
+   * — i.e. the canvas will not visibly re-draw after this. pages/editor keeps the
+   * project-load overlay up until this fires so the user never sees the reflow.
+   */
+  onCanvasReady?: () => void
+  /**
    * Current canvas selection (node or edge). Drives node ring, active edges,
    * column highlights, edge handles — positions are never touched.
    */
@@ -125,6 +133,24 @@ export interface ErdCaptureHandle {
  */
 export function schemaSignature(schema: DbmlSchema | undefined): string {
   return schema ? JSON.stringify(schema) : ''
+}
+
+/**
+ * 캔버스 로딩 게이트용 측정 판정: table/enum 카드가 하나 이상 있고 그 전부가
+ * measured(브라우저가 실제 크기를 채움)면 true. 카드가 0개(시드 전)거나 하나라도
+ * 미측정이면 false. group 박스는 measured가 비는 경우가 있어 판정에서 제외한다
+ * (packGroupedLayout이 style width/height로 크기를 주므로 라우팅엔 충분).
+ */
+export function allCardsMeasured(
+  cards: { type?: string; measured?: { width?: number; height?: number } | null }[],
+): boolean {
+  let any = false
+  for (const n of cards) {
+    if (n.type !== 'table' && n.type !== 'enum') continue
+    any = true
+    if (n.measured?.width == null || n.measured?.height == null) return false
+  }
+  return any
 }
 
 // Stable type maps — defined at module scope so React Flow does not warn
@@ -302,7 +328,7 @@ function ZoomBar() {
   )
 }
 
-function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, containerRef, selection, onSelect, onSelectionInfo, searchHighlightColIds, readOnly }: ErdCanvasInnerProps) {
+function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, onCanvasReady, containerRef, selection, onSelect, onSelectionInfo, searchHighlightColIds, readOnly }: ErdCanvasInnerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [helperLines, setHelperLines] = useState<{ vertical?: number; horizontal?: number }>({})
   useEffect(() => {
@@ -461,6 +487,28 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
 
   const rf = useReactFlow()
   const { fitView } = rf
+
+  // 캔버스 로딩 게이트 신호: 모든 카드가 measured되면(=React Flow가 실제 크기를
+  // 채움), measured 기반 라우팅(merge/spread)이 반영되는 다음 프레임까지 기다린 뒤
+  // 최종 뷰로 fit하고 onCanvasReady를 1회 발화한다. 이 인스턴스 생명주기 동안 1회만
+  // (firedRef). 프로젝트 전환은 pages/editor가 key로 리마운트하므로 자연히 재발화된다.
+  const cardsMeasured = useStore((s) => allCardsMeasured([...s.nodeLookup.values()]))
+  const canvasReadyFiredRef = useRef(false)
+  useEffect(() => {
+    if (canvasReadyFiredRef.current || !cardsMeasured) return
+    canvasReadyFiredRef.current = true
+    let r2 = 0
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => {
+        fitView({ padding: 0.1 })
+        onCanvasReady?.()
+      })
+    })
+    return () => {
+      cancelAnimationFrame(r1)
+      if (r2) cancelAnimationFrame(r2)
+    }
+  }, [cardsMeasured, fitView, onCanvasReady])
 
   function setNodePositionAbsImpl(nodeId: string, pos: XYPosition) {
     const current = nodesRef.current
@@ -839,7 +887,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
  * features layer: depends on shared + entities/dbml + entities/erd +
  * entities/layout + @xyflow/react (FSD downward imports).
  */
-function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, selection, onSelect, onSelectionInfo, searchHighlightColIds, readOnly }: ErdCanvasProps) {
+function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChange, onLayoutChange, onCaptureReady, onCanvasReady, selection, onSelect, onSelectionInfo, searchHighlightColIds, readOnly }: ErdCanvasProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   if (!schema || schema.tables.length === 0) {
     return (
@@ -882,6 +930,7 @@ function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChan
           onEdgePathsChange={onEdgePathsChange}
           onLayoutChange={onLayoutChange}
           onCaptureReady={onCaptureReady}
+          onCanvasReady={onCanvasReady}
           containerRef={rootRef}
           selection={selection}
           onSelect={onSelect}
