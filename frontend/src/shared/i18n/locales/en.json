@@ -198,6 +198,7 @@
     "tableDoc": "Table Doc",
     "tableDocExcel": "Table Doc Excel",
     "tableDocPdf": "Table Doc PDF",
+    "tableDocWord": "Table Doc Word",
     "sql": "SQL"
   },
   "selectionCard": {
@@ -288,6 +289,7 @@
     "title": "Table definition",
     "downloadExcel": "Download Excel",
     "downloadPdf": "Download PDF",
+    "downloadWord": "Download Word",
     "enums": "Enums",
     "fkRelations": "FK relations",
     "column": "Column",

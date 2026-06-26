@@ -47,6 +47,9 @@ export function TableDocViewHost() {
         onDownloadPdf={
           model ? () => void download('pdf', 'table-definition.pdf') : undefined
         }
+        onDownloadDocx={
+          model ? () => void download('docx', 'table-definition.docx') : undefined
+        }
       />
       <ExportProgressDialog open={busy} label={t('exportMenu.generating')} />
     </>

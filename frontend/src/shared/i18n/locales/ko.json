@@ -198,6 +198,7 @@
     "tableDoc": "테이블 정의서",
     "tableDocExcel": "테이블 정의서 Excel",
     "tableDocPdf": "테이블 정의서 PDF",
+    "tableDocWord": "테이블 정의서 Word",
     "sql": "SQL"
   },
   "selectionCard": {
@@ -288,6 +289,7 @@
     "title": "테이블 정의서",
     "downloadExcel": "Excel 다운로드",
     "downloadPdf": "PDF 다운로드",
+    "downloadWord": "Word 다운로드",
     "enums": "Enum",
     "fkRelations": "FK 관계",
     "column": "컬럼",

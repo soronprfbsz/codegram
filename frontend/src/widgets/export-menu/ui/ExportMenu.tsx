@@ -79,6 +79,14 @@ export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: Expo
       downloadBlob(await buildTableDocBlob('pdf', model, labels), 'table-definition.pdf'),
     )
   }
+  function exportWord() {
+    if (!schema) return
+    const model = deriveTableDoc(schema)
+    const labels = tableDocLabels(t)
+    void withProgress(async () =>
+      downloadBlob(await buildTableDocBlob('docx', model, labels), 'table-definition.docx'),
+    )
+  }
 
   return (
     <>
@@ -113,6 +121,7 @@ export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: Expo
           <DropdownMenuLabel>{t('exportMenu.tableDoc')}</DropdownMenuLabel>
           <DropdownMenuItem onSelect={exportExcel}>{t('exportMenu.tableDocExcel')}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => exportPdf()}>{t('exportMenu.tableDocPdf')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => exportWord()}>{t('exportMenu.tableDocWord')}</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t('exportMenu.sql')}</DropdownMenuLabel>
           {SQL_DIALECT_VALUES.map((d) => (

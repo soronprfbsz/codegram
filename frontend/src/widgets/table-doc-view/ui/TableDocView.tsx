@@ -19,6 +19,8 @@ export interface TableDocViewProps {
   onDownloadExcel?: () => void
   /** Download the current model as a PDF 테이블 정의서. */
   onDownloadPdf?: () => void
+  /** Download the current model as a Word 테이블 정의서. */
+  onDownloadDocx?: () => void
 }
 
 function TableSection({ table }: { table: TableDocTable }) {
@@ -137,6 +139,7 @@ export function TableDocView({
   onClose,
   onDownloadExcel,
   onDownloadPdf,
+  onDownloadDocx,
 }: TableDocViewProps): React.JSX.Element | null {
   const { t } = useTranslation()
   if (!open) return null
@@ -165,6 +168,15 @@ export function TableDocView({
               onClick={onDownloadPdf}
             >
               {t('tableDoc.downloadPdf')}
+            </Button>
+          ) : null}
+          {onDownloadDocx ? (
+            <Button
+              variant="outline"
+              data-testid="table-doc-download-word"
+              onClick={onDownloadDocx}
+            >
+              {t('tableDoc.downloadWord')}
             </Button>
           ) : null}
           <Button variant="outline" onClick={onClose}>
