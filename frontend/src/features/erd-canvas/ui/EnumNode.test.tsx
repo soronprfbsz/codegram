@@ -50,4 +50,26 @@ describe('EnumNode', () => {
     // Default `in` (left) + alternate `in@right` (right), mirroring table columns.
     expect(container.querySelectorAll('.react-flow__handle')).toHaveLength(2)
   })
+
+  it('renders the selected ring (primary border + shadow) when isSelected', () => {
+    const { container } = renderNode({
+      ...baseProps,
+      data: { enumName: 'user_role', values: ['admin'], isSelected: true },
+    } as EnumNodeProps)
+    const card = container.querySelector('[class*="min-w-"]') as HTMLElement
+    // 테이블 노드와 동일한 선택 토큰(--primary)으로 링을 그린다.
+    expect(card.style.borderColor).toBe('var(--primary)')
+    expect(card.style.boxShadow).toContain('var(--primary)')
+  })
+
+  it('renders no selected ring when not selected (keeps default amber border)', () => {
+    const { container } = renderNode({
+      ...baseProps,
+      data: { enumName: 'user_role', values: ['admin'], isSelected: false },
+    } as EnumNodeProps)
+    const card = container.querySelector('[class*="min-w-"]') as HTMLElement
+    // 미선택: 인라인 override 없음 → 기본 amber 클래스가 보더를 담당.
+    expect(card.style.borderColor).toBe('')
+    expect(card.style.boxShadow).toBe('')
+  })
 })

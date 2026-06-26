@@ -33,6 +33,7 @@ import {
   schemaToFlow,
   type ErdFlowNode,
   type TableNodeData,
+  type EnumNodeData,
   type ErdColumn,
   type CanvasSelection,
   type SelectionInfo,
@@ -607,6 +608,8 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     selection?.kind === 'node' && selection.nodeType === 'table'
       ? selection.tableName ?? null
       : null
+  // 노드 id 기반 선택(테이블 외 enum/sticky도 동일하게 선택 링을 받게 한다).
+  const selectedNodeId = selection?.kind === 'node' ? selection.nodeId : null
   const selectedEdgeId = selection?.kind === 'edge' ? selection.edgeId : null
 
   // Computed from schema (NOT from nodes state) so positions are never touched.
@@ -627,20 +630,29 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   const displayNodes = useMemo(
     () =>
       nodes.map((n) => {
-        if (n.type !== 'table') return n
-        const data = n.data as TableNodeData
-        return {
-          ...n,
-          data: {
-            ...data,
-            isSelected: data.tableName === selectedTableName,
-            highlightedColumnIds: data.columns
-              .filter((c: ErdColumn) => highlightColIds.has(c.id))
-              .map((c: ErdColumn) => c.id),
-          },
+        if (n.type === 'table') {
+          const data = n.data as TableNodeData
+          return {
+            ...n,
+            data: {
+              ...data,
+              isSelected: data.tableName === selectedTableName,
+              highlightedColumnIds: data.columns
+                .filter((c: ErdColumn) => highlightColIds.has(c.id))
+                .map((c: ErdColumn) => c.id),
+            },
+          }
         }
+        // enum 노드도 테이블과 동일하게 선택 링을 받는다(노드 id 기준).
+        if (n.type === 'enum') {
+          return {
+            ...n,
+            data: { ...(n.data as EnumNodeData), isSelected: n.id === selectedNodeId },
+          }
+        }
+        return n
       }),
-    [nodes, selectedTableName, highlightColIds],
+    [nodes, selectedTableName, selectedNodeId, highlightColIds],
   )
 
   // Absolute X of every node (grouped members = parent origin + relative), used

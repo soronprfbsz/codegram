@@ -51,6 +51,8 @@ export interface EnumNodeData {
   /** For a CHECK-synthesized enum: the id of the table it belongs to, so layout
    *  can park it beside that table. Absent for native (DBML) enums. */
   ownerTableId?: string
+  /** Set by Phase 5 selection state: renders the selected ring + border (테이블과 동일). */
+  isSelected?: boolean
   [key: string]: unknown
 }
 

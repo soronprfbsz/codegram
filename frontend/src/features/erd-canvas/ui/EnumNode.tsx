@@ -13,8 +13,23 @@ export type EnumNodeProps = NodeProps & { data: EnumNodeData }
  * features layer: depends on shared + entities/erd + @xyflow/react.
  */
 function EnumNodeImpl({ data }: EnumNodeProps) {
+  const { isSelected } = data
   return (
-    <div className="min-w-[140px] rounded border border-amber-300 bg-amber-50 text-xs shadow-sm">
+    <div
+      className="min-w-[140px] rounded border border-amber-300 bg-amber-50 text-xs shadow-sm"
+      // 선택 링: 테이블 노드(TableNode)와 동일한 토큰(--primary)·동일 모양을 쓴다.
+      // 미선택 시 기본 amber 보더/그림자 클래스를 그대로 두고, 선택 시에만 인라인으로
+      // 덮어 일관된 선택 표시를 준다.
+      style={
+        isSelected
+          ? {
+              borderColor: 'var(--primary)',
+              boxShadow:
+                '0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent), var(--erd-shadow)',
+            }
+          : undefined
+      }
+    >
       <Handle
         type="target"
         id="in"
