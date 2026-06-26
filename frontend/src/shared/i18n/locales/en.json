@@ -185,6 +185,7 @@
   },
   "exportMenu": {
     "export": "Export",
+    "generating": "Preparing export…",
     "tableDocPreview": "Table definition preview",
     "diagram": "Diagram",
     "diagramPng": "Diagram PNG",

@@ -1,184 +1,98 @@
 // frontend/e2e/export.spec.ts
+// All exports live in the editor TopBar's single "내보내기" dropdown (ExportMenu).
+// Table-Doc Excel/PDF now build in a Web Worker with a progress overlay so a
+// large export never freezes the UI; this exercises the worker path in a REAL
+// browser (jsdom can't run Workers) and asserts the files are non-empty. Setup
+// mirrors db-sync.spec.ts (register → API-create project → open editor). Needs
+// the docker stack (backend :4000 via the dev-server proxy).
 import { test, expect, type Page } from '@playwright/test'
 
 const PASSWORD = 'password123'
 
-/** Register a fresh user; lands authenticated on the home route. */
 async function registerAndLogin(page: Page, email: string) {
   await page.goto('/register')
   await page.locator('#register-email').fill(email)
   await page.locator('#register-password').fill(PASSWORD)
   await page.locator('#register-confirm-password').fill(PASSWORD)
-
   const loginResponse = page.waitForResponse(
-    (resp) =>
-      resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
+    (resp) => resp.url().includes('/api/auth/jwt/login') && resp.status() === 204,
   )
   await page.getByRole('button', { name: '회원가입' }).click()
   await loginResponse
   await page.waitForURL((url) => url.pathname === '/')
 }
 
-/** Create a project from the home page and navigate into its editor.
- *  Returns the new project id. */
-async function createProjectAndOpen(
-  page: Page,
-  name: string,
-): Promise<string> {
-  const createResponse = page.waitForResponse(
-    (resp) =>
-      resp.url().includes('/api/projects') &&
-      resp.request().method() === 'POST' &&
-      resp.status() === 201,
-  )
-  await page.getByPlaceholder('프로젝트 이름').fill(name)
-  await page.getByRole('button', { name: '만들기' }).click()
-  const created = await (await createResponse).json()
-  const projectId = created.id as string
-  await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
-  return projectId
+const DBML = `Table users {
+  id uuid [pk]
+  email varchar [not null, unique]
 }
 
-/** Type DBML into the CodeMirror editor (replaces any existing content). */
-async function typeDbml(page: Page, dbml: string) {
-  const editor = page.getByTestId('dbml-editor')
-  await editor.locator('.cm-content').click()
-  await page.keyboard.press('ControlOrMeta+a')
-  await page.keyboard.press('Delete')
-  await page.keyboard.type(dbml)
+Table posts {
+  id uuid [pk]
+  user_id uuid [not null]
+  title varchar
 }
 
-/** Open the TopBar "Diagram ▾" dropdown (diagram capture stays in the editor). */
-async function openDiagramMenu(page: Page) {
-  await page.getByRole('button', { name: 'Diagram' }).click()
-  await page.getByRole('menuitem', { name: '다이어그램 PNG' }).waitFor()
-}
+Ref: posts.user_id > users.id`
 
-/** Open a project's sidebar "⋯" menu (Table Doc / SQL export live here). */
-async function openProjectMenu(page: Page, name: string) {
-  await page.getByRole('button', { name: `${name} 메뉴` }).click()
-  await page.getByRole('menuitem', { name: 'Table Doc HTML' }).waitFor()
-}
-
-/** Wait for autosave to PATCH and the project list (which the sidebar reads) to
- *  refetch — the sidebar's Export items parse the LIST copy of dbml_text. */
-async function waitForProjectSaved(page: Page, projectId: string) {
-  const patched = page.waitForResponse(
-    (r) =>
-      r.url().includes(`/api/projects/${projectId}`) &&
-      r.request().method() === 'PATCH' &&
-      r.ok(),
-  )
-  const listed = page.waitForResponse(
-    (r) =>
-      r.url().endsWith('/api/projects') &&
-      r.request().method() === 'GET' &&
-      r.ok(),
-  )
-  await Promise.all([patched, listed])
-}
-
-/** Wait for the canvas to render both nodes (capture needs a measured
- *  viewport with nodes present). */
-async function waitForTwoNodes(page: Page) {
-  await expect(page.locator('.react-flow')).toBeVisible()
+async function openEditorWithProject(page: Page): Promise<void> {
+  const createResp = await page.request.post('/api/projects', {
+    data: { name: 'Export E2E', dbml_text: DBML, layout: { version: 1, positions: {} } },
+  })
+  expect(createResp.status()).toBe(201)
+  const { id } = await createResp.json()
+  await page.goto(`/editor/${id}`)
+  await page.waitForSelector('[data-testid="erd-canvas"]', { timeout: 15000 })
   await expect
-    .poll(async () => page.locator('.react-flow__node').count(), {
-      timeout: 5000,
-    })
+    .poll(async () => page.locator('.react-flow__node').count(), { timeout: 10000 })
     .toBeGreaterThanOrEqual(2)
 }
 
-const SAMPLE_DBML = [
-  'Table users {',
-  '  id integer [pk]',
-  '  email varchar [unique, not null, note: "login id"]',
-  '}',
-  'Table posts {',
-  '  id integer [pk]',
-  '  user_id integer [ref: > users.id]',
-  '}',
-].join('\n')
+/** Open the TopBar "내보내기" menu and click one item; returns the download. */
+async function downloadFromMenu(page: Page, itemName: string) {
+  await page.getByRole('button', { name: '내보내기', exact: true }).click()
+  const downloadPromise = page.waitForEvent('download', { timeout: 30000 })
+  await page.getByRole('menuitem', { name: itemName }).click()
+  return downloadPromise
+}
 
-test.describe('Editor export', () => {
-  test.beforeEach(async ({ context }) => {
-    await context.clearCookies()
-  })
+async function streamSize(stream: NodeJS.ReadableStream | null): Promise<number> {
+  if (!stream) return 0
+  let n = 0
+  for await (const chunk of stream) n += Buffer.from(chunk).length
+  return n
+}
 
-  test('exports the diagram to PNG, SVG and PDF', async ({ page }) => {
-    await registerAndLogin(page, `export-diagram-${Date.now()}@example.com`)
-    await createProjectAndOpen(page, 'Export Diagram')
-    await typeDbml(page, SAMPLE_DBML)
-    await waitForTwoNodes(page)
+test('exports the diagram to PNG, SVG and PDF from the Export menu', async ({ page }) => {
+  await registerAndLogin(page, `export-diagram-${Date.now()}@example.com`)
+  await openEditorWithProject(page)
 
-    // Diagram PNG → a download fires. ARM the listener BEFORE the click.
-    await openDiagramMenu(page)
-    const pngDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: '다이어그램 PNG' }).click()
-    expect((await pngDownload).suggestedFilename()).toBe('diagram.png')
+  expect((await downloadFromMenu(page, '다이어그램 PNG')).suggestedFilename()).toBe('diagram.png')
+  expect((await downloadFromMenu(page, '다이어그램 SVG')).suggestedFilename()).toBe('diagram.svg')
+  expect((await downloadFromMenu(page, '다이어그램 PDF')).suggestedFilename()).toBe('diagram.pdf')
+})
 
-    // Diagram SVG → a download fires.
-    await openDiagramMenu(page)
-    const svgDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: '다이어그램 SVG' }).click()
-    expect((await svgDownload).suggestedFilename()).toBe('diagram.svg')
+test('Table Doc Excel/PDF download non-empty files via the worker', async ({ page }) => {
+  await registerAndLogin(page, `export-tabledoc-${Date.now()}@example.com`)
+  await openEditorWithProject(page)
 
-    // Diagram PDF → a download fires.
-    await openDiagramMenu(page)
-    const pdfDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: '다이어그램 PDF' }).click()
-    expect((await pdfDownload).suggestedFilename()).toBe('diagram.pdf')
-  })
+  const xlsx = await downloadFromMenu(page, '테이블 정의서 Excel')
+  expect(xlsx.suggestedFilename()).toBe('table-definition.xlsx')
+  expect(await streamSize(await xlsx.createReadStream())).toBeGreaterThan(0)
 
-  test('exports the table-definition document to Excel and PDF', async ({
-    page,
-  }) => {
-    await registerAndLogin(page, `export-tabledoc-${Date.now()}@example.com`)
-    const projectId = await createProjectAndOpen(page, 'Export TableDoc')
-    const saved = waitForProjectSaved(page, projectId)
-    await typeDbml(page, SAMPLE_DBML)
-    await waitForTwoNodes(page)
-    // Table Doc/SQL export lives in the sidebar, which reads the LIST copy of
-    // dbml_text — wait for autosave + list refetch before opening the menu.
-    await saved
+  const pdf = await downloadFromMenu(page, '테이블 정의서 PDF')
+  expect(pdf.suggestedFilename()).toBe('table-definition.pdf')
+  expect(await streamSize(await pdf.createReadStream())).toBeGreaterThan(0)
+})
 
-    // Table Doc Excel → a download fires. ARM before the click.
-    await openProjectMenu(page, 'Export TableDoc')
-    const xlsxDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: '테이블 정의서 Excel' }).click()
-    expect((await xlsxDownload).suggestedFilename()).toBe(
-      'table-definition.xlsx',
-    )
+test('opens the HTML table-definition preview from the Export menu', async ({ page }) => {
+  await registerAndLogin(page, `export-preview-${Date.now()}@example.com`)
+  await openEditorWithProject(page)
 
-    // Table Doc PDF → a download fires.
-    await openProjectMenu(page, 'Export TableDoc')
-    const pdfDownload = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: '테이블 정의서 PDF' }).click()
-    expect((await pdfDownload).suggestedFilename()).toBe(
-      'table-definition.pdf',
-    )
-  })
+  await page.getByRole('button', { name: '내보내기', exact: true }).click()
+  await page.getByRole('menuitem', { name: '테이블 정의서 미리보기' }).click()
 
-  test('opens the HTML table-definition view with a unique column cell', async ({
-    page,
-  }) => {
-    await registerAndLogin(page, `export-htmlview-${Date.now()}@example.com`)
-    const projectId = await createProjectAndOpen(page, 'Export HTML View')
-    const saved = waitForProjectSaved(page, projectId)
-    await typeDbml(page, SAMPLE_DBML)
-    await waitForTwoNodes(page)
-    await saved
-
-    // Table Doc HTML → the in-app view renders (asset produced, no download).
-    await openProjectMenu(page, 'Export HTML View')
-    await page.getByRole('menuitem', { name: 'Table Doc HTML' }).click()
-
-    const view = page.getByTestId('table-doc-view')
-    await expect(view).toBeVisible()
-    // `email` is unique to the users table (strict-mode-safe, unlike a table
-    // name which also renders as an FK-target). Use a cell role to scope.
-    await expect(
-      view.getByRole('cell', { name: 'email' }).first(),
-    ).toBeVisible()
-  })
+  const view = page.getByTestId('table-doc-view')
+  await expect(view).toBeVisible()
+  await expect(view.getByRole('cell', { name: 'email' }).first()).toBeVisible()
 })
