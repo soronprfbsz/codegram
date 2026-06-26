@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useDebouncedCallback } from '@/shared/hooks/useDebounce'
 import { parseDbml } from '@/entities/dbml'
 import type { DbmlSchema, DbmlParseError } from '@/entities/dbml'
@@ -26,8 +26,16 @@ export interface DbmlParseState {
  * this hook never crashes the editor.
  * features layer: depends on entities/dbml + shared (FSD downward imports).
  */
+/** Internal state also tracks WHICH source produced the current result, so a
+ *  render that runs before the pending-effect can detect a not-yet-parsed text
+ *  and avoid surfacing the previous text's (stale) schema/status. */
+interface InternalParseState extends DbmlParseState {
+  /** The exact `text` that `schema`/`errors`/`status` describe. */
+  parsedText?: string
+}
+
 export function useDbmlParse(text: string, delayMs = 300): DbmlParseState {
-  const [state, setState] = useState<DbmlParseState>({ status: 'idle' })
+  const [state, setState] = useState<InternalParseState>({ status: 'idle' })
 
   const performParse = useCallback((source: string) => {
     const result = parseDbml(source)
@@ -36,12 +44,14 @@ export function useDbmlParse(text: string, delayMs = 300): DbmlParseState {
         status: 'success',
         schema: result.schema,
         lastValidSchema: result.schema,
+        parsedText: source,
       })
     } else {
       setState((prev) => ({
         status: 'error',
         errors: result.errors,
         lastValidSchema: prev.lastValidSchema,
+        parsedText: source,
       }))
     }
   }, [])
@@ -51,7 +61,7 @@ export function useDbmlParse(text: string, delayMs = 300): DbmlParseState {
   useEffect(() => {
     if (text === '') {
       debouncedParse.cancel()
-      setState((prev) => ({ status: 'idle', lastValidSchema: prev.lastValidSchema }))
+      setState((prev) => ({ status: 'idle', lastValidSchema: prev.lastValidSchema, parsedText: '' }))
       return
     }
     // Clear the current `schema` while pending so SchemaSummary
@@ -61,6 +71,7 @@ export function useDbmlParse(text: string, delayMs = 300): DbmlParseState {
     setState((prev) => ({
       status: 'pending',
       lastValidSchema: prev.lastValidSchema,
+      parsedText: prev.parsedText,
     }))
     debouncedParse(text)
     return () => {
@@ -68,5 +79,19 @@ export function useDbmlParse(text: string, delayMs = 300): DbmlParseState {
     }
   }, [text, debouncedParse])
 
-  return state
+  // Synchronous guard: when `text` changes, the pending-effect above runs AFTER
+  // this render — so for one render `state` still describes the PREVIOUS text
+  // (e.g. the previous project's successful schema right after a project
+  // switch). Surfacing it would let consumers treat the old project's schema as
+  // the new one's settled result (the loading gate opened on the wrong diagram).
+  // If the latest `text` hasn't been parsed yet, report `pending` and hide the
+  // stale schema/errors; lastValidSchema stays as the fallback. Memoized so the
+  // corrected object keeps a stable identity across renders (an unstable parse
+  // object would loop consumers' effects → "Maximum update depth").
+  return useMemo<DbmlParseState>(() => {
+    if (text !== '' && state.parsedText !== text) {
+      return { status: 'pending', lastValidSchema: state.lastValidSchema }
+    }
+    return state
+  }, [text, state])
 }
