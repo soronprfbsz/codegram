@@ -308,6 +308,11 @@
     "colNote": "Description",
     "enumColEnum": "Enum",
     "enumColValue": "Value",
-    "enumColNote": "Description"
+    "enumColNote": "Description",
+    "overviewSheet": "Table list",
+    "colNo": "No",
+    "colGroup": "Group",
+    "colTable": "Table",
+    "ungrouped": "Ungrouped"
   }
 }

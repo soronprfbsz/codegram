@@ -23,6 +23,14 @@ export interface TableDocLabels {
   checkName: string
   checkValues: string
   checkExpression: string
+  /** Overview ("테이블 목록") sheet name + its column headers. */
+  overviewSheet: string
+  overviewNo: string
+  overviewGroup: string
+  overviewTable: string
+  overviewDesc: string
+  /** Sheet name for tables not in any group. */
+  ungroupedSheet: string
 }
 
 /** Build the exporter labels from a translate function (single i18n source). */
@@ -39,5 +47,11 @@ export function tableDocLabels(t: TFunction): TableDocLabels {
     checkName: t('tableDoc.checkName'),
     checkValues: t('tableDoc.checkValues'),
     checkExpression: t('tableDoc.checkExpression'),
+    overviewSheet: t('tableDoc.overviewSheet'),
+    overviewNo: t('tableDoc.colNo'),
+    overviewGroup: t('tableDoc.colGroup'),
+    overviewTable: t('tableDoc.colTable'),
+    overviewDesc: t('tableDoc.colNote'),
+    ungroupedSheet: t('tableDoc.ungrouped'),
   }
 }

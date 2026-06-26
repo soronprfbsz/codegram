@@ -308,6 +308,11 @@
     "colNote": "설명",
     "enumColEnum": "Enum",
     "enumColValue": "값",
-    "enumColNote": "설명"
+    "enumColNote": "설명",
+    "overviewSheet": "테이블 목록",
+    "colNo": "No",
+    "colGroup": "그룹",
+    "colTable": "테이블",
+    "ungrouped": "미분류"
   }
 }
