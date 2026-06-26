@@ -31,3 +31,6 @@ test-results/
 # Local deploy overrides + script state (not committed)
 deploy/docker-compose.override.yml
 deploy/.deps-hash
+
+# Playwright MCP browser-snapshot artifacts
+.playwright-mcp/
