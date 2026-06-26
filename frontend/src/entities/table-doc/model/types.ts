@@ -86,4 +86,7 @@ export interface TableDocEnum {
 export interface TableDocModel {
   tables: TableDocTable[]
   enums: TableDocEnum[]
+  /** Table groups (declaration order); member ids are `${schema}.${table}`.
+   *  Only the grouped Excel export uses this; other formats ignore it. */
+  groups: { name: string; tableIds: string[] }[]
 }

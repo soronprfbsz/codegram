@@ -122,5 +122,10 @@ export function deriveTableDoc(schema: DbmlSchema): TableDocModel {
     values: e.values.map((v) => ({ name: v.name, note: v.note ?? '' })),
   }))
 
-  return { tables, enums }
+  const groups = schema.tableGroups.map((g) => ({
+    name: g.name,
+    tableIds: [...g.tables],
+  }))
+
+  return { tables, enums, groups }
 }

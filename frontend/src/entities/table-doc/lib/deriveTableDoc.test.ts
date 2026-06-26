@@ -347,6 +347,30 @@ describe('deriveTableDoc — FK derivation by relation (NOT by endpoint order)',
   })
 })
 
+describe('deriveTableDoc — table groups', () => {
+  it('surfaces table groups with member ids in declared order', () => {
+    const schema = {
+      tables: [
+        { id: 'public.a', schema: 'public', name: 'a', columns: [], note: '', checks: [] },
+        { id: 'public.b', schema: 'public', name: 'b', columns: [], note: '', checks: [] },
+        { id: 'public.c', schema: 'public', name: 'c', columns: [], note: '', checks: [] },
+      ],
+      refs: [],
+      enums: [],
+      tableGroups: [{ name: 'core', tables: ['public.b', 'public.a'] }],
+      notes: [],
+    } as unknown as DbmlSchema
+
+    const model = deriveTableDoc(schema)
+    expect(model.groups).toEqual([{ name: 'core', tableIds: ['public.b', 'public.a'] }])
+  })
+
+  it('returns an empty groups array when there are no table groups', () => {
+    const schema = { tables: [], refs: [], enums: [], tableGroups: [], notes: [] } as unknown as DbmlSchema
+    expect(deriveTableDoc(schema).groups).toEqual([])
+  })
+})
+
 describe('deriveTableDoc — enums and empty schema', () => {
   it('maps the enum list with values and note coalescing', () => {
     const schema = emptySchema({
@@ -378,6 +402,6 @@ describe('deriveTableDoc — enums and empty schema', () => {
   })
 
   it('returns empty tables and enums for an empty schema', () => {
-    expect(deriveTableDoc(emptySchema())).toEqual({ tables: [], enums: [] })
+    expect(deriveTableDoc(emptySchema())).toEqual({ tables: [], enums: [], groups: [] })
   })
 })
