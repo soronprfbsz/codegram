@@ -14,7 +14,11 @@ from app.core.users import current_active_user
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
-from app.services.project import ProjectNotFoundError, ProjectService
+from app.services.project import (
+    ProjectForbiddenError,
+    ProjectNotFoundError,
+    ProjectService,
+)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -24,6 +28,14 @@ def get_project_service(
 ) -> ProjectService:
     """Provide a ProjectService bound to the request-scoped session."""
     return ProjectService(session)
+
+
+def _access_http_error(exc: Exception) -> HTTPException:
+    """Map access errors to HTTP: no role -> 404 (hide existence), role but
+    insufficient capability -> 403."""
+    if isinstance(exc, ProjectForbiddenError):
+        return HTTPException(status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    return HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
 
 @router.post(
@@ -62,13 +74,11 @@ async def get_project(
     user: User = Depends(current_active_user),
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectRead:
-    """Get one owned project, or 404 if missing/not owned."""
+    """Get one accessible project (owner/editor/viewer), or 404 if no role."""
     try:
-        project = await service.get_project(project_id, user.id)
-    except ProjectNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        ) from None
+        project = await service.get_viewable_project(project_id, user.id)
+    except (ProjectNotFoundError, ProjectForbiddenError) as exc:
+        raise _access_http_error(exc) from None
     return ProjectRead.model_validate(project)
 
 
@@ -79,7 +89,7 @@ async def update_project(
     user: User = Depends(current_active_user),
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectRead:
-    """Partially update an owned project (manual edits + autosave)."""
+    """Partially update a project the caller may edit (owner/editor)."""
     try:
         project = await service.update_project(
             project_id,
@@ -91,10 +101,8 @@ async def update_project(
             color=payload.color,
             bg_color=payload.bg_color,
         )
-    except ProjectNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        ) from None
+    except (ProjectNotFoundError, ProjectForbiddenError) as exc:
+        raise _access_http_error(exc) from None
     return ProjectRead.model_validate(project)
 
 
@@ -104,10 +112,8 @@ async def delete_project(
     user: User = Depends(current_active_user),
     service: ProjectService = Depends(get_project_service),
 ) -> None:
-    """Delete an owned project, or 404 if missing/not owned."""
+    """Delete a project — owner only; 404 if no role, 403 if not owner."""
     try:
         await service.delete_project(project_id, user.id)
-    except ProjectNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Project not found"
-        ) from None
+    except (ProjectNotFoundError, ProjectForbiddenError) as exc:
+        raise _access_http_error(exc) from None

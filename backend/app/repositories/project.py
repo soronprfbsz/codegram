@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
+from app.models.project_member import ProjectMember
 
 
 class ProjectRepository:
@@ -51,6 +52,34 @@ class ProjectRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def get_by_id(self, project_id: uuid.UUID) -> Project | None:
+        """Return the project by id regardless of owner, else None.
+
+        Ownership/role is decided by the service (resolve_role), so this is the
+        raw lookup it builds on — never a route-facing access path on its own.
+        """
+        result = await self.session.execute(
+            select(Project).where(Project.id == project_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def list_shared_with_roles(
+        self, user_id: uuid.UUID
+    ) -> Sequence[tuple[Project, str]]:
+        """List projects shared with the user via membership + the member role.
+
+        Owned projects are NOT included (the service unions those in, tagged
+        with the owner role). Newest first by project creation.
+        """
+        stmt = (
+            select(Project, ProjectMember.role)
+            .join(ProjectMember, ProjectMember.project_id == Project.id)
+            .where(ProjectMember.user_id == user_id)
+            .order_by(Project.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return [(row[0], row[1]) for row in result.all()]
 
     async def list_by_user(self, user_id: uuid.UUID) -> Sequence[Project]:
         """List the user's projects, newest first."""

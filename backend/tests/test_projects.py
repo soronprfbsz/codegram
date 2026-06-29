@@ -2,6 +2,27 @@
 import uuid
 
 from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.project_member import ProjectMember
+from app.models.user import User
+
+
+async def _share(
+    session: AsyncSession, project_id: str, member_email: str, role: str
+) -> None:
+    """Insert a membership granting `member_email` `role` on the project."""
+    result = await session.execute(
+        select(User).where(User.email == member_email)
+    )
+    member = result.scalar_one()
+    session.add(
+        ProjectMember(
+            project_id=uuid.UUID(project_id), user_id=member.id, role=role
+        )
+    )
+    await session.commit()
 
 
 # --- create -----------------------------------------------------------------
@@ -278,6 +299,71 @@ async def test_patch_rejects_too_long_glyph(
         f"/api/projects/{pid}", json={"glyph": "123456789"}
     )
     assert patched.status_code == 422
+
+
+# --- sharing (roles) --------------------------------------------------------
+
+
+async def test_shared_viewer_can_get_but_patch_is_403(
+    authenticated_client: AsyncClient,
+    second_authenticated_client: AsyncClient,
+    test_session: AsyncSession,
+) -> None:
+    created = await authenticated_client.post(
+        "/api/projects", json={"name": "Shared", "dbml_text": "table t {}"}
+    )
+    project_id = created.json()["id"]
+    await _share(test_session, project_id, "bob@example.com", "viewer")
+
+    got = await second_authenticated_client.get(f"/api/projects/{project_id}")
+    assert got.status_code == 200
+    assert got.json()["id"] == project_id
+
+    # Viewer sees it, so a write is 403 (not 404 — existence is not hidden).
+    patched = await second_authenticated_client.patch(
+        f"/api/projects/{project_id}", json={"dbml_text": "nope"}
+    )
+    assert patched.status_code == 403
+
+
+async def test_shared_editor_can_patch_but_delete_is_403(
+    authenticated_client: AsyncClient,
+    second_authenticated_client: AsyncClient,
+    test_session: AsyncSession,
+) -> None:
+    created = await authenticated_client.post(
+        "/api/projects", json={"name": "Shared"}
+    )
+    project_id = created.json()["id"]
+    await _share(test_session, project_id, "bob@example.com", "editor")
+
+    patched = await second_authenticated_client.patch(
+        f"/api/projects/{project_id}", json={"dbml_text": "table u {}"}
+    )
+    assert patched.status_code == 200
+    assert patched.json()["dbml_text"] == "table u {}"
+
+    # Editor cannot delete — owner-only.
+    deleted = await second_authenticated_client.delete(
+        f"/api/projects/{project_id}"
+    )
+    assert deleted.status_code == 403
+
+
+async def test_shared_project_appears_in_member_list(
+    authenticated_client: AsyncClient,
+    second_authenticated_client: AsyncClient,
+    test_session: AsyncSession,
+) -> None:
+    created = await authenticated_client.post(
+        "/api/projects", json={"name": "Shared with Bob"}
+    )
+    project_id = created.json()["id"]
+    await _share(test_session, project_id, "bob@example.com", "viewer")
+
+    listing = await second_authenticated_client.get("/api/projects")
+    assert listing.status_code == 200
+    assert project_id in [p["id"] for p in listing.json()]
 
 
 # --- 401 unauthenticated ----------------------------------------------------

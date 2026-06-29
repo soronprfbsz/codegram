@@ -1,10 +1,12 @@
-"""Project business logic: CRUD with per-user ownership enforcement.
+"""Project business logic: CRUD with role-based access (ADR-0015).
 
-Every get/update/delete is scoped to the requesting user's id. Accessing a
-project that does not exist OR belongs to another user raises
-ProjectNotFoundError, which the router maps to HTTP 404 (not 403) so the API
-never leaks the existence of another user's projects. The service does not
-commit; the request scope (get_session) commits the unit of work on success.
+A caller's relationship to a project is resolved to a role — owner (implicit via
+Project.user_id), editor/viewer (project_member), or none — and each action is
+authorized against the capability matrix in services.access. Having NO role is
+indistinguishable from "missing" (ProjectNotFoundError -> 404) so the API never
+leaks the existence of a project the caller cannot see; having a role but
+lacking the capability raises ProjectForbiddenError (-> 403). The service does
+not commit; the request scope (get_session) commits the unit of work on success.
 """
 import uuid
 from collections.abc import Sequence
@@ -13,19 +15,66 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
+from app.repositories.member import MemberRepository
 from app.repositories.project import ProjectRepository
+from app.services.access import OWNER, Capability, can
 
 
 class ProjectNotFoundError(Exception):
-    """A project is missing or not owned by the requesting user."""
+    """A project is missing or the requesting user has no role on it."""
+
+
+class ProjectForbiddenError(Exception):
+    """The user has a role on the project but it lacks the needed capability."""
 
 
 class ProjectService:
     """High-level project operations with ownership checks."""
 
     def __init__(self, session: AsyncSession) -> None:
-        """Build the service over a request-scoped session + its repository."""
+        """Build the service over a request-scoped session + its repositories."""
         self.repo = ProjectRepository(session)
+        self.members = MemberRepository(session)
+
+    async def resolve_role(
+        self, project_id: uuid.UUID, user_id: uuid.UUID
+    ) -> tuple[Project, str]:
+        """Return (project, role) for the caller, or raise ProjectNotFoundError.
+
+        Role is `owner` when the caller owns the project, else the member role,
+        else there is no role and the project is treated as nonexistent (404).
+        """
+        project = await self.repo.get_by_id(project_id)
+        if project is None:
+            raise ProjectNotFoundError(project_id)
+        if project.user_id == user_id:
+            return project, OWNER
+        member = await self.members.get(project_id, user_id)
+        if member is None:
+            raise ProjectNotFoundError(project_id)
+        return project, member.role
+
+    async def get_authorized(
+        self, project_id: uuid.UUID, user_id: uuid.UUID, capability: Capability
+    ) -> tuple[Project, str]:
+        """Resolve the caller's role and authorize `capability`, or raise.
+
+        ProjectNotFoundError (no role -> 404); ProjectForbiddenError (role
+        present but lacks the capability -> 403).
+        """
+        project, role = await self.resolve_role(project_id, user_id)
+        if not can(role, capability):
+            raise ProjectForbiddenError(project_id)
+        return project, role
+
+    async def get_viewable_project(
+        self, project_id: uuid.UUID, user_id: uuid.UUID
+    ) -> Project:
+        """Return a project the caller may view (owner/editor/viewer)."""
+        project, _role = await self.get_authorized(
+            project_id, user_id, Capability.VIEW
+        )
+        return project
 
     async def create_project(
         self,
@@ -45,15 +94,24 @@ class ProjectService:
     async def get_project(
         self, project_id: uuid.UUID, user_id: uuid.UUID
     ) -> Project:
-        """Return the owned project or raise ProjectNotFoundError."""
+        """Return the OWNED project or raise ProjectNotFoundError.
+
+        Owner-scoped (not role-aware): the snapshot service still gates on
+        ownership through this. Route reads that should honor shared roles use
+        get_viewable_project / get_authorized instead.
+        """
         project = await self.repo.get_by_id_and_user(project_id, user_id)
         if project is None:
             raise ProjectNotFoundError(project_id)
         return project
 
     async def list_projects(self, user_id: uuid.UUID) -> Sequence[Project]:
-        """List all projects owned by the user (newest first)."""
-        return await self.repo.list_by_user(user_id)
+        """List projects the user can access — owned + shared (newest first)."""
+        owned = await self.repo.list_by_user(user_id)
+        shared = await self.repo.list_shared_with_roles(user_id)
+        merged = list(owned) + [project for project, _role in shared]
+        merged.sort(key=lambda p: p.created_at, reverse=True)
+        return merged
 
     async def update_project(
         self,
@@ -66,8 +124,14 @@ class ProjectService:
         color: str | None = None,
         bg_color: str | None = None,
     ) -> Project:
-        """Partially update an owned project; raise NotFound otherwise."""
-        project = await self.get_project(project_id, user_id)
+        """Partially update a project the caller may edit (owner/editor).
+
+        Raises NotFound (no role) or Forbidden (viewer). Lock + version
+        enforcement is layered on in Phase 4.
+        """
+        project, _role = await self.get_authorized(
+            project_id, user_id, Capability.EDIT
+        )
         return await self.repo.update(
             project,
             name=name,
@@ -81,6 +145,8 @@ class ProjectService:
     async def delete_project(
         self, project_id: uuid.UUID, user_id: uuid.UUID
     ) -> None:
-        """Delete an owned project; raise NotFound otherwise."""
-        project = await self.get_project(project_id, user_id)
+        """Delete a project — owner only. Raises NotFound/Forbidden otherwise."""
+        project, _role = await self.get_authorized(
+            project_id, user_id, Capability.DELETE_PROJECT
+        )
         await self.repo.delete(project)
