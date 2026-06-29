@@ -80,7 +80,26 @@
     "iconCustomAria": "아이콘 직접 입력",
     "iconCustomPlaceholder": "직접 입력 (이모지/문자)",
     "deleteTitle": "프로젝트를 삭제할까요?",
-    "deleteDesc": "«{{name}}» 을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다."
+    "deleteDesc": "«{{name}}» 을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
+    "share": "공유",
+    "leave": "나가기",
+    "leaveTitle": "프로젝트에서 나갈까요?",
+    "leaveDesc": "«{{name}}» 에서 나갑니다. 다시 들어가려면 소유자의 초대가 필요합니다.",
+    "sharedBy": "{{email}} 님이 공유"
+  },
+  "sharing": {
+    "title": "공유 · 멤버 관리",
+    "inviteLabel": "사용자 초대",
+    "inviteEmailPlaceholder": "초대할 사용자 이메일",
+    "invite": "초대",
+    "membersTitle": "멤버",
+    "remove": "제거",
+    "role_owner": "소유자",
+    "role_editor": "편집자",
+    "role_viewer": "뷰어",
+    "errorUserNotFound": "해당 이메일의 사용자가 없습니다.",
+    "errorAlreadyMember": "이미 멤버입니다.",
+    "errorGeneric": "처리 중 오류가 발생했습니다."
   },
   "theme": {
     "toLight": "라이트 모드로 전환",

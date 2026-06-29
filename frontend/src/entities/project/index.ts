@@ -6,6 +6,7 @@ export { useDeleteProject } from './api/useDeleteProject'
 export { projectQueryKeys } from './api/queryKeys'
 export type {
   Project,
+  ProjectRole,
   ProjectCreatePayload,
   ProjectUpdatePayload,
 } from './model/types'

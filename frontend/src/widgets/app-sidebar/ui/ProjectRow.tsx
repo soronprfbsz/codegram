@@ -34,6 +34,7 @@ import {
 } from '@/shared/ui/dialog'
 import { Button } from '@/shared/ui/button'
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog'
+import { ShareDialog, useLeaveProject } from '@/features/project-sharing'
 import { cn } from '@/shared/lib/utils'
 
 export interface ProjectRowProps {
@@ -57,8 +58,16 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
   const navigate = useNavigate()
   const updateProject = useUpdateProject(project.id)
   const deleteProject = useDeleteProject()
+  const leaveProject = useLeaveProject()
+
+  // Role on this project (null defensively → treat as owner-less; menus hide).
+  const isOwner = project.role === 'owner'
+  const isShared = project.role === 'editor' || project.role === 'viewer'
+  const canEditMeta = isOwner || project.role === 'editor'
 
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [leaveOpen, setLeaveOpen] = useState(false)
   // Edit dialog (name + glyph + color), seeded from the project on open.
   const [editOpen, setEditOpen] = useState(false)
   const [draftName, setDraftName] = useState(project.name)
@@ -95,6 +104,12 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
     if (active) navigate('/')
   }
 
+  async function handleLeave() {
+    await leaveProject.mutateAsync(project.id)
+    setLeaveOpen(false)
+    if (active) navigate('/')
+  }
+
   return (
     <li className="group/row relative">
       <Link
@@ -112,6 +127,19 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
       >
         <ProjectGlyph glyph={project.glyph} color={project.color} bgColor={project.bg_color} size={20} className="opacity-90" />
         {!collapsed && <span className="truncate">{project.name}</span>}
+        {!collapsed && isShared ? (
+          <span
+            data-testid={`sidebar-project-shared-${project.id}`}
+            title={
+              project.owner_email
+                ? t('projectRow.sharedBy', { email: project.owner_email })
+                : undefined
+            }
+            className="shrink-0 rounded bg-sidebar-accent px-1.5 py-0.5 text-[10px] text-sidebar-foreground/70"
+          >
+            {t(`sharing.role_${project.role}`)}
+          </span>
+        ) : null}
       </Link>
 
       {/* Management menu (편집/삭제) only in the expanded sidebar. In the
@@ -134,13 +162,34 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={openEdit}>{t('projectRow.edit')}</DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => setConfirmOpen(true)}
-              className="text-destructive focus:text-destructive"
-            >
-              {t('projectRow.delete')}
-            </DropdownMenuItem>
+            {canEditMeta ? (
+              <DropdownMenuItem onSelect={openEdit}>{t('projectRow.edit')}</DropdownMenuItem>
+            ) : null}
+            {isOwner ? (
+              <DropdownMenuItem
+                data-testid={`sidebar-project-share-${project.id}`}
+                onSelect={() => setShareOpen(true)}
+              >
+                {t('projectRow.share')}
+              </DropdownMenuItem>
+            ) : null}
+            {isOwner ? (
+              <DropdownMenuItem
+                onSelect={() => setConfirmOpen(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                {t('projectRow.delete')}
+              </DropdownMenuItem>
+            ) : null}
+            {isShared ? (
+              <DropdownMenuItem
+                data-testid={`sidebar-project-leave-${project.id}`}
+                onSelect={() => setLeaveOpen(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                {t('projectRow.leave')}
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
       )}
@@ -270,6 +319,28 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
         description={t('projectRow.deleteDesc', { name: project.name })}
         confirmDisabled={deleteProject.isPending}
         onConfirm={handleDelete}
+      />
+
+      {/* Owner-only share / members modal */}
+      {isOwner ? (
+        <ShareDialog
+          projectId={project.id}
+          projectName={project.name}
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+        />
+      ) : null}
+
+      {/* Leave confirmation (members only) */}
+      <ConfirmDialog
+        open={leaveOpen}
+        onOpenChange={setLeaveOpen}
+        testId="project-row-leave-confirm"
+        title={t('projectRow.leaveTitle')}
+        description={t('projectRow.leaveDesc', { name: project.name })}
+        confirmLabel={t('projectRow.leave')}
+        confirmDisabled={leaveProject.isPending}
+        onConfirm={handleLeave}
       />
     </li>
   )

@@ -17,6 +17,9 @@ const PROJECT: Project = {
   glyph: null,
   color: null,
   bg_color: null,
+  version: 0,
+  role: 'owner',
+  owner_email: 'alice@example.com',
   created_at: '2026-06-05T00:00:00Z',
   updated_at: '2026-06-05T00:00:00Z',
 }
@@ -123,5 +126,43 @@ describe('ProjectRow context menu', () => {
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith('p-1'))
     expect(navigate).toHaveBeenCalledWith('/')
+  })
+})
+
+describe('ProjectRow role gating (shared projects)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('owner sees 편집·공유·삭제 and no 나가기', async () => {
+    const user = setup()
+    renderRow(PROJECT) // role: owner
+    await openMenu(user)
+    expect(await screen.findByRole('menuitem', { name: '편집' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '공유' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '삭제' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: '나가기' })).toBeNull()
+  })
+
+  it('editor sees 편집·나가기 but not 공유/삭제, plus a shared badge', async () => {
+    const user = setup()
+    renderRow({ ...PROJECT, role: 'editor' })
+    expect(screen.getByTestId('sidebar-project-shared-p-1')).toHaveTextContent('편집자')
+    await openMenu(user)
+    expect(await screen.findByRole('menuitem', { name: '편집' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: '나가기' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: '공유' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: '삭제' })).toBeNull()
+  })
+
+  it('viewer sees only 나가기 (no 편집/공유/삭제)', async () => {
+    const user = setup()
+    renderRow({ ...PROJECT, role: 'viewer' })
+    expect(screen.getByTestId('sidebar-project-shared-p-1')).toHaveTextContent('뷰어')
+    await openMenu(user)
+    expect(await screen.findByRole('menuitem', { name: '나가기' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: '편집' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: '공유' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: '삭제' })).toBeNull()
   })
 })

@@ -80,7 +80,26 @@
     "iconCustomAria": "Custom icon",
     "iconCustomPlaceholder": "Custom (emoji/text)",
     "deleteTitle": "Delete this project?",
-    "deleteDesc": "This deletes «{{name}}». This cannot be undone."
+    "deleteDesc": "This deletes «{{name}}». This cannot be undone.",
+    "share": "Share",
+    "leave": "Leave",
+    "leaveTitle": "Leave this project?",
+    "leaveDesc": "You will leave «{{name}}». Rejoining needs an invite from the owner.",
+    "sharedBy": "Shared by {{email}}"
+  },
+  "sharing": {
+    "title": "Share · Members",
+    "inviteLabel": "Invite a user",
+    "inviteEmailPlaceholder": "Email to invite",
+    "invite": "Invite",
+    "membersTitle": "Members",
+    "remove": "Remove",
+    "role_owner": "Owner",
+    "role_editor": "Editor",
+    "role_viewer": "Viewer",
+    "errorUserNotFound": "No user with that email.",
+    "errorAlreadyMember": "Already a member.",
+    "errorGeneric": "Something went wrong."
   },
   "theme": {
     "toLight": "Switch to light mode",
