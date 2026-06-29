@@ -1,0 +1,74 @@
+# ========================================
+# Production stack (built images, run by GitLab CI deploy jobs).
+# - Dedicated network `ts-codegram` ties together ONLY codegram services.
+# - All host bind mounts live under /data/codegram (postgres included).
+# - Images come from Harbor (CI sets *_IMAGE); local default tag falls back.
+# Run via: docker-compose -p codegram --env-file <root>/.env -f deploy/docker-compose.prod.yml ...
+# ========================================
+name: codegram
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: codegram-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-codegram_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-codegram_dev}
+    ports:
+      - "${POSTGRES_HOST_PORT:-25432}:5432"
+    volumes:
+      - /data/codegram/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-codegram_user} -d ${POSTGRES_DB:-codegram_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - ts-codegram
+
+  backend:
+    image: ${BACKEND_IMAGE:-ts/codegram-backend:latest}
+    container_name: codegram-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ../.env
+    ports:
+      - "${BACKEND_HOST_PORT:-28000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - ts-codegram
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-ts/codegram-frontend:latest}
+    container_name: codegram-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # API proxy target on the shared network (compose service DNS).
+      API_SERVER_URL: ${API_SERVER_URL:-http://backend:8000}
+    ports:
+      - "${FRONTEND_HOST_PORT:-28080}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - ts-codegram
+
+networks:
+  ts-codegram:
+    name: ts-codegram

@@ -1,0 +1,41 @@
+# ========================================
+# CI/CD Dockerfile (backend) — production image with source baked in.
+# Unlike the dev Dockerfile (source bind-mounted, uvicorn --reload), this copies
+# the app + migrations into the image and runs Alembic before starting uvicorn.
+# Build context = backend/.
+# ========================================
+FROM python:3.13-slim
+
+LABEL project="codegram-backend"
+LABEL maintainer="ts-team"
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Build tools for native wheels + postgres client (pg_isready) + curl (healthcheck).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    postgresql-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install dependencies first (cache layer): hatchling needs the `app` package to
+# exist, so copy it before install. Real source is baked in (not bind-mounted).
+COPY pyproject.toml ./
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
+RUN pip install --upgrade pip && pip install .
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=5 \
+  CMD curl -fsS http://localhost:8000/api/health || exit 1
+
+# Apply migrations (idempotent) then start the server. A single worker: the
+# in-process APScheduler (lifespan) assumes one backend instance.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

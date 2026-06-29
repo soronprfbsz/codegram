@@ -1,0 +1,5 @@
+# BuildKit uses this file (named after Dockerfile.ci) instead of .dockerignore
+# when building with -f frontend/Dockerfile.ci. Unlike the dev .dockerignore, it
+# KEEPS dist/ (the CI image serves the pre-built bundle).
+node_modules
+.vite
