@@ -171,12 +171,27 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     }
     const wb = await read(await buildTableDocXlsxBlob(m, LABELS))
     const ws = wb.getWorksheet('g1')!
+    // FK logical columns are merged (A:B, C:D, E:G, H) → read the master cells 1·3·5·8.
     const rows: string[][] = []
-    ws.eachRow((r) => rows.push([1, 2, 3, 4].map((c) => String(r.getCell(c).value ?? ''))))
+    ws.eachRow((r) => rows.push([1, 3, 5, 8].map((c) => String(r.getCell(c).value ?? ''))))
     const flat = rows.map((r) => r.join('|'))
     expect(flat.some((r) => r.startsWith('FK 제약'))).toBe(true) // bold title row
     expect(flat).toContain('FK명|컬럼|참조 테이블|참조 컬럼') // header row
     expect(flat).toContain('fk_posts_user_id|user_id|public.users|id') // data row
+  })
+
+  it('boxes each table block with a medium outer border', async () => {
+    const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
+    const ws = wb.getWorksheet('사용자관리')!
+    // The merged 테이블정의서 title row is the top edge of the first block.
+    let titleRowNum = 0
+    ws.eachRow((r) => {
+      if (!titleRowNum && String(r.getCell(1).value) === LABELS.form.title) titleRowNum = r.number
+    })
+    expect(titleRowNum).toBeGreaterThan(0)
+    const topLeft = ws.getRow(titleRowNum).getCell(1)
+    expect(topLeft.border?.top?.style).toBe('medium')
+    expect(topLeft.border?.left?.style).toBe('medium')
   })
 
   it('overview header row carries the shared fill color', async () => {

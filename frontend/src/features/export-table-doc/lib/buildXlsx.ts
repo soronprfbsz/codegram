@@ -73,6 +73,29 @@ function borderFormRow(row: ExcelJS.Row): void {
   for (let c = 1; c <= FORM_COLS; c++) row.getCell(c).border = BORDER
 }
 
+/** Medium outer-border edge — thicker/darker than the thin grid so each table
+ *  block reads as a distinct box. */
+const OUTLINE = { style: 'medium' as const, color: { argb: 'FF4B5563' } }
+
+/** Draw a medium outline around the block rows `r0..r1` (cols 1..FORM_COLS),
+ *  preserving each edge cell's existing thin inner borders. Visually separates
+ *  one table's 정의서 from the next. */
+function outlineBlock(ws: ExcelJS.Worksheet, r0: number, r1: number): void {
+  for (let r = r0; r <= r1; r++) {
+    for (let c = 1; c <= FORM_COLS; c++) {
+      if (r !== r0 && r !== r1 && c !== 1 && c !== FORM_COLS) continue
+      const cell = ws.getRow(r).getCell(c)
+      cell.border = {
+        ...cell.border,
+        ...(r === r0 ? { top: OUTLINE } : {}),
+        ...(r === r1 ? { bottom: OUTLINE } : {}),
+        ...(c === 1 ? { left: OUTLINE } : {}),
+        ...(c === FORM_COLS ? { right: OUTLINE } : {}),
+      }
+    }
+  }
+}
+
 /**
  * Write one table's "테이블정의서" form block: a merged title row, a 2x2 metadata
  * grid (주제영역명/테이블명, DB명/스키마명) + full-width 테이블설명, the body column
@@ -90,6 +113,7 @@ function writeTableBlock(
   const f = labels.form
 
   // Title row — merged across all columns, centered.
+  const blockStart = ws.rowCount + 1
   const titleRow = ws.addRow([f.title])
   ws.mergeCells(titleRow.number, 1, titleRow.number, FORM_COLS)
   fillHeaderCell(titleRow.getCell(1))
@@ -138,15 +162,25 @@ function writeTableBlock(
     borderFormRow(r)
   })
 
-  // Optional FK relationships sub-table (this table holds the FK).
+  // Optional FK relationships sub-table (this table holds the FK). The 4 logical
+  // columns are merged across the 8-column form — FK명 A:B, 컬럼 C:D, 참조 테이블
+  // E:G, 참조 컬럼 H — so 참조 테이블/참조 컬럼 get enough width despite the narrow
+  // body column widths they would otherwise inherit (sheet column widths are global).
   if (table.fkTargets.length > 0) {
     ws.addRow([])
     const fkTitle = ws.addRow([labels.fks])
     fkTitle.getCell(1).font = { bold: true }
-    styleHeader(ws.addRow([labels.fkName, labels.fkColumns, labels.fkRefTable, labels.fkRefColumns]))
-    for (const fk of table.fkTargets) {
-      borderRow(ws.addRow(fkRow(fk)))
+    const fkSpanRow = ([a, b, c, d]: string[]): ExcelJS.Row => {
+      const r = ws.addRow([a, '', b, '', c, '', '', d])
+      ws.mergeCells(r.number, 1, r.number, 2)
+      ws.mergeCells(r.number, 3, r.number, 4)
+      ws.mergeCells(r.number, 5, r.number, 7)
+      borderFormRow(r)
+      return r
     }
+    const fkHeader = fkSpanRow([labels.fkName, labels.fkColumns, labels.fkRefTable, labels.fkRefColumns])
+    for (let c = 1; c <= FORM_COLS; c++) fillHeaderCell(fkHeader.getCell(c))
+    for (const fk of table.fkTargets) fkSpanRow(fkRow(fk))
   }
 
   // Optional CHECK constraints sub-table (kept from the prior format).
@@ -166,6 +200,9 @@ function writeTableBlock(
   ws.mergeCells(etcRow.number, 2, etcRow.number, FORM_COLS)
   borderFormRow(etcRow)
   fillHeaderCell(etcRow.getCell(1))
+
+  // Box the whole block so each table's 정의서 is visually separated.
+  outlineBlock(ws, blockStart, etcRow.number)
 
   ws.addRow([]) // separator between tables
 }
