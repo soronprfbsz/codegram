@@ -291,9 +291,6 @@
     "downloadPdf": "PDF 다운로드",
     "downloadWord": "Word 다운로드",
     "enums": "Enum",
-    "fkRelations": "FK 관계",
-    "column": "컬럼",
-    "reference": "참조",
     "checks": "CHECK 제약",
     "checkName": "이름",
     "checkValues": "허용값",
@@ -313,6 +310,19 @@
     "colNo": "No",
     "colGroup": "그룹",
     "colTable": "테이블",
-    "ungrouped": "미분류"
+    "ungrouped": "미분류",
+    "docTitle": "테이블정의서",
+    "subjectArea": "주제영역명",
+    "dbName": "DB 명",
+    "schemaName": "스키마명",
+    "tableName": "테이블명",
+    "tableDesc": "테이블설명",
+    "colId": "컬럼ID",
+    "typeShort": "타입",
+    "length": "길이",
+    "nullable": "NULL",
+    "keyLabel": "KEY",
+    "defaultLabel": "DEFAULT",
+    "etc": "기타"
   }
 }

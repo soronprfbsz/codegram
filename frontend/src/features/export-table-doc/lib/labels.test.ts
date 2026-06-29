@@ -19,7 +19,6 @@ describe('tableDocLabels', () => {
       'Default',
       'Description',
     ])
-    expect(labels.fkColumn).toBe('Column')
     expect(labels.enumColValue).toBe('Value')
   })
 

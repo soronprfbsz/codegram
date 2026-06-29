@@ -4,8 +4,6 @@ export {
   STANDARD_COLUMN_HEADER_KEYS,
   columnRow,
   flag,
-  fkLocalCell,
-  fkTargetCell,
 } from './lib/columns'
 export type { StandardColumnDescriptor } from './lib/columns'
 export type {

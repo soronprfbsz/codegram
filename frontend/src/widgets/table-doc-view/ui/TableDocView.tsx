@@ -2,8 +2,6 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   STANDARD_COLUMNS,
-  fkLocalCell,
-  fkTargetCell,
   type TableDocModel,
   type TableDocTable,
 } from '@/entities/table-doc'
@@ -57,31 +55,6 @@ function TableSection({ table }: { table: TableDocTable }) {
           ))}
         </tbody>
       </table>
-      {table.fkTargets.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          <h4 className="text-sm font-medium">{t('tableDoc.fkRelations')}</h4>
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b bg-muted">
-                <th scope="col" className="border px-2 py-1 text-left font-medium">
-                  {t('tableDoc.column')}
-                </th>
-                <th scope="col" className="border px-2 py-1 text-left font-medium">
-                  {t('tableDoc.reference')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {table.fkTargets.map((fk, i) => (
-                <tr key={i} className="border-b">
-                  <td className="border px-2 py-1">{fkLocalCell(fk)}</td>
-                  <td className="border px-2 py-1">{fkTargetCell(fk)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
       {table.checks.length > 0 ? (
         <div className="flex flex-col gap-1">
           <h4 className="text-sm font-medium">{t('tableDoc.checks')}</h4>

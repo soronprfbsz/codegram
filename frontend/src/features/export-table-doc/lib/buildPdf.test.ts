@@ -38,8 +38,6 @@ import type { TableDocLabels } from './labels'
 // hold AND we verify the builder emits exactly the labels it is given.
 const LABELS: TableDocLabels = {
   columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
-  fkColumn: '컬럼',
-  fkReference: '참조',
   enumColEnum: 'Enum',
   enumColValue: '값',
   enumColNote: '설명',
@@ -146,8 +144,8 @@ describe('buildTableDocPdfBlob', () => {
 
   it('renders one column autoTable per table with the standard header', async () => {
     await buildTableDocPdfBlob(model, LABELS)
-    // 2 tables (column tables) + 1 FK table + 1 enum table = 4 autoTable calls.
-    expect(autoTable).toHaveBeenCalledTimes(4)
+    // 2 tables (column tables) + 1 enum table = 3 autoTable calls (no FK table).
+    expect(autoTable).toHaveBeenCalledTimes(3)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const firstOpts = (autoTable.mock.calls as any)[0][1]
     expect(firstOpts.head).toEqual([
@@ -157,15 +155,6 @@ describe('buildTableDocPdfBlob', () => {
       ['id', 'integer', 'Y', '', 'Y', '', '', 'primary key'],
       ['org_id', 'integer', '', 'Y', 'Y', '', '', ''],
     ])
-  })
-
-  it('renders an FK autoTable for the table that has fkTargets', async () => {
-    await buildTableDocPdfBlob(model, LABELS)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fkOpts = (autoTable.mock.calls as any)[1][1]
-    expect(fkOpts.head).toEqual([['컬럼', '참조']])
-    // Target columns grouped under the target table.
-    expect(fkOpts.body).toEqual([['org_id', 'public.orgs(id)']])
   })
 
   it('chains each section below the previous one (startY grows)', async () => {
@@ -218,36 +207,6 @@ describe('buildTableDocPdfBlob', () => {
     const checkOpts = (autoTable.mock.calls as any)[1][1]
     expect(checkOpts.head).toEqual([['이름', '허용값', '표현식']])
     expect(checkOpts.body).toEqual([['fa_reason_chk', 'a, b', "reason IN ('a', 'b')"]])
-  })
-
-  it('groups composite-FK target columns under the target table', async () => {
-    const compositeModel: TableDocModel = {
-      tables: [
-        {
-          id: 'public.memberships',
-          schema: 'public',
-          name: 'memberships',
-          note: '',
-          columns: [],
-          fkTargets: [
-            {
-              columns: ['org_id', 'user_id'],
-              targetTable: 'org_users',
-              targetSchema: 'public',
-              targetColumns: ['org_id', 'user_id'],
-            },
-          ],
-        },
-      ],
-      enums: [],
-    }
-    await buildTableDocPdfBlob(compositeModel, LABELS)
-    // calls: column autoTable, FK autoTable, enum autoTable
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fkOpts = (autoTable.mock.calls as any)[1][1]
-    expect(fkOpts.body).toEqual([
-      ['org_id, user_id', 'public.org_users(org_id, user_id)'],
-    ])
   })
 
   it('renders an empty body for a table with zero columns', async () => {
