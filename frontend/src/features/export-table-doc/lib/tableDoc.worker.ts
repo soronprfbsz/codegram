@@ -9,17 +9,19 @@ interface Job {
   kind: 'xlsx' | 'pdf' | 'docx'
   model: TableDocModel
   labels: TableDocLabels
+  /** Excel-only: default DB name filling blank "DB 명" cells. */
+  defaultDbName?: string
 }
 
 self.onmessage = async (e: MessageEvent<Job>) => {
-  const { kind, model, labels } = e.data
+  const { kind, model, labels, defaultDbName } = e.data
   try {
     const blob =
       kind === 'pdf'
         ? await buildTableDocPdfBlob(model, labels)
         : kind === 'docx'
           ? await buildTableDocDocxBlob(model, labels)
-          : await buildTableDocXlsxBlob(model, labels)
+          : await buildTableDocXlsxBlob(model, labels, defaultDbName)
     self.postMessage({ type: 'done', result: blob })
   } catch (err) {
     self.postMessage({

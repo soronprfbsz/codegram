@@ -7,6 +7,7 @@ const LABELS: TableDocLabels = {
   columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
   enumColEnum: 'Enum', enumColValue: '값', enumColNote: '설명', enumsSheet: 'Enums',
   checks: 'CHECK 제약', checkName: '이름', checkValues: '허용값', checkExpression: '표현식',
+  fks: 'FK 제약', fkName: 'FK명', fkColumns: '컬럼', fkRefTable: '참조 테이블', fkRefColumns: '참조 컬럼',
 }
 
 const full: TableDocModel = {
@@ -14,7 +15,7 @@ const full: TableDocModel = {
     {
       id: 'public.users', schema: 'public', name: 'users', note: 'app users',
       columns: [{ name: 'id', type: 'int', pk: true, fk: false, notNull: true, unique: false, default: '', note: 'pk' }],
-      fkTargets: [{ columns: ['org_id'], targetSchema: 'public', targetTable: 'orgs', targetColumns: ['id'] }],
+      fkTargets: [{ name: 'fk_users_org_id', columns: ['org_id'], targetSchema: 'public', targetTable: 'orgs', targetColumns: ['id'] }],
       checks: [{ name: 'c', values: ['a', 'b'], expression: "kind IN ('a','b')" }],
     },
   ],

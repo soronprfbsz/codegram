@@ -12,14 +12,17 @@ import type { TableDocModel } from '@/entities/table-doc'
 interface TableDocViewState {
   /** The model to render; null means closed. */
   model: TableDocModel | null
-  /** Open the overlay with a derived 테이블 정의서 model. */
-  openWith: (model: TableDocModel) => void
+  /** Owning project name — used to name the download files. */
+  projectName: string
+  /** Open the overlay with a derived 테이블 정의서 model + its project name. */
+  openWith: (model: TableDocModel, projectName: string) => void
   /** Close the overlay. */
   close: () => void
 }
 
 export const useTableDocViewStore = create<TableDocViewState>((set) => ({
   model: null,
-  openWith: (model) => set({ model }),
+  projectName: '',
+  openWith: (model, projectName) => set({ model, projectName }),
   close: () => set({ model: null }),
 }))

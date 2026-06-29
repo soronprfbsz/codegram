@@ -46,6 +46,11 @@ const LABELS: TableDocLabels = {
   checkName: '이름',
   checkValues: '허용값',
   checkExpression: '표현식',
+  fks: 'FK 제약',
+  fkName: 'FK명',
+  fkColumns: '컬럼',
+  fkRefTable: '참조 테이블',
+  fkRefColumns: '참조 컬럼',
 }
 
 const model: TableDocModel = {
@@ -79,6 +84,7 @@ const model: TableDocModel = {
       ],
       fkTargets: [
         {
+          name: 'fk_users_org_id',
           columns: ['org_id'],
           targetTable: 'orgs',
           targetSchema: 'public',
@@ -144,8 +150,8 @@ describe('buildTableDocPdfBlob', () => {
 
   it('renders one column autoTable per table with the standard header', async () => {
     await buildTableDocPdfBlob(model, LABELS)
-    // 2 tables (column tables) + 1 enum table = 3 autoTable calls (no FK table).
-    expect(autoTable).toHaveBeenCalledTimes(3)
+    // users: column + FK table; orgs: column; + 1 enum table = 4 autoTable calls.
+    expect(autoTable).toHaveBeenCalledTimes(4)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const firstOpts = (autoTable.mock.calls as any)[0][1]
     expect(firstOpts.head).toEqual([
@@ -155,6 +161,15 @@ describe('buildTableDocPdfBlob', () => {
       ['id', 'integer', 'Y', '', 'Y', '', '', 'primary key'],
       ['org_id', 'integer', '', 'Y', 'Y', '', '', ''],
     ])
+  })
+
+  it('renders an FK autoTable for a table that holds FKs', async () => {
+    await buildTableDocPdfBlob(model, LABELS)
+    // users: [0] column table, [1] FK table.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fkOpts = (autoTable.mock.calls as any)[1][1]
+    expect(fkOpts.head).toEqual([['FK명', '컬럼', '참조 테이블', '참조 컬럼']])
+    expect(fkOpts.body).toEqual([['fk_users_org_id', 'org_id', 'public.orgs', 'id']])
   })
 
   it('chains each section below the previous one (startY grows)', async () => {

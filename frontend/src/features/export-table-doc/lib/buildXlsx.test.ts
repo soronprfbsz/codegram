@@ -9,6 +9,7 @@ const LABELS: TableDocLabels = {
   columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
   enumColEnum: 'Enum', enumColValue: '값', enumColNote: '설명', enumsSheet: 'Enums',
   checks: 'CHECK 제약', checkName: '이름', checkValues: '허용값', checkExpression: '표현식',
+  fks: 'FK 제약', fkName: 'FK명', fkColumns: '컬럼', fkRefTable: '참조 테이블', fkRefColumns: '참조 컬럼',
   overviewSheet: '테이블 목록', overviewNo: 'No', overviewGroup: '그룹',
   overviewTable: '테이블', overviewDesc: '설명', ungroupedSheet: '미분류',
   form: {
@@ -96,7 +97,7 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
       enums: [],
       groups: [{ name: '운영 관리', tableIds: ['hawkeye_core.user_manage'] }],
     }
-    const wb = await read(await buildTableDocXlsxBlob(formModel, LABELS))
+    const wb = await read(await buildTableDocXlsxBlob(formModel, LABELS, 'hawkeye'))
     const ws = wb.getWorksheet('운영 관리')!
     const row = (n: number): string[] =>
       [1, 2, 3, 4, 5, 6, 7, 8].map((c) => String(ws.getRow(n).getCell(c).value ?? ''))
@@ -109,11 +110,11 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     expect(String(subj[2])).toBe('운영 관리') // B value
     expect(String(subj[5])).toBe('테이블명') // E label
     expect(String(subj[6])).toBe('user_manage') // F value
-    // DB명 = before first '_', 스키마명 = after.
+    // DB명 = the export-time default; 스키마명 = the table's own schema verbatim.
     const db = byLabel.get('DB 명')!
     expect(String(db[2])).toBe('hawkeye')
     expect(String(db[5])).toBe('스키마명')
-    expect(String(db[6])).toBe('core')
+    expect(String(db[6])).toBe('hawkeye_core')
     // 테이블설명 = table.note.
     expect(String(byLabel.get('테이블설명')![2])).toBe('사용자 관리 테이블')
 
@@ -127,6 +128,16 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     expect(row(headerRowNum + 1)).toEqual(['1', 'id', 'bigint', '20', 'NOT NULL', 'PK', '', '기본키'])
     expect(row(headerRowNum + 2)).toEqual(['2', 'user_id', 'varchar', '50', 'NOT NULL', 'UK', '', '사용자 아이디'])
     expect(row(headerRowNum + 3)).toEqual(['3', 'auth_fk', 'bigint', '', '', 'FK', '0', '권한 외래키'])
+  })
+
+  it('leaves DB명 blank without a default and 스키마명 blank for the default public schema', async () => {
+    const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
+    const ws = wb.getWorksheet('사용자관리')!
+    const byLabel = new Map<string, string[]>()
+    ws.eachRow((r) => byLabel.set(String(r.getCell(1).value ?? ''), r.values as unknown as string[]))
+    const db = byLabel.get('DB 명')!
+    expect(String(db[2] ?? '')).toBe('') // DB명: no default supplied → blank
+    expect(String(db[6] ?? '')).toBe('') // 스키마명: public (no qualifier) → blank
   })
 
   it('renders the CHECK section inside a group sheet', async () => {
@@ -145,6 +156,27 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     const firstCol: string[] = []
     ws.eachRow((r) => firstCol.push(String(r.getCell(1).value ?? '')))
     expect(firstCol).toContain('CHECK 제약')
+  })
+
+  it('renders the FK section (title, header, row) inside a group sheet', async () => {
+    const m: TableDocModel = {
+      tables: [{
+        id: 'public.posts', schema: 'public', name: 'posts', note: '',
+        columns: [{ name: 'user_id', type: 'int', pk: false, fk: true, notNull: true, unique: false, default: '', note: '' }],
+        fkTargets: [{ name: 'fk_posts_user_id', columns: ['user_id'], targetSchema: 'public', targetTable: 'users', targetColumns: ['id'] }],
+        checks: [],
+      }],
+      enums: [],
+      groups: [{ name: 'g1', tableIds: ['public.posts'] }],
+    }
+    const wb = await read(await buildTableDocXlsxBlob(m, LABELS))
+    const ws = wb.getWorksheet('g1')!
+    const rows: string[][] = []
+    ws.eachRow((r) => rows.push([1, 2, 3, 4].map((c) => String(r.getCell(c).value ?? ''))))
+    const flat = rows.map((r) => r.join('|'))
+    expect(flat.some((r) => r.startsWith('FK 제약'))).toBe(true) // bold title row
+    expect(flat).toContain('FK명|컬럼|참조 테이블|참조 컬럼') // header row
+    expect(flat).toContain('fk_posts_user_id|user_id|public.users|id') // data row
   })
 
   it('overview header row carries the shared fill color', async () => {

@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { columnRow, type TableDocModel } from '@/entities/table-doc'
+import { columnRow, fkRow, type TableDocModel } from '@/entities/table-doc'
 import type { TableDocLabels } from './labels'
 
 /** Page margin (mm) and the gap between stacked sections. */
@@ -47,10 +47,10 @@ function finalY(doc: jsPDF): number {
 
 /**
  * Build a table-definition PDF Blob from the derived model. Per table:
- * a title line, the standard column autoTable, then (when present) a
- * CHECK-constraint autoTable; the document ends with an enum-list autoTable.
- * Each section starts below the previous one's finalY so autoTable paginates.
- * FK relationships are conveyed by the FK flag column, not a separate table.
+ * a title line, the standard column autoTable, then (when present) an FK
+ * relationships autoTable and a CHECK-constraint autoTable; the document ends
+ * with an enum-list autoTable. Each section starts below the previous one's
+ * finalY so autoTable paginates.
  *
  * Async because it embeds a Korean TTF (fetched lazily). No download, no React.
  */
@@ -79,6 +79,16 @@ export async function buildTableDocPdfBlob(
       styles: tableStyles,
     })
     cursorY = finalY(doc) + SECTION_GAP
+
+    if (table.fkTargets.length > 0) {
+      autoTable(doc, {
+        startY: cursorY,
+        head: [[labels.fkName, labels.fkColumns, labels.fkRefTable, labels.fkRefColumns]],
+        body: table.fkTargets.map(fkRow),
+        styles: tableStyles,
+      })
+      cursorY = finalY(doc) + SECTION_GAP
+    }
 
     const checks = Array.isArray(table.checks) ? table.checks : []
     if (checks.length > 0) {

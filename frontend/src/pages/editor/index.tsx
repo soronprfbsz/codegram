@@ -473,6 +473,7 @@ export function EditorPage() {
             diagram={diagramCtx}
             schema={schema}
             dbmlText={dbmlText}
+            projectName={project.name}
             disabled={exportDisabled}
           />
         }

@@ -1,12 +1,14 @@
 import ExcelJS from 'exceljs'
-import type { TableDocModel, TableDocTable } from '@/entities/table-doc'
+import { fkRow, type TableDocModel, type TableDocTable } from '@/entities/table-doc'
 import type { TableDocLabels } from './labels'
 import { HEADER_FILL, HEADER_TEXT, GRID_BORDER } from './tableDocStyle'
 
 /** Column widths (chars) for the 8-column 테이블정의서 form: No · 컬럼ID · 타입 ·
- *  길이 · NULL · KEY · DEFAULT · 설명. */
+ *  길이 · NULL · KEY · DEFAULT · 설명. Column A doubles as the metadata-grid
+ *  label column (주제영역명/테이블설명/…), so it is widened past the "No" body
+ *  cells' need to fit those Korean labels without clipping. */
 const FORM_COLS = 8
-const FORM_COLUMN_WIDTHS = [6, 24, 14, 8, 12, 9, 16, 30]
+const FORM_COLUMN_WIDTHS = [12, 24, 14, 8, 12, 9, 16, 30]
 
 const MAX_SHEET_NAME = 31
 const clampSheetName = (name: string): string => name.slice(0, MAX_SHEET_NAME)
@@ -28,15 +30,6 @@ export function keyLabel(col: { pk: boolean; unique: boolean; fk: boolean }): st
   if (col.unique) parts.push('UK')
   if (col.fk) parts.push('FK')
   return parts.join(',')
-}
-
-/** Split a schema string into a DB name + schema name on the FIRST underscore
- *  (`hawkeye_core` -> `{ hawkeye, core }`). With no underscore the DB name is
- *  blank and the whole value is the schema name (`public` -> `{ '', public }`). */
-export function splitSchema(schema: string): { dbName: string; schemaName: string } {
-  const i = schema.indexOf('_')
-  if (i < 0) return { dbName: '', schemaName: schema }
-  return { dbName: schema.slice(0, i), schemaName: schema.slice(i + 1) }
 }
 
 function uniqueSheetName(name: string, used: Set<string>): string {
@@ -84,7 +77,7 @@ function borderFormRow(row: ExcelJS.Row): void {
  * Write one table's "테이블정의서" form block: a merged title row, a 2x2 metadata
  * grid (주제영역명/테이블명, DB명/스키마명) + full-width 테이블설명, the body column
  * header (No·컬럼ID·타입·길이·NULL·KEY·DEFAULT·설명) and one row per column, an
- * optional CHECK sub-table, a trailing 기타 row, then a blank separator.
+ * optional FK sub-table and CHECK sub-table, a trailing 기타 row, then a blank separator.
  * `groupName` fills 주제영역명 (the table's owning group / "미분류").
  */
 function writeTableBlock(
@@ -92,6 +85,7 @@ function writeTableBlock(
   table: TableDocTable,
   labels: TableDocLabels,
   groupName: string,
+  defaultDbName: string,
 ): void {
   const f = labels.form
 
@@ -102,8 +96,11 @@ function writeTableBlock(
   titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
   borderFormRow(titleRow)
 
-  // Metadata grid: A=label, B:D=value, E=label, F:H=value.
-  const { dbName, schemaName } = splitSchema(table.schema)
+  // Metadata grid: A=label, B:D=value, E=label, F:H=value. DB명 comes only from
+  // the export-time default (DBML has no DB-name concept); 스키마명 is the table's
+  // own schema, left blank for the default "public" (i.e. no schema qualifier in
+  // the DBML — `Table "core"."x"` => "core", `Table x` => '').
+  const schemaName = table.schema === 'public' ? '' : table.schema
   const metaPairRow = (leftLabel: string, leftVal: string, rightLabel: string, rightVal: string) => {
     const r = ws.addRow([leftLabel, leftVal, '', '', rightLabel, rightVal, '', ''])
     ws.mergeCells(r.number, 2, r.number, 4)
@@ -113,7 +110,7 @@ function writeTableBlock(
     fillHeaderCell(r.getCell(5))
   }
   metaPairRow(f.subjectArea, groupName, f.tableName, table.name)
-  metaPairRow(f.dbName, dbName, f.schemaName, schemaName)
+  metaPairRow(f.dbName, defaultDbName, f.schemaName, schemaName)
 
   // 테이블설명 — A=label, B:H=value.
   const descRow = ws.addRow([f.tableDesc, table.note])
@@ -141,6 +138,17 @@ function writeTableBlock(
     borderFormRow(r)
   })
 
+  // Optional FK relationships sub-table (this table holds the FK).
+  if (table.fkTargets.length > 0) {
+    ws.addRow([])
+    const fkTitle = ws.addRow([labels.fks])
+    fkTitle.getCell(1).font = { bold: true }
+    styleHeader(ws.addRow([labels.fkName, labels.fkColumns, labels.fkRefTable, labels.fkRefColumns]))
+    for (const fk of table.fkTargets) {
+      borderRow(ws.addRow(fkRow(fk)))
+    }
+  }
+
   // Optional CHECK constraints sub-table (kept from the prior format).
   const checks = Array.isArray(table.checks) ? table.checks : []
   if (checks.length > 0) {
@@ -167,10 +175,14 @@ function writeTableBlock(
  * overview sheet, then one worksheet per group (member tables stacked as
  * definition blocks), an "미분류" sheet for ungrouped tables (if any), and a
  * trailing Enums sheet. Shared header style + column widths. No download, no React.
+ *
+ * `defaultDbName` fills every per-table "DB 명" cell (DBML has no DB-name
+ * concept, so this is the sole source); '' leaves them blank.
  */
 export async function buildTableDocXlsxBlob(
   model: TableDocModel,
   labels: TableDocLabels,
+  defaultDbName = '',
 ): Promise<Blob> {
   const wb = new ExcelJS.Workbook()
   const used = new Set<string>([clampSheetName(labels.overviewSheet), clampSheetName(labels.enumsSheet)])
@@ -204,14 +216,14 @@ export async function buildTableDocXlsxBlob(
   for (const g of groups) {
     const ws = wb.addWorksheet(uniqueSheetName(g.name, used))
     ws.columns = FORM_COLUMN_WIDTHS.map((w) => ({ width: w }))
-    for (const t of g.tables) writeTableBlock(ws, t, labels, g.name)
+    for (const t of g.tables) writeTableBlock(ws, t, labels, g.name, defaultDbName)
   }
 
   // 3) Ungrouped sheet (only when there are ungrouped tables).
   if (ungrouped.length > 0) {
     const ws = wb.addWorksheet(uniqueSheetName(labels.ungroupedSheet, used))
     ws.columns = FORM_COLUMN_WIDTHS.map((w) => ({ width: w }))
-    for (const t of ungrouped) writeTableBlock(ws, t, labels, labels.ungroupedSheet)
+    for (const t of ungrouped) writeTableBlock(ws, t, labels, labels.ungroupedSheet, defaultDbName)
   }
 
   // 4) Trailing Enums sheet.

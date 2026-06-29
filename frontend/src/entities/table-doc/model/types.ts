@@ -25,9 +25,12 @@ export interface TableDocColumn {
   note: string
 }
 
-/** A foreign-key relationship target derived for a table (not rendered as a
- *  separate section — the column FK flag conveys FK membership). */
+/** A foreign-key relationship where THIS table holds the FK — rendered as a
+ *  per-table FK section in the exports (and the FK flag marks the columns). */
 export interface TableDocFkTarget {
+  /** Constraint name: the explicit DBML ref name, else a synthesized
+   *  `fk_<table>_<columns>` (DBML refs are usually unnamed). */
+  name: string
   /** Local column names on THIS table that hold the FK (composite => length > 1, order preserved). */
   columns: string[]
   /** Referenced (target) table name. */

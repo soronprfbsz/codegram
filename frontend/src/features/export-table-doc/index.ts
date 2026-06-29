@@ -3,6 +3,8 @@ export { buildTableDocPdfBlob } from './lib/buildPdf'
 export { buildTableDocDocxBlob } from './lib/buildDocx'
 export {
   buildTableDocBlob,
+  tableDocFilename,
   type TableDocExportKind,
 } from './lib/exportTableDoc'
 export { tableDocLabels, type TableDocLabels } from './lib/labels'
+export { ExportDbNameDialog } from './ui/ExportDbNameDialog'

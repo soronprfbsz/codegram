@@ -25,7 +25,7 @@ const setup = () =>
 
 function renderMenu(props: Partial<Parameters<typeof ExportMenu>[0]> = {}) {
   return render(
-    <ExportMenu diagram={DIAGRAM} schema={SCHEMA} dbmlText="DBML" disabled={false} {...props} />,
+    <ExportMenu diagram={DIAGRAM} schema={SCHEMA} dbmlText="DBML" projectName="Codegram" disabled={false} {...props} />,
   )
 }
 
@@ -68,15 +68,20 @@ describe('ExportMenu', () => {
     expect(useTableDocViewStore.getState().model).toBe(MODEL)
   })
 
-  it('Table Doc Excel builds the blob via the worker wrapper and downloads it', async () => {
+  it('Table Doc Excel prompts for a default DB name, then builds + downloads with it', async () => {
     const build = vi.spyOn(exportTableDoc, 'buildTableDocBlob').mockResolvedValue(new Blob(['x']))
     const dl = vi.spyOn(download, 'downloadBlob').mockImplementation(() => {})
     const user = setup()
     renderMenu()
     await openMenu(user)
     fireEvent.click(await screen.findByRole('menuitem', { name: '테이블 정의서 Excel' }))
-    await waitFor(() => expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.xlsx'))
-    expect(build).toHaveBeenCalledWith('xlsx', expect.anything(), expect.anything())
+    // The DB-name modal appears first; type a value and confirm.
+    fireEvent.change(await screen.findByTestId('export-dbname-input'), {
+      target: { value: 'hawkeye' },
+    })
+    fireEvent.click(screen.getByTestId('export-dbname-confirm'))
+    await waitFor(() => expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'Codegram-table-definition.xlsx'))
+    expect(build).toHaveBeenCalledWith('xlsx', expect.anything(), expect.anything(), 'hawkeye')
   })
 
   it('Table Doc Word builds the blob via the worker wrapper and downloads it', async () => {
@@ -86,7 +91,7 @@ describe('ExportMenu', () => {
     renderMenu()
     await openMenu(user)
     fireEvent.click(await screen.findByRole('menuitem', { name: '테이블 정의서 Word' }))
-    await waitFor(() => expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'table-definition.docx'))
+    await waitFor(() => expect(dl).toHaveBeenCalledWith(expect.any(Blob), 'Codegram-table-definition.docx'))
     expect(build).toHaveBeenCalledWith('docx', expect.anything(), expect.anything())
   })
 

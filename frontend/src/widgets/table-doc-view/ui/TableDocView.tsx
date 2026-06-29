@@ -2,6 +2,8 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   STANDARD_COLUMNS,
+  FK_HEADER_KEYS,
+  fkRow,
   type TableDocModel,
   type TableDocTable,
 } from '@/entities/table-doc'
@@ -55,6 +57,33 @@ function TableSection({ table }: { table: TableDocTable }) {
           ))}
         </tbody>
       </table>
+      {table.fkTargets.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          <h4 className="text-sm font-medium">{t('tableDoc.fks')}</h4>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b bg-muted">
+                {FK_HEADER_KEYS.map((k) => (
+                  <th key={k} scope="col" className="border px-2 py-1 text-left font-medium">
+                    {t(k)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.fkTargets.map((fk, i) => (
+                <tr key={i} className="border-b">
+                  {fkRow(fk).map((cell, j) => (
+                    <td key={j} className="border px-2 py-1">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
       {table.checks.length > 0 ? (
         <div className="flex flex-col gap-1">
           <h4 className="text-sm font-medium">{t('tableDoc.checks')}</h4>

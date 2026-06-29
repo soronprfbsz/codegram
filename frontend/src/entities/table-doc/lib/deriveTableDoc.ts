@@ -26,9 +26,15 @@ function fkContributions(ref: DbmlRef): { tableId: string; contribution: FkContr
   const fromId = `${ref.fromSchema}.${ref.fromTable}`
   const toId = `${ref.toSchema}.${ref.toTable}`
 
+  // FK constraint name: the explicit DBML ref name, else a synthesized
+  // `fk_<holding table>_<local columns>` (refs are usually unnamed).
+  const fkName = (holdingTable: string, localColumns: string[]): string =>
+    ref.name && ref.name.length > 0 ? ref.name : `fk_${holdingTable}_${localColumns.join('_')}`
+
   const fromHoldsFk: FkContribution = {
     columns: ref.fromColumns,
     target: {
+      name: fkName(ref.fromTable, ref.fromColumns),
       columns: ref.fromColumns,
       targetTable: ref.toTable,
       targetSchema: ref.toSchema,
@@ -38,6 +44,7 @@ function fkContributions(ref: DbmlRef): { tableId: string; contribution: FkContr
   const toHoldsFk: FkContribution = {
     columns: ref.toColumns,
     target: {
+      name: fkName(ref.toTable, ref.toColumns),
       columns: ref.toColumns,
       targetTable: ref.fromTable,
       targetSchema: ref.fromSchema,

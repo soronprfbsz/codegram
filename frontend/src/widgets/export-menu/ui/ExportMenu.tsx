@@ -15,7 +15,7 @@ import * as diagramExport from '@/features/export-diagram'
 import type { DiagramExportContext } from '@/features/export-diagram'
 import { SQL_DIALECTS, SQL_DIALECT_VALUES, type DbmlSchema } from '@/entities/dbml'
 import { deriveTableDoc } from '@/entities/table-doc'
-import { buildTableDocBlob, tableDocLabels } from '@/features/export-table-doc'
+import { buildTableDocBlob, tableDocFilename, tableDocLabels, ExportDbNameDialog } from '@/features/export-table-doc'
 import { downloadSql } from '@/features/sql-export'
 import { downloadBlob } from '@/shared/lib/download'
 import { useTableDocViewStore } from '@/widgets/table-doc-view'
@@ -27,6 +27,8 @@ export interface ExportMenuProps {
   schema: DbmlSchema | null
   /** Raw DBML of the open project — source for the SQL dumps. */
   dbmlText: string
+  /** Open project name — prefixes the table-doc download filenames. */
+  projectName: string
   /** Disable the trigger (no parsed schema / empty canvas). */
   disabled?: boolean
 }
@@ -45,10 +47,11 @@ export interface ExportMenuProps {
  * DOM-bound (stays on the main thread) but still shows the overlay; SQL is
  * instant. widgets layer: composes the export-* features + table-doc entity.
  */
-export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: ExportMenuProps) {
+export function ExportMenu({ diagram, schema, dbmlText, projectName, disabled = false }: ExportMenuProps) {
   const { t } = useTranslation()
   const openTableDoc = useTableDocViewStore((s) => s.openWith)
   const [busy, setBusy] = useState(false)
+  const [dbNameOpen, setDbNameOpen] = useState(false)
 
   /** Run an async export behind the progress overlay (always clears on finish). */
   async function withProgress(run: () => Promise<unknown>): Promise<void> {
@@ -61,14 +64,17 @@ export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: Expo
   }
 
   function preview() {
-    if (schema) openTableDoc(deriveTableDoc(schema))
+    if (schema) openTableDoc(deriveTableDoc(schema), projectName)
   }
-  function exportExcel() {
+  function exportExcel(defaultDbName: string) {
     if (!schema) return
     const model = deriveTableDoc(schema)
     const labels = tableDocLabels(t)
     void withProgress(async () =>
-      downloadBlob(await buildTableDocBlob('xlsx', model, labels), 'table-definition.xlsx'),
+      downloadBlob(
+        await buildTableDocBlob('xlsx', model, labels, defaultDbName),
+        tableDocFilename(projectName, 'xlsx'),
+      ),
     )
   }
   function exportPdf() {
@@ -76,7 +82,7 @@ export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: Expo
     const model = deriveTableDoc(schema)
     const labels = tableDocLabels(t)
     void withProgress(async () =>
-      downloadBlob(await buildTableDocBlob('pdf', model, labels), 'table-definition.pdf'),
+      downloadBlob(await buildTableDocBlob('pdf', model, labels), tableDocFilename(projectName, 'pdf')),
     )
   }
   function exportWord() {
@@ -84,7 +90,7 @@ export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: Expo
     const model = deriveTableDoc(schema)
     const labels = tableDocLabels(t)
     void withProgress(async () =>
-      downloadBlob(await buildTableDocBlob('docx', model, labels), 'table-definition.docx'),
+      downloadBlob(await buildTableDocBlob('docx', model, labels), tableDocFilename(projectName, 'docx')),
     )
   }
 
@@ -119,7 +125,7 @@ export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: Expo
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t('exportMenu.tableDoc')}</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={exportExcel}>{t('exportMenu.tableDocExcel')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setDbNameOpen(true)}>{t('exportMenu.tableDocExcel')}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => exportPdf()}>{t('exportMenu.tableDocPdf')}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => exportWord()}>{t('exportMenu.tableDocWord')}</DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -131,6 +137,7 @@ export function ExportMenu({ diagram, schema, dbmlText, disabled = false }: Expo
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+      <ExportDbNameDialog open={dbNameOpen} onOpenChange={setDbNameOpen} onConfirm={exportExcel} />
       <ExportProgressDialog open={busy} label={t('exportMenu.generating')} />
     </>
   )

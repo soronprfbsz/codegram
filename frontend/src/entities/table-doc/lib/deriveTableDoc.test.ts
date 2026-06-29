@@ -202,7 +202,7 @@ describe('deriveTableDoc — FK derivation by relation (NOT by endpoint order)',
 
     // posts gets one fkTarget pointing at users.id; users gets none.
     expect(posts.fkTargets).toEqual([
-      { columns: ['user_id'], targetTable: 'users', targetSchema: 'public', targetColumns: ['id'] },
+      { name: 'fk_posts_user_id', columns: ['user_id'], targetTable: 'users', targetSchema: 'public', targetColumns: ['id'] },
     ])
     expect(users.fkTargets).toEqual([])
   })
@@ -230,7 +230,7 @@ describe('deriveTableDoc — FK derivation by relation (NOT by endpoint order)',
 
     // The fkTarget is attached to posts and points back at users.id.
     expect(posts.fkTargets).toEqual([
-      { columns: ['user_id'], targetTable: 'users', targetSchema: 'public', targetColumns: ['id'] },
+      { name: 'fk_posts_user_id', columns: ['user_id'], targetTable: 'users', targetSchema: 'public', targetColumns: ['id'] },
     ])
     expect(users.fkTargets).toEqual([])
   })
@@ -257,10 +257,10 @@ describe('deriveTableDoc — FK derivation by relation (NOT by endpoint order)',
     expect(profiles.columns.find((c) => c.name === 'id')!.fk).toBe(true)
     // Both sides emit an fkTarget pointing at the other endpoint.
     expect(users.fkTargets).toEqual([
-      { columns: ['profile_id'], targetTable: 'profiles', targetSchema: 'public', targetColumns: ['id'] },
+      { name: 'fk_users_profile_id', columns: ['profile_id'], targetTable: 'profiles', targetSchema: 'public', targetColumns: ['id'] },
     ])
     expect(profiles.fkTargets).toEqual([
-      { columns: ['id'], targetTable: 'users', targetSchema: 'public', targetColumns: ['profile_id'] },
+      { name: 'fk_profiles_id', columns: ['id'], targetTable: 'users', targetSchema: 'public', targetColumns: ['profile_id'] },
     ])
   })
 
@@ -290,6 +290,7 @@ describe('deriveTableDoc — FK derivation by relation (NOT by endpoint order)',
     expect(items.columns.find((c) => c.name === 'id')!.fk).toBe(false)
     expect(items.fkTargets).toEqual([
       {
+        name: 'fk_order_items_order_id_product_id',
         columns: ['order_id', 'product_id'],
         targetTable: 'stock',
         targetSchema: 'public',
@@ -341,9 +342,24 @@ describe('deriveTableDoc — FK derivation by relation (NOT by endpoint order)',
     expect(posts.columns.find((c) => c.name === 'author_id')!.fk).toBe(true)
     // ...but one fkTarget entry per ref (no dedupe of targets).
     expect(posts.fkTargets).toEqual([
-      { columns: ['author_id'], targetTable: 'users', targetSchema: 'public', targetColumns: ['id'] },
-      { columns: ['author_id'], targetTable: 'admins', targetSchema: 'public', targetColumns: ['id'] },
+      { name: 'fk_posts_author_id', columns: ['author_id'], targetTable: 'users', targetSchema: 'public', targetColumns: ['id'] },
+      { name: 'fk_posts_author_id', columns: ['author_id'], targetTable: 'admins', targetSchema: 'public', targetColumns: ['id'] },
     ])
+  })
+
+  it('uses the explicit DBML ref name as the FK name when present', () => {
+    const schema = emptySchema({
+      tables: [
+        table('public', 'users', [col('public', 'users', 'id', { pk: true })]),
+        table('public', 'posts', [
+          col('public', 'posts', 'id', { pk: true }),
+          col('public', 'posts', 'user_id', { type: 'integer' }),
+        ]),
+      ],
+      refs: [{ ...ref('posts', ['user_id'], 'users', ['id'], 'n-1'), name: 'fk_author' }],
+    })
+    const posts = deriveTableDoc(schema).tables.find((t) => t.name === 'posts')!
+    expect(posts.fkTargets[0].name).toBe('fk_author')
   })
 })
 

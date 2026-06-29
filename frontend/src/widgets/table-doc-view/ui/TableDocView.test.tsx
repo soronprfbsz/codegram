@@ -41,6 +41,7 @@ const model: TableDocModel = {
       ],
       fkTargets: [
         {
+          name: 'fk_users_org_id',
           columns: ['org_id'],
           targetTable: 'orgs',
           targetSchema: 'public',
@@ -83,8 +84,9 @@ describe('TableDocView', () => {
     expect(
       screen.getByRole('heading', { name: 'public.users' }),
     ).toBeInTheDocument()
-    // PK cell shows Y for the id column (scope to the id row — strict-mode safe).
-    const idRow = screen.getByText('id').closest('tr')!
+    // PK cell shows Y for the id column. Anchor on its unique note ('primary
+    // key') — bare 'id' now also appears in the FK section's referenced column.
+    const idRow = screen.getByText('primary key').closest('tr')!
     expect(idRow).toHaveTextContent('Y')
     // Column headers are translated (English UI) — not hardcoded Korean.
     expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument()
@@ -107,6 +109,13 @@ describe('TableDocView', () => {
     // Enum-style check: each allowed value rendered as its own chip.
     expect(screen.getByText('active')).toBeInTheDocument()
     expect(screen.getByText('disabled')).toBeInTheDocument()
+  })
+
+  it('renders the FK section with the synthesized name and qualified reference', () => {
+    render(<TableDocView model={model} open onClose={() => {}} />)
+    expect(screen.getByRole('heading', { name: 'Foreign keys' })).toBeInTheDocument()
+    expect(screen.getByText('fk_users_org_id')).toBeInTheDocument()
+    expect(screen.getByText('public.orgs')).toBeInTheDocument()
   })
 
   it('fires onClose when the Close button is clicked', async () => {

@@ -20,6 +20,12 @@ export interface TableDocLabels {
   checkName: string
   checkValues: string
   checkExpression: string
+  /** FK section title + its column headers (FK명·컬럼·참조 테이블·참조 컬럼). */
+  fks: string
+  fkName: string
+  fkColumns: string
+  fkRefTable: string
+  fkRefColumns: string
   /** Overview ("테이블 목록") sheet name + its column headers. */
   overviewSheet: string
   overviewNo: string
@@ -67,6 +73,11 @@ export function tableDocLabels(t: TFunction): TableDocLabels {
     checkName: t('tableDoc.checkName'),
     checkValues: t('tableDoc.checkValues'),
     checkExpression: t('tableDoc.checkExpression'),
+    fks: t('tableDoc.fks'),
+    fkName: t('tableDoc.fkName'),
+    fkColumns: t('tableDoc.fkColumns'),
+    fkRefTable: t('tableDoc.fkRefTable'),
+    fkRefColumns: t('tableDoc.fkRefColumns'),
     overviewSheet: t('tableDoc.overviewSheet'),
     overviewNo: t('tableDoc.colNo'),
     overviewGroup: t('tableDoc.colGroup'),

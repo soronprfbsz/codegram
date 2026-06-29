@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { splitTypeLength, keyLabel, splitSchema } from './buildXlsx'
+import { splitTypeLength, keyLabel } from './buildXlsx'
 
 describe('splitTypeLength', () => {
   it('splits a parenthesized length out of the type name', () => {
@@ -39,23 +39,5 @@ describe('keyLabel', () => {
 
   it('returns an empty string when no key flag is set', () => {
     expect(keyLabel({ pk: false, unique: false, fk: false })).toBe('')
-  })
-})
-
-describe('splitSchema', () => {
-  it('splits DB name and schema name on the first underscore', () => {
-    expect(splitSchema('hawkeye_core')).toEqual({ dbName: 'hawkeye', schemaName: 'core' })
-  })
-
-  it('keeps everything after the first underscore as the schema name', () => {
-    expect(splitSchema('a_b_c')).toEqual({ dbName: 'a', schemaName: 'b_c' })
-  })
-
-  it('leaves DB name blank and uses the whole value as schema when there is no underscore', () => {
-    expect(splitSchema('public')).toEqual({ dbName: '', schemaName: 'public' })
-  })
-
-  it('handles an empty schema string', () => {
-    expect(splitSchema('')).toEqual({ dbName: '', schemaName: '' })
   })
 })

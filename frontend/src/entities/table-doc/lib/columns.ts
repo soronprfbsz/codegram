@@ -1,4 +1,4 @@
-import type { TableDocColumn } from '../model/types'
+import type { TableDocColumn, TableDocFkTarget } from '../model/types'
 
 /** 'Y' for a true flag, '' for false — keeps cells terse and printable. */
 export function flag(value: boolean): string {
@@ -39,4 +39,23 @@ export const STANDARD_COLUMN_HEADER_KEYS: readonly string[] = STANDARD_COLUMNS.m
 /** Map one derived column to a row in STANDARD_COLUMNS order. */
 export function columnRow(col: TableDocColumn): string[] {
   return STANDARD_COLUMNS.map((c) => c.value(col))
+}
+
+/** FK section header i18n keys, in FINAL order (FK명·컬럼·참조 테이블·참조 컬럼). */
+export const FK_HEADER_KEYS: readonly string[] = [
+  'tableDoc.fkName',
+  'tableDoc.fkColumns',
+  'tableDoc.fkRefTable',
+  'tableDoc.fkRefColumns',
+]
+
+/** Map one derived FK target to a row in FK_HEADER_KEYS order. Single source so
+ *  the xlsx/pdf/docx exporters and the HTML view never drift. */
+export function fkRow(fk: TableDocFkTarget): string[] {
+  return [
+    fk.name,
+    fk.columns.join(', '),
+    `${fk.targetSchema}.${fk.targetTable}`,
+    fk.targetColumns.join(', '),
+  ]
 }

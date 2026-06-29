@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   buildTableDocBlob,
+  tableDocFilename,
   tableDocLabels,
+  ExportDbNameDialog,
   type TableDocExportKind,
 } from '@/features/export-table-doc'
 import { downloadBlob } from '@/shared/lib/download'
@@ -22,14 +24,19 @@ const EMPTY = { tables: [], enums: [] }
 export function TableDocViewHost() {
   const { t } = useTranslation()
   const model = useTableDocViewStore((s) => s.model)
+  const projectName = useTableDocViewStore((s) => s.projectName)
   const close = useTableDocViewStore((s) => s.close)
   const [busy, setBusy] = useState(false)
+  const [dbNameOpen, setDbNameOpen] = useState(false)
 
-  async function download(kind: TableDocExportKind, filename: string): Promise<void> {
+  async function download(kind: TableDocExportKind, defaultDbName = ''): Promise<void> {
     if (!model) return
     setBusy(true)
     try {
-      downloadBlob(await buildTableDocBlob(kind, model, tableDocLabels(t)), filename)
+      downloadBlob(
+        await buildTableDocBlob(kind, model, tableDocLabels(t), defaultDbName),
+        tableDocFilename(projectName, kind),
+      )
     } finally {
       setBusy(false)
     }
@@ -41,15 +48,14 @@ export function TableDocViewHost() {
         model={model ?? EMPTY}
         open={model !== null}
         onClose={close}
-        onDownloadExcel={
-          model ? () => void download('xlsx', 'table-definition.xlsx') : undefined
-        }
-        onDownloadPdf={
-          model ? () => void download('pdf', 'table-definition.pdf') : undefined
-        }
-        onDownloadDocx={
-          model ? () => void download('docx', 'table-definition.docx') : undefined
-        }
+        onDownloadExcel={model ? () => setDbNameOpen(true) : undefined}
+        onDownloadPdf={model ? () => void download('pdf') : undefined}
+        onDownloadDocx={model ? () => void download('docx') : undefined}
+      />
+      <ExportDbNameDialog
+        open={dbNameOpen}
+        onOpenChange={setDbNameOpen}
+        onConfirm={(dbName) => void download('xlsx', dbName)}
       />
       <ExportProgressDialog open={busy} label={t('exportMenu.generating')} />
     </>

@@ -3,7 +3,7 @@ import {
   WidthType, ShadingType, HeadingLevel,
 } from 'docx'
 import {
-  columnRow,
+  columnRow, fkRow,
   type TableDocModel, type TableDocTable,
 } from '@/entities/table-doc'
 import type { TableDocLabels } from './labels'
@@ -48,13 +48,24 @@ function evenPcts(n: number): number[] {
   return docxColumnPercents(Array.from({ length: n }, () => 1))
 }
 
-/** All docx blocks for one table: title + columns table + optional checks. */
+/** All docx blocks for one table: title + columns table + optional FK + checks. */
 function tableBlocks(table: TableDocTable, labels: TableDocLabels): (Paragraph | Table)[] {
   const title = table.note ? `${table.schema}.${table.name} — ${table.note}` : `${table.schema}.${table.name}`
   const blocks: (Paragraph | Table)[] = [
     new Paragraph({ text: title, heading: HeadingLevel.HEADING_2 }),
     styledTable([...labels.columnHeaders], table.columns.map(columnRow), STD_PCT),
   ]
+  if (table.fkTargets.length > 0) {
+    blocks.push(new Paragraph(''))
+    blocks.push(new Paragraph({ children: [new TextRun({ text: labels.fks, bold: true })] }))
+    blocks.push(
+      styledTable(
+        [labels.fkName, labels.fkColumns, labels.fkRefTable, labels.fkRefColumns],
+        table.fkTargets.map(fkRow),
+        evenPcts(4),
+      ),
+    )
+  }
   const checks = Array.isArray(table.checks) ? table.checks : []
   if (checks.length > 0) {
     blocks.push(new Paragraph(''))
