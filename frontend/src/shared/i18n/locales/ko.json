@@ -18,8 +18,7 @@
     "en": "English",
     "theme": "테마",
     "themeLight": "라이트",
-    "themeDark": "다크",
-    "apply": "적용"
+    "themeDark": "다크"
   },
   "auth": {
     "brand": "Codegram",

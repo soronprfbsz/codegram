@@ -18,8 +18,7 @@
     "en": "English",
     "theme": "Theme",
     "themeLight": "Light",
-    "themeDark": "Dark",
-    "apply": "Apply"
+    "themeDark": "Dark"
   },
   "auth": {
     "brand": "Codegram",
