@@ -76,7 +76,7 @@ describe('TableDocView', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders the table name, a PK cell, an FK target, and an enum value', () => {
+  it('renders the table name, a PK cell, and an enum value', () => {
     render(<TableDocView model={model} open onClose={() => {}} />)
     expect(screen.getByTestId('table-doc-view')).toBeInTheDocument()
     // Table heading (schema.name).
@@ -86,8 +86,6 @@ describe('TableDocView', () => {
     // PK cell shows Y for the id column (scope to the id row — strict-mode safe).
     const idRow = screen.getByText('id').closest('tr')!
     expect(idRow).toHaveTextContent('Y')
-    // FK target row: org_id -> public.orgs(id) — grouped/paired format.
-    expect(screen.getByText('public.orgs(id)')).toBeInTheDocument()
     // Column headers are translated (English UI) — not hardcoded Korean.
     expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Description' })).toBeInTheDocument()
@@ -117,57 +115,6 @@ describe('TableDocView', () => {
     render(<TableDocView model={model} open onClose={onClose} />)
     await user.click(screen.getByRole('button', { name: /close/i }))
     expect(onClose).toHaveBeenCalledTimes(1)
-  })
-
-  it('renders a composite FK with the target columns grouped under the target table', () => {
-    const compositeModel: TableDocModel = {
-      tables: [
-        {
-          id: 'public.memberships',
-          schema: 'public',
-          name: 'memberships',
-          note: '',
-          columns: [
-            {
-              name: 'org_id',
-              type: 'integer',
-              pk: false,
-              fk: true,
-              notNull: true,
-              unique: false,
-              default: '',
-              note: '',
-            },
-            {
-              name: 'user_id',
-              type: 'integer',
-              pk: false,
-              fk: true,
-              notNull: true,
-              unique: false,
-              default: '',
-              note: '',
-            },
-          ],
-          fkTargets: [
-            {
-              columns: ['org_id', 'user_id'],
-              targetTable: 'org_users',
-              targetSchema: 'public',
-              targetColumns: ['org_id', 'user_id'],
-            },
-          ],
-          checks: [],
-        },
-      ],
-      enums: [],
-    }
-    render(<TableDocView model={compositeModel} open onClose={() => {}} />)
-    // Local FK columns comma-joined; target columns grouped under the table.
-    expect(screen.getByText('org_id, user_id')).toBeInTheDocument()
-    expect(
-      screen.getByText('public.org_users(org_id, user_id)'),
-    ).toBeInTheDocument()
   })
 
   it('renders an empty tbody for a table with zero columns', () => {

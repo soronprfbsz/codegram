@@ -1,4 +1,4 @@
-import type { TableDocColumn, TableDocFkTarget } from '../model/types'
+import type { TableDocColumn } from '../model/types'
 
 /** 'Y' for a true flag, '' for false — keeps cells terse and printable. */
 export function flag(value: boolean): string {
@@ -39,18 +39,4 @@ export const STANDARD_COLUMN_HEADER_KEYS: readonly string[] = STANDARD_COLUMNS.m
 /** Map one derived column to a row in STANDARD_COLUMNS order. */
 export function columnRow(col: TableDocColumn): string[] {
   return STANDARD_COLUMNS.map((c) => c.value(col))
-}
-
-/** Local FK-holding columns on this table, comma-joined (e.g. `a, b`). */
-export function fkLocalCell(fk: TableDocFkTarget): string {
-  return fk.columns.join(', ')
-}
-
-/**
- * Referenced side, grouped so the target columns clearly belong to the target
- * table: `public.orgs(id)` for a single column, `public.orgs(x, y)` for a
- * composite FK. Shared by the PDF exporter and the HTML view.
- */
-export function fkTargetCell(fk: TableDocFkTarget): string {
-  return `${fk.targetSchema}.${fk.targetTable}(${fk.targetColumns.join(', ')})`
 }

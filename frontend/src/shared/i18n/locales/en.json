@@ -291,9 +291,6 @@
     "downloadPdf": "Download PDF",
     "downloadWord": "Download Word",
     "enums": "Enums",
-    "fkRelations": "FK relations",
-    "column": "Column",
-    "reference": "Reference",
     "checks": "Check constraints",
     "checkName": "Name",
     "checkValues": "Allowed values",
@@ -313,6 +310,19 @@
     "colNo": "No",
     "colGroup": "Group",
     "colTable": "Table",
-    "ungrouped": "Ungrouped"
+    "ungrouped": "Ungrouped",
+    "docTitle": "Table Definition",
+    "subjectArea": "Subject Area",
+    "dbName": "DB Name",
+    "schemaName": "Schema",
+    "tableName": "Table Name",
+    "tableDesc": "Table Description",
+    "colId": "Column ID",
+    "typeShort": "Type",
+    "length": "Length",
+    "nullable": "NULL",
+    "keyLabel": "KEY",
+    "defaultLabel": "DEFAULT",
+    "etc": "Other"
   }
 }

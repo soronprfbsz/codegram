@@ -10,9 +10,6 @@ import { STANDARD_COLUMNS } from '@/entities/table-doc'
 export interface TableDocLabels {
   /** Standard column headers, translated, in STANDARD_COLUMNS order. */
   columnHeaders: string[]
-  /** FK section header: local column / referenced target. */
-  fkColumn: string
-  fkReference: string
   /** Enum list header columns + the worksheet/section name. */
   enumColEnum: string
   enumColValue: string
@@ -31,14 +28,37 @@ export interface TableDocLabels {
   overviewDesc: string
   /** Sheet name for tables not in any group. */
   ungroupedSheet: string
+  /** Labels for the per-table "테이블정의서" form block (Excel only). */
+  form: TableDocFormLabels
+}
+
+/** Cell labels for the Excel per-table definition form (header grid + body). */
+export interface TableDocFormLabels {
+  /** Merged title row text. */
+  title: string
+  /** Header-grid labels. */
+  subjectArea: string
+  dbName: string
+  schemaName: string
+  tableName: string
+  tableDesc: string
+  /** Body column headers. */
+  no: string
+  colId: string
+  type: string
+  length: string
+  nullable: string
+  key: string
+  defaultVal: string
+  desc: string
+  /** Trailing "기타" row label. */
+  etc: string
 }
 
 /** Build the exporter labels from a translate function (single i18n source). */
 export function tableDocLabels(t: TFunction): TableDocLabels {
   return {
     columnHeaders: STANDARD_COLUMNS.map((c) => t(c.header)),
-    fkColumn: t('tableDoc.column'),
-    fkReference: t('tableDoc.reference'),
     enumColEnum: t('tableDoc.enumColEnum'),
     enumColValue: t('tableDoc.enumColValue'),
     enumColNote: t('tableDoc.enumColNote'),
@@ -53,5 +73,22 @@ export function tableDocLabels(t: TFunction): TableDocLabels {
     overviewTable: t('tableDoc.colTable'),
     overviewDesc: t('tableDoc.colNote'),
     ungroupedSheet: t('tableDoc.ungrouped'),
+    form: {
+      title: t('tableDoc.docTitle'),
+      subjectArea: t('tableDoc.subjectArea'),
+      dbName: t('tableDoc.dbName'),
+      schemaName: t('tableDoc.schemaName'),
+      tableName: t('tableDoc.tableName'),
+      tableDesc: t('tableDoc.tableDesc'),
+      no: t('tableDoc.colNo'),
+      colId: t('tableDoc.colId'),
+      type: t('tableDoc.typeShort'),
+      length: t('tableDoc.length'),
+      nullable: t('tableDoc.nullable'),
+      key: t('tableDoc.keyLabel'),
+      defaultVal: t('tableDoc.defaultLabel'),
+      desc: t('tableDoc.colNote'),
+      etc: t('tableDoc.etc'),
+    },
   }
 }

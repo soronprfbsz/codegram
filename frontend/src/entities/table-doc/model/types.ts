@@ -25,7 +25,8 @@ export interface TableDocColumn {
   note: string
 }
 
-/** A foreign-key relationship target rendered in a table's FK section. */
+/** A foreign-key relationship target derived for a table (not rendered as a
+ *  separate section — the column FK flag conveys FK membership). */
 export interface TableDocFkTarget {
   /** Local column names on THIS table that hold the FK (composite => length > 1, order preserved). */
   columns: string[]

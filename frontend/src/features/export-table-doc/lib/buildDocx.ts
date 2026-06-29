@@ -3,7 +3,7 @@ import {
   WidthType, ShadingType, HeadingLevel,
 } from 'docx'
 import {
-  columnRow, fkLocalCell, fkTargetCell,
+  columnRow,
   type TableDocModel, type TableDocTable,
 } from '@/entities/table-doc'
 import type { TableDocLabels } from './labels'
@@ -48,23 +48,13 @@ function evenPcts(n: number): number[] {
   return docxColumnPercents(Array.from({ length: n }, () => 1))
 }
 
-/** All docx blocks for one table: title + columns table + optional fk/checks. */
+/** All docx blocks for one table: title + columns table + optional checks. */
 function tableBlocks(table: TableDocTable, labels: TableDocLabels): (Paragraph | Table)[] {
   const title = table.note ? `${table.schema}.${table.name} — ${table.note}` : `${table.schema}.${table.name}`
   const blocks: (Paragraph | Table)[] = [
     new Paragraph({ text: title, heading: HeadingLevel.HEADING_2 }),
     styledTable([...labels.columnHeaders], table.columns.map(columnRow), STD_PCT),
   ]
-  if (table.fkTargets.length > 0) {
-    blocks.push(new Paragraph(''))
-    blocks.push(
-      styledTable(
-        [labels.fkColumn, labels.fkReference],
-        table.fkTargets.map((fk) => [fkLocalCell(fk), fkTargetCell(fk)]),
-        evenPcts(2),
-      ),
-    )
-  }
   const checks = Array.isArray(table.checks) ? table.checks : []
   if (checks.length > 0) {
     blocks.push(new Paragraph(''))
@@ -83,8 +73,8 @@ function tableBlocks(table: TableDocTable, labels: TableDocLabels): (Paragraph |
 
 /**
  * Build a styled .docx Blob from the derived table-doc model — same layout as
- * the PDF: per table a heading + a styled column table (+ optional FK/CHECK
- * tables), then a trailing Enum table. Reuses the shared header style and
+ * the PDF: per table a heading + a styled column table (+ an optional CHECK
+ * table), then a trailing Enum table. Reuses the shared header style and
  * column widths. Korean needs no embedded font (Word resolves it). No download.
  */
 export async function buildTableDocDocxBlob(

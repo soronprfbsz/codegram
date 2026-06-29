@@ -1,11 +1,6 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import {
-  columnRow,
-  fkLocalCell,
-  fkTargetCell,
-  type TableDocModel,
-} from '@/entities/table-doc'
+import { columnRow, type TableDocModel } from '@/entities/table-doc'
 import type { TableDocLabels } from './labels'
 
 /** Page margin (mm) and the gap between stacked sections. */
@@ -52,9 +47,10 @@ function finalY(doc: jsPDF): number {
 
 /**
  * Build a table-definition PDF Blob from the derived model. Per table:
- * a title line, the standard column autoTable, then (when present) an
- * FK-targets autoTable; the document ends with an enum-list autoTable. Each
- * section starts below the previous one's finalY so autoTable paginates.
+ * a title line, the standard column autoTable, then (when present) a
+ * CHECK-constraint autoTable; the document ends with an enum-list autoTable.
+ * Each section starts below the previous one's finalY so autoTable paginates.
+ * FK relationships are conveyed by the FK flag column, not a separate table.
  *
  * Async because it embeds a Korean TTF (fetched lazily). No download, no React.
  */
@@ -67,7 +63,6 @@ export async function buildTableDocPdfBlob(
   // Embedded font applies to autoTable cells too (header + body carry Hangul).
   const tableStyles = { font: FONT_NAME, fontStyle: 'normal' as const }
   const columnHead = [labels.columnHeaders]
-  const fkHead = [[labels.fkColumn, labels.fkReference]]
   const enumHead = [[labels.enumColEnum, labels.enumColValue, labels.enumColNote]]
   let cursorY = MARGIN
 
@@ -84,15 +79,6 @@ export async function buildTableDocPdfBlob(
       styles: tableStyles,
     })
     cursorY = finalY(doc) + SECTION_GAP
-
-    if (table.fkTargets.length > 0) {
-      const fkBody = table.fkTargets.map((fk) => [
-        fkLocalCell(fk),
-        fkTargetCell(fk),
-      ])
-      autoTable(doc, { startY: cursorY, head: fkHead, body: fkBody, styles: tableStyles })
-      cursorY = finalY(doc) + SECTION_GAP
-    }
 
     const checks = Array.isArray(table.checks) ? table.checks : []
     if (checks.length > 0) {

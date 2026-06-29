@@ -5,7 +5,6 @@ import type { TableDocLabels } from './labels'
 
 const LABELS: TableDocLabels = {
   columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
-  fkColumn: '컬럼', fkReference: '참조',
   enumColEnum: 'Enum', enumColValue: '값', enumColNote: '설명', enumsSheet: 'Enums',
   checks: 'CHECK 제약', checkName: '이름', checkValues: '허용값', checkExpression: '표현식',
 }
@@ -25,7 +24,7 @@ const full: TableDocModel = {
 const empty: TableDocModel = { tables: [], enums: [] }
 
 describe('buildTableDocDocxBlob', () => {
-  it('produces a non-empty .docx Blob for a full model (tables, fk, checks, enums)', async () => {
+  it('produces a non-empty .docx Blob for a full model (tables, checks, enums)', async () => {
     const blob = await buildTableDocDocxBlob(full, LABELS)
     expect(blob.size).toBeGreaterThan(0)
     expect(blob.type).toContain('word')
