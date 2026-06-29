@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
@@ -60,6 +60,15 @@ class Project(Base):
     layout: Mapped[dict[str, Any]] = mapped_column(
         JSON().with_variant(JSONB, "postgresql"),
         default=dict,
+        nullable=False,
+    )
+    # Optimistic-concurrency counter: bumped on every content write (dbml_text /
+    # layout). Stale writes (version mismatch) are rejected — the backstop behind
+    # the pessimistic edit lock (ADR-0015).
+    version: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default=text("0"),
         nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(

@@ -9,7 +9,7 @@ def test_project_table_registered_on_metadata() -> None:
 
 
 def test_project_has_expected_columns() -> None:
-    """Project exposes id, user_id, name, dbml_text, layout, timestamps, glyph, color."""
+    """Project exposes id, user_id, name, dbml_text, layout, version, timestamps, glyph, color."""
     columns = {c.name for c in Project.__table__.columns}
     assert columns == {
         "id",
@@ -17,6 +17,7 @@ def test_project_has_expected_columns() -> None:
         "name",
         "dbml_text",
         "layout",
+        "version",
         "created_at",
         "updated_at",
         "glyph",
