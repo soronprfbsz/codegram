@@ -56,8 +56,9 @@ services:
     depends_on:
       - backend
     environment:
-      # API proxy target on the shared network (compose service DNS).
-      API_SERVER_URL: ${API_SERVER_URL:-http://backend:8000}
+      # API proxy target (host:port) on the ts-codegram network; nginx resolves
+      # it at request time via Docker DNS.
+      API_BACKEND: ${API_BACKEND:-backend:8000}
     ports:
       - "${FRONTEND_HOST_PORT:-28080}:80"
     healthcheck:
