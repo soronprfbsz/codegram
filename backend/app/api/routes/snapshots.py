@@ -23,7 +23,12 @@ from app.schemas.project_snapshot import (
     ProjectSnapshotRead,
     SnapshotCalendarDay,
 )
-from app.services.project import ProjectNotFoundError
+from app.services.lock_guard import EditLockConflictError
+from app.services.project import (
+    ProjectForbiddenError,
+    ProjectNotFoundError,
+    StaleVersionError,
+)
 from app.services.project_snapshot import (
     ProjectSnapshotNotFoundError,
     ProjectSnapshotService,
@@ -37,6 +42,11 @@ router = APIRouter(
 
 _PROJECT_NOT_FOUND = "Project not found"
 _SNAPSHOT_NOT_FOUND = "Snapshot not found"
+
+
+def _forbidden() -> HTTPException:
+    """403 — the caller has a role but lacks this snapshot capability."""
+    return HTTPException(status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
 def get_snapshot_service(
@@ -62,6 +72,8 @@ async def create_snapshot(
         snapshot = await service.create_manual(
             project_id, user.id, label=payload.label
         )
+    except ProjectForbiddenError:
+        raise _forbidden() from None
     except ProjectNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=_PROJECT_NOT_FOUND
@@ -92,6 +104,8 @@ async def list_snapshots(
             day=day,
             tz_offset_minutes=tz_offset,
         )
+    except ProjectForbiddenError:
+        raise _forbidden() from None
     except ProjectNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=_PROJECT_NOT_FOUND
@@ -119,6 +133,8 @@ async def snapshot_calendar(
             group=group,
             tz_offset_minutes=tz_offset,
         )
+    except ProjectForbiddenError:
+        raise _forbidden() from None
     except ProjectNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=_PROJECT_NOT_FOUND
@@ -139,6 +155,8 @@ async def get_snapshot(
     """Get one snapshot with its full restorable body (for preview)."""
     try:
         snapshot = await service.get_snapshot(project_id, snapshot_id, user.id)
+    except ProjectForbiddenError:
+        raise _forbidden() from None
     except (ProjectNotFoundError, ProjectSnapshotNotFoundError):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=_SNAPSHOT_NOT_FOUND
@@ -156,6 +174,8 @@ async def delete_snapshot(
     """Delete a manual snapshot (auto snapshots are not user-deletable)."""
     try:
         await service.delete_manual(project_id, snapshot_id, user.id)
+    except ProjectForbiddenError:
+        raise _forbidden() from None
     except (ProjectNotFoundError, ProjectSnapshotNotFoundError):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=_SNAPSHOT_NOT_FOUND
@@ -177,9 +197,20 @@ async def restore_snapshot(
     """Restore the project to a snapshot (after a safety snapshot of current)."""
     try:
         project = await service.restore(project_id, snapshot_id, user.id)
+    except ProjectForbiddenError:
+        raise _forbidden() from None
     except (ProjectNotFoundError, ProjectSnapshotNotFoundError):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=_SNAPSHOT_NOT_FOUND
+        ) from None
+    except EditLockConflictError as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={"reason": "edit_locked", "locked_by_email": exc.locked_by_email},
+        ) from None
+    except StaleVersionError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail={"reason": "stale_version"}
         ) from None
     return ProjectRead.model_validate(project)
 

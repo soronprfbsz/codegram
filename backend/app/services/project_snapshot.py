@@ -1,10 +1,12 @@
 """Project snapshot business logic: history capture, restore, prune (ADR-0014).
 
-Every operation is scoped to the requesting user by first resolving the parent
-project through ProjectService.get_project(project_id, user_id), which raises
-ProjectNotFoundError (router -> 404) when the project is missing or not owned.
-The service does not commit; the request scope (get_session) or the scheduler
-job commits the unit of work.
+Every operation authorizes against the parent project's role (ADR-0015) via
+ProjectService.get_authorized with the matching capability: read history = VIEW
+(any participant), create = CREATE_SNAPSHOT (owner/editor), delete =
+DELETE_SNAPSHOT (owner), restore = EDIT (owner/editor, and a content write so it
+also takes the edit lock). No role -> ProjectNotFoundError (404); role but not
+the capability -> ProjectForbiddenError (403). The service does not commit; the
+request scope (get_session) or the scheduler job commits the unit of work.
 
 Snapshot kinds and dedup: auto snapshots are skipped when the project's current
 content hash equals the latest snapshot OF THE SAME KIND (per-kind comparison,
@@ -25,6 +27,7 @@ from app.core.config import settings
 from app.models.project import Project
 from app.models.project_snapshot import ProjectSnapshot
 from app.repositories.project_snapshot import ProjectSnapshotRepository
+from app.services.access import Capability
 from app.services.project import ProjectService
 
 KIND_FINE = "auto_fine"
@@ -88,7 +91,7 @@ class ProjectSnapshotService:
         tz_offset_minutes: int = 0,
     ) -> Sequence[ProjectSnapshot]:
         """List a project's snapshots (optionally one local day), newest first."""
-        await self.projects.get_project(project_id, user_id)
+        await self.projects.get_authorized(project_id, user_id, Capability.VIEW)
         created_after: datetime | None = None
         created_before: datetime | None = None
         if day is not None:
@@ -112,7 +115,7 @@ class ProjectSnapshotService:
         tz_offset_minutes: int = 0,
     ) -> dict[date, int]:
         """Count snapshots per local date within a local month (for calendar)."""
-        await self.projects.get_project(project_id, user_id)
+        await self.projects.get_authorized(project_id, user_id, Capability.VIEW)
         after, before = _local_month_to_utc_window(year, month, tz_offset_minutes)
         timestamps = await self.repo.created_ats_for_project(
             project_id,
@@ -133,8 +136,8 @@ class ProjectSnapshotService:
         snapshot_id: uuid.UUID,
         user_id: uuid.UUID,
     ) -> ProjectSnapshot:
-        """Return one owned snapshot (with body) or raise NotFound."""
-        await self.projects.get_project(project_id, user_id)
+        """Return one accessible snapshot (with body) or raise NotFound."""
+        await self.projects.get_authorized(project_id, user_id, Capability.VIEW)
         snapshot = await self.repo.get_by_id_and_project(snapshot_id, project_id)
         if snapshot is None:
             raise ProjectSnapshotNotFoundError(snapshot_id)
@@ -149,7 +152,9 @@ class ProjectSnapshotService:
         label: str | None = None,
     ) -> ProjectSnapshot:
         """Snapshot the current project state as a labelled manual snapshot."""
-        project = await self.projects.get_project(project_id, user_id)
+        project, _role = await self.projects.get_authorized(
+            project_id, user_id, Capability.CREATE_SNAPSHOT
+        )
         existing = await self.repo.count_for_project(project_id, KIND_MANUAL)
         if existing >= settings.snapshot_manual_max:
             raise SnapshotLimitError(settings.snapshot_manual_max)
@@ -168,8 +173,16 @@ class ProjectSnapshotService:
         snapshot_id: uuid.UUID,
         user_id: uuid.UUID,
     ) -> None:
-        """Delete a manual snapshot; auto snapshots are not user-deletable."""
-        snapshot = await self.get_snapshot(project_id, snapshot_id, user_id)
+        """Delete a manual snapshot; auto snapshots are not user-deletable.
+
+        Owner-only (DELETE_SNAPSHOT) — authorized before the snapshot lookup.
+        """
+        await self.projects.get_authorized(
+            project_id, user_id, Capability.DELETE_SNAPSHOT
+        )
+        snapshot = await self.repo.get_by_id_and_project(snapshot_id, project_id)
+        if snapshot is None:
+            raise ProjectSnapshotNotFoundError(snapshot_id)
         if snapshot.kind != KIND_MANUAL:
             raise SnapshotNotDeletableError(snapshot_id)
         await self.repo.delete(snapshot)
@@ -184,9 +197,12 @@ class ProjectSnapshotService:
 
         The target snapshot is left intact. Before overwriting, the project's
         current state is captured as a fine safety snapshot so an accidental
-        restore is itself reversible.
+        restore is itself reversible. Restore is a content write — it requires
+        EDIT and goes through update_project, so the edit lock applies.
         """
-        project = await self.projects.get_project(project_id, user_id)
+        project, _role = await self.projects.get_authorized(
+            project_id, user_id, Capability.EDIT
+        )
         target = await self.repo.get_by_id_and_project(snapshot_id, project_id)
         if target is None:
             raise ProjectSnapshotNotFoundError(snapshot_id)

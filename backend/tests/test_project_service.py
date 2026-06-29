@@ -28,7 +28,7 @@ async def test_create_and_get_project(test_session: AsyncSession) -> None:
     service = ProjectService(test_session)
 
     created = await service.create_project(user_id=user_id, name="P1")
-    fetched = await service.get_project(created.id, user_id)
+    fetched = await service.get_viewable_project(created.id, user_id)
 
     assert fetched.id == created.id
     assert fetched.name == "P1"
@@ -39,7 +39,7 @@ async def test_get_missing_raises_not_found(test_session: AsyncSession) -> None:
     service = ProjectService(test_session)
 
     with pytest.raises(ProjectNotFoundError):
-        await service.get_project(uuid.uuid4(), user_id)
+        await service.get_viewable_project(uuid.uuid4(), user_id)
 
 
 async def test_get_other_users_project_raises_not_found(
@@ -52,7 +52,7 @@ async def test_get_other_users_project_raises_not_found(
 
     # Cross-user access raises NotFound (404, not 403).
     with pytest.raises(ProjectNotFoundError):
-        await service.get_project(created.id, other_id)
+        await service.get_viewable_project(created.id, other_id)
 
 
 async def test_list_projects_only_own(test_session: AsyncSession) -> None:
@@ -103,7 +103,7 @@ async def test_delete_project(test_session: AsyncSession) -> None:
     await service.delete_project(created.id, user_id)
 
     with pytest.raises(ProjectNotFoundError):
-        await service.get_project(created.id, user_id)
+        await service.get_viewable_project(created.id, user_id)
 
 
 async def test_delete_other_users_project_raises_not_found(

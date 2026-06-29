@@ -100,20 +100,6 @@ class ProjectService:
             layout=layout,
         )
 
-    async def get_project(
-        self, project_id: uuid.UUID, user_id: uuid.UUID
-    ) -> Project:
-        """Return the OWNED project or raise ProjectNotFoundError.
-
-        Owner-scoped (not role-aware): the snapshot service still gates on
-        ownership through this. Route reads that should honor shared roles use
-        get_viewable_project / get_authorized instead.
-        """
-        project = await self.repo.get_by_id_and_user(project_id, user_id)
-        if project is None:
-            raise ProjectNotFoundError(project_id)
-        return project
-
     async def list_projects(self, user_id: uuid.UUID) -> Sequence[Project]:
         """List projects the user can access — owned + shared (newest first)."""
         owned = await self.repo.list_by_user(user_id)
