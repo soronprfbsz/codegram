@@ -27,6 +27,8 @@ export interface ErdTopBarProps {
   infoButton?: ReactNode
   /** Snapshot-history toggle (a clock icon button) rendered on the right. */
   historyButton?: ReactNode
+  /** Edit-lock status (read-only / "editing: X" / takeover), left of the Save pill. */
+  lockStatus?: ReactNode
 }
 
 /** Dot + label for the save pill. */
@@ -83,6 +85,7 @@ export function ErdTopBar({
   searchBox,
   infoButton,
   historyButton,
+  lockStatus,
 }: ErdTopBarProps) {
   return (
     <header
@@ -135,6 +138,7 @@ export function ErdTopBar({
       {/* Right group: 검색 + Save pill + 정보 + 버전 기록 + Import + Export */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {searchBox}
+        {lockStatus}
         <SavePill status={autosaveStatus} />
         {infoButton}
         {historyButton}

@@ -44,6 +44,7 @@ import { type DiagramExportContext } from '@/features/export-diagram'
 import { SqlImportDialog } from '@/features/sql-import'
 import { ErdTopBar } from '@/widgets/erd-topbar'
 import { ExportMenu } from '@/widgets/export-menu'
+import { useEditLease, LockStatusControl, BumpedDialog } from '@/features/edit-lock'
 import { DbConnectDialog } from '@/features/db-import'
 import {
   parseDbml,
@@ -138,6 +139,11 @@ export function EditorPage() {
   const [activePanel, setActivePanel] = useState<'info' | 'history' | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
   const previewing = previewId !== null
+  // Role-based access (ADR-0015): editors/owners can edit; viewers are read-only.
+  const canEdit = project?.role === 'owner' || project?.role === 'editor'
+  const lease = useEditLease(id, { canEdit, isOwner: project?.role === 'owner' })
+  // Read-only when the role can't edit OR the caller doesn't hold the live lock.
+  const readOnly = !canEdit || lease.readOnly
   // 정보 토글: 열면 버전 기록이 자동으로 닫히고(상호배타), 재클릭하면 hide.
   const toggleInfo = () => {
     setActivePanel((p) => (p === 'info' ? null : 'info'))
@@ -155,8 +161,11 @@ export function EditorPage() {
     baseline,
     layout,
     layoutBaseline,
-    // Pause autosave while previewing a snapshot so nothing it shows is saved.
-    suspended: previewing,
+    // Pause autosave while previewing a snapshot, or when read-only (viewer /
+    // not holding the edit lock), so nothing it shows is persisted.
+    suspended: previewing || readOnly,
+    version: project?.version,
+    onConflict: lease.reportConflict,
   })
   // Full body of the snapshot being previewed (fetched on demand).
   const { data: previewSnapshot } = useSnapshot(id, previewId)
@@ -424,6 +433,7 @@ export function EditorPage() {
         projectName={project.name}
         projectMeta={projectMeta}
         autosaveStatus={status}
+        lockStatus={<LockStatusControl canEdit={canEdit} lease={lease} />}
         searchBox={<TableSearch schema={schema} onNavigate={focusTable} />}
         infoButton={
           <TopbarIconButton
@@ -502,9 +512,10 @@ export function EditorPage() {
             flexDirection: 'column',
             minHeight: 0,
             overflow: 'hidden',
-            // Snapshot preview is read-only: block editing the live DBML.
-            pointerEvents: previewing ? 'none' : undefined,
-            opacity: previewing ? 0.5 : 1,
+            // Read-only (snapshot preview, viewer role, or not holding the edit
+            // lock): block editing the live DBML.
+            pointerEvents: previewing || readOnly ? 'none' : undefined,
+            opacity: previewing || readOnly ? 0.5 : 1,
           }}
         >
           {dbmlOpen ? (
@@ -857,6 +868,13 @@ export function EditorPage() {
 
       {/* Dialogs / overlays — the 테이블 정의서 HTML overlay is now mounted
           once in AppLayout (opened from the sidebar's "⋯" menu). */}
+      <BumpedDialog
+        open={lease.bumped}
+        onOpenChange={(o) => {
+          if (!o) lease.clearBumped()
+        }}
+        dbmlText={dbmlText}
+      />
       <SqlImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}

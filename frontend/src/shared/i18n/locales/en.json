@@ -101,6 +101,16 @@
     "errorAlreadyMember": "Already a member.",
     "errorGeneric": "Something went wrong."
   },
+  "editLock": {
+    "viewerReadOnly": "Read-only (viewer)",
+    "editing": "{{email}} is editing",
+    "takeover": "Take over editing",
+    "forceTakeover": "Force takeover",
+    "bumpedTitle": "Editing was taken over",
+    "bumpedDesc": "Another user took over editing, so changes in this window were not saved. To keep your work, copy the current DBML, then reload.",
+    "copyDbml": "Copy current DBML",
+    "reload": "Reload"
+  },
   "theme": {
     "toLight": "Switch to light mode",
     "toDark": "Switch to dark mode",

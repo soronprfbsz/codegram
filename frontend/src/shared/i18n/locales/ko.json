@@ -101,6 +101,16 @@
     "errorAlreadyMember": "이미 멤버입니다.",
     "errorGeneric": "처리 중 오류가 발생했습니다."
   },
+  "editLock": {
+    "viewerReadOnly": "읽기 전용 (뷰어)",
+    "editing": "{{email}} 님이 편집 중",
+    "takeover": "편집 이어받기",
+    "forceTakeover": "강제 이어받기",
+    "bumpedTitle": "편집 권한이 넘어갔습니다",
+    "bumpedDesc": "다른 사용자가 편집을 이어받아 이 창의 변경사항은 저장되지 않았습니다. 작업 내용을 보존하려면 현재 DBML을 복사한 뒤 새로고침하세요.",
+    "copyDbml": "현재 DBML 복사",
+    "reload": "새로고침"
+  },
   "theme": {
     "toLight": "라이트 모드로 전환",
     "toDark": "다크 모드로 전환",

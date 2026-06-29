@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDebouncedCallback } from '@/shared/hooks/useDebounce'
 import { useUpdateProject } from '@/entities/project'
+import { ApiError } from '@/shared/api/client'
 import type { StoredLayout } from '@/entities/layout'
 
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -23,11 +24,22 @@ interface UseProjectAutosaveOptions {
   layoutBaseline?: StoredLayout
   delayMs?: number
   /**
-   * While true (e.g. a snapshot preview is open), autosave is paused: no PATCH
-   * fires and any already-debounced save is cancelled. Prevents a read-only
-   * preview's swapped-in content from being persisted as the current state.
+   * While true (e.g. a snapshot preview is open, or the caller is read-only /
+   * doesn't hold the edit lock), autosave is paused: no PATCH fires and any
+   * already-debounced save is cancelled.
    */
   suspended?: boolean
+  /**
+   * The project version the local content is based on — sent with each content
+   * PATCH for the optimistic-concurrency backstop (ADR-0015). The server bumps
+   * it; the editor feeds the fresh value back in via the project detail cache.
+   */
+  version?: number
+  /**
+   * Called when a save is rejected 409 (the edit lock was taken over, or the
+   * version was stale) — the editor surfaces the "bumped" dialog.
+   */
+  onConflict?: () => void
 }
 
 interface UseProjectAutosaveResult {
@@ -52,11 +64,18 @@ export function useProjectAutosave({
   layoutBaseline,
   delayMs = 600,
   suspended = false,
+  version,
+  onConflict,
 }: UseProjectAutosaveOptions): UseProjectAutosaveResult {
   const updateMutation = useUpdateProject(projectId)
   const [status, setStatus] = useState<AutosaveStatus>('idle')
   const mountedRef = useRef(false)
   const aliveRef = useRef(true)
+  // Read at fire time so the debounced closure always sends the latest values.
+  const versionRef = useRef(version)
+  versionRef.current = version
+  const onConflictRef = useRef(onConflict)
+  onConflictRef.current = onConflict
 
   useEffect(() => {
     aliveRef.current = true
@@ -76,16 +95,24 @@ export function useProjectAutosave({
   const debouncedSave = useDebouncedCallback(() => {
     setStatus('saving')
     updateMutation.mutate(
-      { dbml_text: dbmlText, layout: layout as Record<string, unknown> | undefined },
+      {
+        dbml_text: dbmlText,
+        layout: layout as Record<string, unknown> | undefined,
+        version: versionRef.current,
+      },
       {
         onSuccess: () => {
           if (aliveRef.current) {
             setStatus('saved')
           }
         },
-        onError: () => {
+        onError: (error) => {
           if (aliveRef.current) {
             setStatus('error')
+          }
+          // 409 = edit lock taken over or stale version → let the editor react.
+          if (error instanceof ApiError && error.status === 409) {
+            onConflictRef.current?.()
           }
         },
       },
