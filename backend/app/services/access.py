@@ -24,6 +24,7 @@ class Capability(str, Enum):
     DELETE_SNAPSHOT = "delete_snapshot"
     MANAGE_MEMBERS = "manage_members"  # invite / change role / remove
     DELETE_PROJECT = "delete_project"
+    FORCE_LOCK = "force_lock"  # owner-only force takeover of a live edit lock
 
 
 #: Capability -> roles allowed to exercise it (Q5 permission matrix).
@@ -34,6 +35,7 @@ _ALLOWED: dict[Capability, frozenset[str]] = {
     Capability.DELETE_SNAPSHOT: frozenset({OWNER}),
     Capability.MANAGE_MEMBERS: frozenset({OWNER}),
     Capability.DELETE_PROJECT: frozenset({OWNER}),
+    Capability.FORCE_LOCK: frozenset({OWNER}),
 }
 
 

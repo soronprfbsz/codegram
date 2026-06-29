@@ -14,10 +14,12 @@ from app.core.users import current_active_user
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
+from app.services.lock_guard import EditLockConflictError
 from app.services.project import (
     ProjectForbiddenError,
     ProjectNotFoundError,
     ProjectService,
+    StaleVersionError,
 )
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -100,9 +102,22 @@ async def update_project(
             glyph=payload.glyph,
             color=payload.color,
             bg_color=payload.bg_color,
+            version=payload.version,
         )
     except (ProjectNotFoundError, ProjectForbiddenError) as exc:
         raise _access_http_error(exc) from None
+    except EditLockConflictError as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail={
+                "reason": "edit_locked",
+                "locked_by_email": exc.locked_by_email,
+            },
+        ) from None
+    except StaleVersionError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail={"reason": "stale_version"}
+        ) from None
     return ProjectRead.model_validate(project)
 
 

@@ -15,9 +15,12 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
+from app.repositories.lock import LockRepository
 from app.repositories.member import MemberRepository
 from app.repositories.project import ProjectRepository
+from app.repositories.user import UserRepository
 from app.services.access import OWNER, Capability, can
+from app.services.lock_guard import take_or_conflict
 
 
 class ProjectNotFoundError(Exception):
@@ -28,6 +31,10 @@ class ProjectForbiddenError(Exception):
     """The user has a role on the project but it lacks the needed capability."""
 
 
+class StaleVersionError(Exception):
+    """A content write carried a version older than the project's (-> 409)."""
+
+
 class ProjectService:
     """High-level project operations with ownership checks."""
 
@@ -35,6 +42,8 @@ class ProjectService:
         """Build the service over a request-scoped session + its repositories."""
         self.repo = ProjectRepository(session)
         self.members = MemberRepository(session)
+        self.locks = LockRepository(session)
+        self.users = UserRepository(session)
 
     async def resolve_role(
         self, project_id: uuid.UUID, user_id: uuid.UUID
@@ -123,15 +132,27 @@ class ProjectService:
         glyph: str | None = None,
         color: str | None = None,
         bg_color: str | None = None,
+        version: int | None = None,
     ) -> Project:
         """Partially update a project the caller may edit (owner/editor).
 
-        Raises NotFound (no role) or Forbidden (viewer). Lock + version
-        enforcement is layered on in Phase 4.
+        Raises NotFound (no role) or Forbidden (viewer). Content writes
+        (dbml_text/layout) additionally require the edit lock — auto-acquired
+        when free/own, EditLockConflictError when another user holds it live —
+        and, when `version` is supplied, must match the project's current
+        version (StaleVersionError otherwise); a content write bumps version.
+        Metadata-only writes (name/glyph/color, edited from the sidebar) need
+        neither the lock nor a version.
         """
         project, _role = await self.get_authorized(
             project_id, user_id, Capability.EDIT
         )
+        is_content_write = dbml_text is not None or layout is not None
+        if is_content_write:
+            await take_or_conflict(self.locks, self.users, project_id, user_id)
+            if version is not None and version != project.version:
+                raise StaleVersionError(project_id)
+            project.version += 1
         return await self.repo.update(
             project,
             name=name,

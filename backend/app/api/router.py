@@ -3,6 +3,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     auth,
+    edit_lock,
     health,
     introspect,
     members,
@@ -15,5 +16,6 @@ api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(projects.router)
 api_router.include_router(members.router)
+api_router.include_router(edit_lock.router)
 api_router.include_router(snapshots.router)
 api_router.include_router(introspect.router)

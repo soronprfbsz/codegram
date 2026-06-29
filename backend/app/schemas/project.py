@@ -33,6 +33,10 @@ class ProjectUpdate(BaseModel):
     glyph: str | None = Field(default=None, max_length=8)
     color: str | None = Field(default=None, max_length=16)
     bg_color: str | None = Field(default=None, max_length=16)
+    # Optimistic-concurrency guard for content writes (dbml_text/layout): the
+    # version the edit was based on. When present and stale, the write is
+    # rejected (409); omit it to skip the check (ADR-0015).
+    version: int | None = Field(default=None, ge=0)
 
 
 class ProjectRead(BaseModel):
@@ -48,5 +52,6 @@ class ProjectRead(BaseModel):
     color: str | None
     bg_color: str | None
     layout: dict[str, Any]
+    version: int
     created_at: datetime
     updated_at: datetime

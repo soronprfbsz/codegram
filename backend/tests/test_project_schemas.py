@@ -49,6 +49,7 @@ def test_project_read_from_attributes() -> None:
         name = "My ERD"
         dbml_text = "table t {}"
         layout = {"nodes": []}
+        version = 3
         created_at = datetime.now(timezone.utc)
         updated_at = datetime.now(timezone.utc)
         glyph = "🗄️"
@@ -59,6 +60,7 @@ def test_project_read_from_attributes() -> None:
     assert dto.name == "My ERD"
     assert dto.dbml_text == "table t {}"
     assert dto.layout == {"nodes": []}
+    assert dto.version == 3
     assert isinstance(dto.id, uuid.UUID)
     assert isinstance(dto.user_id, uuid.UUID)
     assert dto.glyph == "🗄️"
