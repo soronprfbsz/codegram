@@ -14,6 +14,7 @@ from app.core.users import current_active_user
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
+from app.services.access import OWNER
 from app.services.lock_guard import EditLockConflictError
 from app.services.project import (
     ProjectForbiddenError,
@@ -40,6 +41,16 @@ def _access_http_error(exc: Exception) -> HTTPException:
     return HTTPException(status.HTTP_404_NOT_FOUND, detail="Project not found")
 
 
+def _read(
+    project: object, role: str | None = None, owner_email: str | None = None
+) -> ProjectRead:
+    """Validate a project to ProjectRead, attaching the caller's role + owner
+    email (the ORM object carries neither)."""
+    return ProjectRead.model_validate(project).model_copy(
+        update={"role": role, "owner_email": owner_email}
+    )
+
+
 @router.post(
     "",
     status_code=status.HTTP_201_CREATED,
@@ -57,7 +68,7 @@ async def create_project(
         dbml_text=payload.dbml_text,
         layout=payload.layout,
     )
-    return ProjectRead.model_validate(project)
+    return _read(project, role=OWNER, owner_email=user.email)
 
 
 @router.get("", response_model=list[ProjectRead])
@@ -65,9 +76,9 @@ async def list_projects(
     user: User = Depends(current_active_user),
     service: ProjectService = Depends(get_project_service),
 ) -> list[ProjectRead]:
-    """List the authenticated user's projects."""
-    projects = await service.list_projects(user.id)
-    return [ProjectRead.model_validate(p) for p in projects]
+    """List the authenticated user's accessible projects (owned + shared)."""
+    items = await service.list_projects_with_meta(user.id)
+    return [_read(m.project, m.role, m.owner_email) for m in items]
 
 
 @router.get("/{project_id}", response_model=ProjectRead)
@@ -78,10 +89,10 @@ async def get_project(
 ) -> ProjectRead:
     """Get one accessible project (owner/editor/viewer), or 404 if no role."""
     try:
-        project = await service.get_viewable_project(project_id, user.id)
+        meta = await service.get_viewable_with_meta(project_id, user.id)
     except (ProjectNotFoundError, ProjectForbiddenError) as exc:
         raise _access_http_error(exc) from None
-    return ProjectRead.model_validate(project)
+    return _read(meta.project, meta.role, meta.owner_email)
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)

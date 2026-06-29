@@ -363,7 +363,42 @@ async def test_shared_project_appears_in_member_list(
 
     listing = await second_authenticated_client.get("/api/projects")
     assert listing.status_code == 200
-    assert project_id in [p["id"] for p in listing.json()]
+    item = next(p for p in listing.json() if p["id"] == project_id)
+    # Bob sees it as a viewer, owned by alice.
+    assert item["role"] == "viewer"
+    assert item["owner_email"] == "alice@example.com"
+
+
+async def test_list_marks_owned_projects_with_owner_role(
+    authenticated_client: AsyncClient,
+) -> None:
+    await authenticated_client.post("/api/projects", json={"name": "Mine"})
+    listing = await authenticated_client.get("/api/projects")
+    item = listing.json()[0]
+    assert item["role"] == "owner"
+    assert item["owner_email"] == "alice@example.com"
+
+
+async def test_get_shared_project_reports_role_and_owner(
+    authenticated_client: AsyncClient,
+    second_authenticated_client: AsyncClient,
+    test_session: AsyncSession,
+) -> None:
+    created = await authenticated_client.post("/api/projects", json={"name": "P"})
+    project_id = created.json()["id"]
+    await _share(test_session, project_id, "bob@example.com", "editor")
+
+    got = await second_authenticated_client.get(f"/api/projects/{project_id}")
+    assert got.json()["role"] == "editor"
+    assert got.json()["owner_email"] == "alice@example.com"
+
+
+async def test_create_reports_owner_role(
+    authenticated_client: AsyncClient,
+) -> None:
+    created = await authenticated_client.post("/api/projects", json={"name": "P"})
+    assert created.json()["role"] == "owner"
+    assert created.json()["owner_email"] == "alice@example.com"
 
 
 # --- 401 unauthenticated ----------------------------------------------------

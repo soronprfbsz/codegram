@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
 from app.models.project_member import ProjectMember
+from app.models.user import User
 
 
 class ProjectRepository:
@@ -80,6 +81,20 @@ class ProjectRepository:
         )
         result = await self.session.execute(stmt)
         return [(row[0], row[1]) for row in result.all()]
+
+    async def list_shared_with_meta(
+        self, user_id: uuid.UUID
+    ) -> Sequence[tuple[Project, str, str]]:
+        """Shared projects with (project, member role, owner email), newest first."""
+        stmt = (
+            select(Project, ProjectMember.role, User.email)
+            .join(ProjectMember, ProjectMember.project_id == Project.id)
+            .join(User, User.id == Project.user_id)
+            .where(ProjectMember.user_id == user_id)
+            .order_by(Project.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return [(row[0], row[1], row[2]) for row in result.all()]
 
     async def list_by_user(self, user_id: uuid.UUID) -> Sequence[Project]:
         """List the user's projects, newest first."""

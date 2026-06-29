@@ -10,6 +10,7 @@ not commit; the request scope (get_session) commits the unit of work on success.
 """
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,15 @@ class ProjectForbiddenError(Exception):
 
 class StaleVersionError(Exception):
     """A content write carried a version older than the project's (-> 409)."""
+
+
+@dataclass(frozen=True)
+class ProjectWithMeta:
+    """A project plus the caller's role and the owner's email (for responses)."""
+
+    project: Project
+    role: str
+    owner_email: str | None
 
 
 class ProjectService:
@@ -107,6 +117,35 @@ class ProjectService:
         merged = list(owned) + [project for project, _role in shared]
         merged.sort(key=lambda p: p.created_at, reverse=True)
         return merged
+
+    async def list_projects_with_meta(
+        self, user_id: uuid.UUID
+    ) -> list[ProjectWithMeta]:
+        """Accessible projects with role + owner email (for the sidebar)."""
+        me = await self.users.get_by_id(user_id)
+        my_email = me.email if me is not None else None
+        items = [
+            ProjectWithMeta(p, OWNER, my_email)
+            for p in await self.repo.list_by_user(user_id)
+        ]
+        for project, role, owner_email in await self.repo.list_shared_with_meta(
+            user_id
+        ):
+            items.append(ProjectWithMeta(project, role, owner_email))
+        items.sort(key=lambda m: m.project.created_at, reverse=True)
+        return items
+
+    async def get_viewable_with_meta(
+        self, project_id: uuid.UUID, user_id: uuid.UUID
+    ) -> ProjectWithMeta:
+        """A viewable project plus the caller's role and the owner's email."""
+        project, role = await self.get_authorized(
+            project_id, user_id, Capability.VIEW
+        )
+        owner = await self.users.get_by_id(project.user_id)
+        return ProjectWithMeta(
+            project, role, owner.email if owner is not None else None
+        )
 
     async def update_project(
         self,

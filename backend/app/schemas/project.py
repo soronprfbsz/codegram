@@ -55,3 +55,8 @@ class ProjectRead(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+    # Caller's role on this project ("owner"|"editor"|"viewer") and the owner's
+    # email, for the sidebar's shared-project badge. Populated by list/get/create;
+    # None on action responses (patch/restore) where the client already knows.
+    role: str | None = None
+    owner_email: str | None = None
