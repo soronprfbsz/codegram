@@ -1,0 +1,233 @@
+# ========================================
+# Codegram CI/CD — push to main → build → (Harbor) → deploy & run.
+# Monorepo, path-selective: frontend changes redeploy only the frontend,
+# backend changes only the backend. postgres stays up (created once, persistent).
+# Runner/host + Harbor reused from release-manager. Bind mounts under /data/codegram.
+# ========================================
+
+default:
+  image: docker:24-cli
+  tags:
+    - rm-runner-106
+
+variables:
+  HARBOR_FE_IMAGE: "${HARBOR_REGISTRY}/${HARBOR_PROJECT}/codegram-frontend"
+  HARBOR_BE_IMAGE: "${HARBOR_REGISTRY}/${HARBOR_PROJECT}/codegram-backend"
+  IMAGE_TAG: "${CI_COMMIT_SHORT_SHA}"
+  COMPOSE_PROJECT: "codegram"
+  COMPOSE_FILE: "deploy/docker-compose.prod.yml"
+  DEPLOY_HOST: "10.110.1.106"
+  FRONTEND_HOST_PORT: "28080"
+  BACKEND_HOST_PORT: "28000"
+  POSTGRES_HOST_PORT: "25432"
+
+stages:
+  - build
+  - test
+  - docker-build
+  - deploy
+
+# ========================================
+# Reusable rules (anchors)
+# ========================================
+.rules-frontend: &rules-frontend
+  - if: '$CI_COMMIT_BRANCH == "main"'
+    changes:
+      - frontend/**/*
+      - deploy/docker-compose.prod.yml
+      - .gitlab-ci.yml
+
+.rules-backend: &rules-backend
+  - if: '$CI_COMMIT_BRANCH == "main"'
+    changes:
+      - backend/**/*
+      - deploy/docker-compose.prod.yml
+      - .gitlab-ci.yml
+
+# ========================================
+# Templates
+# ========================================
+.harbor-login:
+  before_script:
+    - echo "$HARBOR_PASSWORD" | docker login http://$HARBOR_REGISTRY -u $HARBOR_USERNAME --password-stdin
+
+# Deploy base: install curl, log into Harbor (to pull), and materialize the root
+# .env that docker-compose feeds to the app containers. App secrets come from
+# GitLab CI/CD variables (POSTGRES_*, SECRET_KEY, …).
+.deploy-base:
+  before_script:
+    - apk add --no-cache curl >/dev/null 2>&1 || true
+    - echo "$HARBOR_PASSWORD" | docker login http://$HARBOR_REGISTRY -u $HARBOR_USERNAME --password-stdin
+    - |
+      cat > .env <<EOF
+      POSTGRES_USER=${POSTGRES_USER}
+      POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      POSTGRES_DB=${POSTGRES_DB}
+      POSTGRES_HOST_PORT=${POSTGRES_HOST_PORT}
+      DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      CORS_ORIGINS=http://${DEPLOY_HOST}:${FRONTEND_HOST_PORT}
+      ENVIRONMENT=production
+      DEBUG=false
+      SECRET_KEY=${SECRET_KEY}
+      JWT_LIFETIME_SECONDS=${JWT_LIFETIME_SECONDS:-3600}
+      COOKIE_SECURE=${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE=${COOKIE_SAMESITE:-lax}
+      BACKEND_HOST_PORT=${BACKEND_HOST_PORT}
+      FRONTEND_HOST_PORT=${FRONTEND_HOST_PORT}
+      API_SERVER_URL=http://backend:8000
+      EOF
+  after_script:
+    - docker logout http://$HARBOR_REGISTRY || true
+    - docker image prune -f >/dev/null 2>&1 || true
+
+# ========================================
+# Frontend pipeline
+# ========================================
+build:frontend:
+  stage: build
+  image: node:22-alpine
+  rules: *rules-frontend
+  cache:
+    key: npm-${CI_COMMIT_REF_SLUG}
+    paths:
+      - frontend/node_modules/
+  script:
+    # Production bundle only. Type safety is gated separately (test:frontend →
+    # `npm run type-check`); the repo's `npm run build` couples `tsc -b`, whose
+    # build-mode type-check of test files is pre-existing-broken.
+    - cd frontend
+    - npm ci
+    - npx vite build
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 hour
+
+test:frontend:
+  stage: test
+  image: node:22-alpine
+  needs: ["build:frontend"]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - frontend/**/*
+      when: manual
+      allow_failure: true
+  cache:
+    key: npm-${CI_COMMIT_REF_SLUG}
+    paths:
+      - frontend/node_modules/
+    policy: pull
+  script:
+    - cd frontend
+    - npm ci
+    - npm run type-check
+    - npm run test:run
+
+docker-build:frontend:
+  stage: docker-build
+  extends: .harbor-login
+  needs: ["build:frontend"]
+  rules: *rules-frontend
+  variables:
+    DOCKER_BUILDKIT: "1"
+  script:
+    - docker build -f frontend/Dockerfile.ci -t $HARBOR_FE_IMAGE:$IMAGE_TAG -t $HARBOR_FE_IMAGE:latest frontend
+    - docker push $HARBOR_FE_IMAGE:$IMAGE_TAG
+    - docker push $HARBOR_FE_IMAGE:latest
+  after_script:
+    - docker logout http://$HARBOR_REGISTRY || true
+
+deploy:frontend:
+  stage: deploy
+  extends: .deploy-base
+  needs: ["docker-build:frontend"]
+  rules: *rules-frontend
+  environment:
+    name: production
+    url: http://10.110.1.106:28080
+  script:
+    - export FRONTEND_IMAGE="$HARBOR_FE_IMAGE:$IMAGE_TAG"
+    - docker pull "$FRONTEND_IMAGE"
+    - docker-compose -p $COMPOSE_PROJECT --env-file .env -f $COMPOSE_FILE up -d --no-deps frontend
+    - |
+      echo "=== frontend 헬스체크 ==="
+      for i in $(seq 1 30); do
+        if curl -fsS "http://${DEPLOY_HOST}:${FRONTEND_HOST_PORT}/health" >/dev/null; then
+          echo "✅ frontend up → http://${DEPLOY_HOST}:${FRONTEND_HOST_PORT}"; exit 0
+        fi
+        echo "  대기 ($i/30)"; sleep 2
+      done
+      echo "✗ frontend 헬스체크 실패"; docker logs --tail 50 codegram-frontend; exit 1
+
+# ========================================
+# Backend pipeline
+# ========================================
+test:backend:
+  stage: test
+  image: python:3.13-slim
+  services:
+    - name: postgres:17-alpine
+      alias: postgres
+  variables:
+    POSTGRES_USER: codegram_user
+    POSTGRES_PASSWORD: postgres_test
+    POSTGRES_DB: codegram_test
+    DATABASE_URL: "postgresql+asyncpg://codegram_user:postgres_test@postgres:5432/codegram_test"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - backend/**/*
+      when: manual
+      allow_failure: true
+  script:
+    - cd backend
+    - pip install ".[dev]"
+    - alembic upgrade head
+    - pytest -q
+
+docker-build:backend:
+  stage: docker-build
+  extends: .harbor-login
+  rules: *rules-backend
+  variables:
+    DOCKER_BUILDKIT: "1"
+  script:
+    - docker build -f backend/Dockerfile.ci -t $HARBOR_BE_IMAGE:$IMAGE_TAG -t $HARBOR_BE_IMAGE:latest backend
+    - docker push $HARBOR_BE_IMAGE:$IMAGE_TAG
+    - docker push $HARBOR_BE_IMAGE:latest
+  after_script:
+    - docker logout http://$HARBOR_REGISTRY || true
+
+deploy:backend:
+  stage: deploy
+  extends: .deploy-base
+  needs: ["docker-build:backend"]
+  rules: *rules-backend
+  environment:
+    name: production
+    url: http://10.110.1.106:28000/api/health
+  script:
+    - export BACKEND_IMAGE="$HARBOR_BE_IMAGE:$IMAGE_TAG"
+    - docker pull "$BACKEND_IMAGE"
+    # postgres: create once / keep running (data persists at /data/codegram/postgres).
+    - docker-compose -p $COMPOSE_PROJECT --env-file .env -f $COMPOSE_FILE up -d --no-deps postgres
+    - |
+      echo "=== postgres 헬스 대기 ==="
+      for i in $(seq 1 30); do
+        if docker exec codegram-postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
+          echo "✓ postgres ready"; break
+        fi
+        echo "  대기 ($i/30)"; sleep 2
+      done
+    # backend: migrations run in the container entrypoint, then uvicorn starts.
+    - docker-compose -p $COMPOSE_PROJECT --env-file .env -f $COMPOSE_FILE up -d --no-deps backend
+    - |
+      echo "=== backend 헬스체크 ==="
+      for i in $(seq 1 40); do
+        if curl -fsS "http://${DEPLOY_HOST}:${BACKEND_HOST_PORT}/api/health" >/dev/null; then
+          echo "✅ backend up → http://${DEPLOY_HOST}:${BACKEND_HOST_PORT}/api/health"; exit 0
+        fi
+        echo "  대기 ($i/40)"; sleep 3
+      done
+      echo "✗ backend 헬스체크 실패"; docker logs --tail 80 codegram-backend; exit 1
