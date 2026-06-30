@@ -25,7 +25,20 @@ export function useRestoreSnapshot(projectId: string) {
   return useMutation({
     mutationFn: (snapshotId: string) => restoreSnapshot(projectId, snapshotId),
     onSuccess: (project) => {
-      queryClient.setQueryData(projectQueryKeys.detail(projectId), project)
+      // Merge, preserving role/owner_email (the restore response carries them
+      // as null) so the caller's role isn't clobbered → read-only (ADR-0015).
+      queryClient.setQueryData<Project | undefined>(
+        projectQueryKeys.detail(projectId),
+        (old) =>
+          old
+            ? {
+                ...old,
+                ...project,
+                role: project.role ?? old.role,
+                owner_email: project.owner_email ?? old.owner_email,
+              }
+            : project,
+      )
       queryClient.invalidateQueries({ queryKey: projectQueryKeys.list() })
       queryClient.invalidateQueries({ queryKey: snapshotQueryKeys.all })
     },
