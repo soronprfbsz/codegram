@@ -33,8 +33,27 @@ export interface Point {
 }
 export type Side = 'left' | 'right'
 
+/** 장애물 선택용 최소 노드 형태(테스트 가능하도록 InternalNode에서 분리).
+ *  buildObstacles(features/erd-canvas/ui)와 공유 장애물 셀렉터가 함께 쓴다. */
+export interface ObstacleNode {
+  id: string
+  type?: string
+  parentId?: string
+  rect: Rect
+}
+
 const MARGIN = 16
 const TURN_PENALTY = 12
+
+/**
+ * Half-size of the padding added around the source→target bounding box when
+ * culling obstacles for A* (see the cull block in routeOrthogonal). Generous
+ * on purpose: it must cover the largest sideways detour A* would make around an
+ * in-region obstacle. Only obstacles intersecting the padded region are kept
+ * (whole), so a too-small pad can only make a route graze a box that was culled
+ * — never a crash. Widen it if that ever shows up.
+ */
+const CULL_PAD = 600
 
 /**
  * Extra clearance kept between a corridor and a NON-endpoint TableGroup box,
@@ -137,10 +156,33 @@ export function routeOrthogonal(
     tPort.x = mid
   }
 
-  // Candidate routing lines: just outside every obstacle + the endpoints/ports.
+  // Obstacle culling: only obstacles near the source→target region can shape the
+  // route. Far-away cards/groups never lie on an optimal (length-minimising)
+  // orthogonal path between these endpoints, so dropping them shrinks the
+  // candidate grid from O(all nodes) to O(local nodes) — the difference between
+  // ~490k grid nodes/edge and a few hundred on a 191-table sprawl. The region is
+  // the endpoint+port bounding box padded by CULL_PAD; an obstacle is KEPT WHOLE
+  // (never clipped) if it intersects the padded region, so its ±margin candidate
+  // lines survive and routes around it are unchanged. The pad is generous enough
+  // to cover the detour A* would take around an in-region obstacle; if a route
+  // ever grazes a culled box, widening CULL_PAD restores it (mergeBundleRoutes'
+  // per-member lineCrosses is the downstream safety net).
+  const regionMinX = Math.min(source.x, target.x, sPort.x, tPort.x) - CULL_PAD
+  const regionMaxX = Math.max(source.x, target.x, sPort.x, tPort.x) + CULL_PAD
+  const regionMinY = Math.min(source.y, target.y, sPort.y, tPort.y) - CULL_PAD
+  const regionMaxY = Math.max(source.y, target.y, sPort.y, tPort.y) + CULL_PAD
+  const nearby = obstacles.filter(
+    (o) =>
+      o.x < regionMaxX &&
+      o.x + o.width > regionMinX &&
+      o.y < regionMaxY &&
+      o.y + o.height > regionMinY,
+  )
+
+  // Candidate routing lines: just outside every nearby obstacle + the endpoints/ports.
   const xsSet = new Set<number>([source.x, target.x, sPort.x, tPort.x])
   const ysSet = new Set<number>([source.y, target.y, sPort.y, tPort.y])
-  for (const o of obstacles) {
+  for (const o of nearby) {
     xsSet.add(o.x - margin)
     xsSet.add(o.x + o.width + margin)
     ysSet.add(o.y - margin)
@@ -164,19 +206,57 @@ export function routeOrthogonal(
   const heur = (a: number, b: number): number =>
     Math.abs(xs[a] - tPort.x) + Math.abs(ys[b] - tPort.y)
 
-  // A* (array-based PQ — graphs are small: O(nodes^2) intersections).
+  // A* over the intersection grid. The open set is a binary min-heap ordered by
+  // (f, seq): the earlier-inserted node wins ties, matching the previous
+  // linear-scan "first minimum" pick — so the chosen path is UNCHANGED, only the
+  // per-pop cost drops from O(open) to O(log open). On a large grid the old
+  // linear scan made the whole A* O(nodes^2); the heap makes it O(nodes log n).
   const g = new Map<string, number>([[startKey, 0]])
   const arriveDir = new Map<string, 'h' | 'v' | null>([[startKey, null]])
   const came = new Map<string, string>()
-  const open: Array<{ key: string; a: number; b: number; f: number }> = [
-    { key: startKey, a: startXi, b: startYi, f: heur(startXi, startYi) },
-  ]
+  type OpenItem = { key: string; a: number; b: number; f: number; seq: number }
+  const heap: OpenItem[] = []
+  let seq = 0
+  const less = (i: number, j: number): boolean =>
+    heap[i].f < heap[j].f || (heap[i].f === heap[j].f && heap[i].seq < heap[j].seq)
+  const swap = (i: number, j: number): void => {
+    const t = heap[i]
+    heap[i] = heap[j]
+    heap[j] = t
+  }
+  const pushOpen = (it: OpenItem): void => {
+    heap.push(it)
+    let i = heap.length - 1
+    while (i > 0) {
+      const p = (i - 1) >> 1
+      if (less(i, p)) swap(i, (i = p))
+      else break
+    }
+  }
+  const popOpen = (): OpenItem => {
+    const top = heap[0]
+    const last = heap.pop() as OpenItem
+    if (heap.length > 0) {
+      heap[0] = last
+      let i = 0
+      const n = heap.length
+      for (;;) {
+        const l = 2 * i + 1
+        const r = 2 * i + 2
+        let m = i
+        if (l < n && less(l, m)) m = l
+        if (r < n && less(r, m)) m = r
+        if (m === i) break
+        swap(i, (i = m))
+      }
+    }
+    return top
+  }
+  pushOpen({ key: startKey, a: startXi, b: startYi, f: heur(startXi, startYi), seq: seq++ })
   const closed = new Set<string>()
 
-  while (open.length > 0) {
-    let mi = 0
-    for (let i = 1; i < open.length; i++) if (open[i].f < open[mi].f) mi = i
-    const cur = open.splice(mi, 1)[0]
+  while (heap.length > 0) {
+    const cur = popOpen()
     if (cur.key === goalKey) break
     if (closed.has(cur.key)) continue
     closed.add(cur.key)
@@ -192,7 +272,7 @@ export function routeOrthogonal(
       if (na < 0 || na >= xs.length || nb < 0 || nb >= ys.length) continue
       const from = pt(cur.a, cur.b)
       const to = pt(na, nb)
-      if (crossesObstacle(from, to, obstacles)) continue
+      if (crossesObstacle(from, to, nearby)) continue
       const step = Math.abs(to.x - from.x) + Math.abs(to.y - from.y)
       const turn = cd && cd !== nd ? TURN_PENALTY : 0
       const ng = cg + step + turn
@@ -201,7 +281,7 @@ export function routeOrthogonal(
         g.set(nk, ng)
         came.set(nk, cur.key)
         arriveDir.set(nk, nd)
-        open.push({ key: nk, a: na, b: nb, f: ng + heur(na, nb) })
+        pushOpen({ key: nk, a: na, b: nb, f: ng + heur(na, nb), seq: seq++ })
       }
     }
   }

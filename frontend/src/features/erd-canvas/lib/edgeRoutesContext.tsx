@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useStore, type ReactFlowState } from '@xyflow/react'
-import type { Point, Rect } from './routeOrthogonal'
+import type { ObstacleNode, Point, Rect } from './routeOrthogonal'
 import { spreadEdgeRoutes } from './spreadEdgeRoutes'
 import { mergeBundleRoutes } from './mergeBundleRoutes'
 
@@ -46,6 +46,10 @@ type RegisterFn = (
 
 const RegisterCtx = createContext<RegisterFn | null>(null)
 const AdjustedCtx = createContext<Map<string, Point[]>>(new Map())
+// Shared obstacle-node list for per-edge A* (buildObstacles). Built ONCE per
+// geometry change here instead of each of the ~440 edges rebuilding it from
+// nodeLookup on every re-route.
+const ObstacleNodesCtx = createContext<ObstacleNode[]>([])
 
 const samePolyline = (a: Point[] | undefined, b: Point[] | null): boolean => {
   if (!a || !b || a.length !== b.length) return false
@@ -61,6 +65,23 @@ const rectsEqual = (a: Rect[], b: Rect[]): boolean =>
     (r, i) =>
       r.x === b[i].x && r.y === b[i].y && r.width === b[i].width && r.height === b[i].height,
   )
+
+/** Content equality for the shared obstacle-node list — keeps the selector
+ * output stable across unrelated store updates (same rule as rectsEqual). */
+const obstacleNodesEqual = (a: ObstacleNode[], b: ObstacleNode[]): boolean =>
+  a.length === b.length &&
+  a.every((n, i) => {
+    const m = b[i]
+    return (
+      n.id === m.id &&
+      n.type === m.type &&
+      n.parentId === m.parentId &&
+      n.rect.x === m.rect.x &&
+      n.rect.y === m.rect.y &&
+      n.rect.width === m.rect.width &&
+      n.rect.height === m.rect.height
+    )
+  })
 
 export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
   const rawRef = useRef<Map<string, Point[]>>(new Map())
@@ -111,6 +132,34 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
       return rects
     }, []),
     rectsEqual,
+  )
+
+  // Shared obstacle-node list for per-edge A* (buildObstacles filters endpoint
+  // groups per edge, but the base list is the same for all). Built once here on
+  // geometry change; width/height fallback matches the per-edge build exactly
+  // (measured ?? style ?? 240/80) so routing inputs are IDENTICAL.
+  const obstacleNodes = useStore(
+    useCallback((s: ReactFlowState): ObstacleNode[] => {
+      const out: ObstacleNode[] = []
+      for (const n of s.nodeLookup.values()) {
+        if (n.type !== 'table' && n.type !== 'enum' && n.type !== 'sticky' && n.type !== 'group')
+          continue
+        const pos = n.internals.positionAbsolute
+        out.push({
+          id: n.id,
+          type: n.type,
+          parentId: n.parentId,
+          rect: {
+            x: pos.x,
+            y: pos.y,
+            width: n.measured?.width ?? (n.style?.width as number | undefined) ?? 240,
+            height: n.measured?.height ?? (n.style?.height as number | undefined) ?? 80,
+          },
+        })
+      }
+      return out
+    }, []),
+    obstacleNodesEqual,
   )
 
   const frameRef = useRef<number | null>(null)
@@ -166,7 +215,9 @@ export function EdgeRoutesProvider({ children }: { children: ReactNode }) {
 
   return (
     <RegisterCtx.Provider value={register}>
-      <AdjustedCtx.Provider value={adjusted}>{children}</AdjustedCtx.Provider>
+      <ObstacleNodesCtx.Provider value={obstacleNodes}>
+        <AdjustedCtx.Provider value={adjusted}>{children}</AdjustedCtx.Provider>
+      </ObstacleNodesCtx.Provider>
     </RegisterCtx.Provider>
   )
 }
@@ -179,4 +230,9 @@ export function useRegisterRoute(): RegisterFn | null {
 /** The current spread (adjusted) route map; changes each settle. */
 export function useAdjustedRoutes(): Map<string, Point[]> {
   return useContext(AdjustedCtx)
+}
+
+/** Shared obstacle-node list (built once per geometry change) for per-edge A*. */
+export function useObstacleNodes(): ObstacleNode[] {
+  return useContext(ObstacleNodesCtx)
 }

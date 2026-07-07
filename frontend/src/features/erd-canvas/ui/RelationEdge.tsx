@@ -17,7 +17,11 @@ import {
   GROUP_CLEARANCE,
   inflateRect,
   type Rect,
+  type ObstacleNode,
 } from '../lib/routeOrthogonal'
+
+// Re-exported so existing consumers/tests can import the type from this module.
+export type { ObstacleNode }
 
 // Re-exported so existing consumers/tests can import it from this module too.
 export { GROUP_CLEARANCE }
@@ -29,7 +33,7 @@ import {
   type CardRect,
 } from '@/entities/layout'
 import { useEdgePathContext } from '../lib/edgePathContext'
-import { useRegisterRoute, useAdjustedRoutes } from '../lib/edgeRoutesContext'
+import { useRegisterRoute, useAdjustedRoutes, useObstacleNodes } from '../lib/edgeRoutesContext'
 
 export type RelationEdgeProps = EdgeProps & { data?: RelationEdgeData }
 
@@ -50,14 +54,6 @@ const EDGE_HIT_WIDTH = 12
 /** Min clearance a manually-dragged segment keeps from any card (matches the
  *  auto-router's card clearance, so manual + auto paths obey the same rule). */
 const CARD_CLEARANCE = 14
-
-/** 장애물 선택용 최소 노드 형태(테스트 가능하도록 InternalNode에서 분리). */
-export interface ObstacleNode {
-  id: string
-  type?: string
-  parentId?: string
-  rect: Rect
-}
 
 /**
  * 이 엣지의 A* 장애물 집합을 만든다.
@@ -165,6 +161,8 @@ function RelationEdgeImpl({
   const nodeLookup = useStore((s) => s.nodeLookup)
   const registerRoute = useRegisterRoute()
   const adjustedRoutes = useAdjustedRoutes()
+  // Base obstacle list shared across all edges (built once per geometry change).
+  const obstacleNodes = useObstacleNodes()
 
   const isEnumLink = data?.isEnumLink ?? false
   // NOTE: an EMPTY waypoints array is still a MANUAL path (the user dragged the
@@ -243,30 +241,7 @@ function RelationEdgeImpl({
     // preserved, so pulling one edge out to a manual path no longer makes its
     // siblings re-center/re-spread. (Only `dragging` and enum links opt out.)
     if (dragging) return null
-    const obsNodes: ObstacleNode[] = []
-    for (const n of nodeLookup.values()) {
-      if (
-        n.type !== 'table' &&
-        n.type !== 'enum' &&
-        n.type !== 'sticky' &&
-        n.type !== 'group'
-      )
-        continue
-      const pos = n.internals.positionAbsolute
-      obsNodes.push({
-        id: n.id,
-        type: n.type,
-        parentId: n.parentId,
-        rect: {
-          x: pos.x,
-          y: pos.y,
-          // 그룹 박스는 style width/height(레이아웃이 설정), 카드는 measured.
-          width: n.measured?.width ?? (n.style?.width as number | undefined) ?? 240,
-          height: n.measured?.height ?? (n.style?.height as number | undefined) ?? 80,
-        },
-      })
-    }
-    const obstacles = buildObstacles(obsNodes, source, target)
+    const obstacles = buildObstacles(obstacleNodes, source, target)
     return routeOrthogonal(
       { x: sourceX, y: sourceY },
       { x: targetX, y: targetY },
@@ -282,7 +257,7 @@ function RelationEdgeImpl({
     dragging,
     isEnumLink,
     manualWaypoints,
-    nodeLookup,
+    obstacleNodes,
     source,
     target,
     sourceX,

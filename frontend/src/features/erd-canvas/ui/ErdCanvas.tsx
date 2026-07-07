@@ -816,6 +816,11 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
       panOnDrag={[1]}
       selectionOnDrag={false}
       fitView
+      // 뷰포트 밖 노드/엣지는 DOM에서 제외 — 191-테이블 규모에서 카드·컬럼 handle
+      // (테이블당 ~50개)이 전부 상주하면 pan/zoom이 무거워진다. 노드는 store
+      // (nodeLookup)에 남아 measured 값을 유지하므로 A* 장애물 정확도는 그대로다
+      // (초기 fitView에서 전 노드가 한 번 측정된다).
+      onlyRenderVisibleElements
       // 큰 스키마를 한눈에 보도록 줌아웃 하한을 더 낮춘다(기존 0.2 → 0.05).
       minZoom={0.05}
       proOptions={{ hideAttribution: true }}
