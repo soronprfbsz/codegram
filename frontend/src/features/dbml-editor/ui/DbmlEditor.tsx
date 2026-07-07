@@ -120,35 +120,37 @@ const DbmlEditorImpl = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
       viewRef.current = view
     }, [])
 
-    // Sync active-block decoration + scroll whenever selectedTable or value
-    // changes. Guards: view must be ready; range must be in-doc bounds.
+    // Keep the active-block decoration aligned as the selection OR the text
+    // changes (editing shifts the block's lines). Decoration only — no scroll,
+    // so it never moves the viewport/cursor while the user types.
     useEffect(() => {
       const view = viewRef.current
       if (!view) return
-
       const range = selectedTable ? tableLineRange(value, selectedTable) : null
-
-      // Dispatch the decoration update.
       view.dispatch({ effects: setActiveTableRange.of(range) })
-
-      // Scroll so the block's first line sits ~10px from the top of the
-      // visible area, only when a valid block was found.
-      if (range) {
-        const docLines = view.state.doc.lines
-        const clampedLine = Math.max(1, Math.min(docLines, range.fromLine))
-        try {
-          const linePos = view.state.doc.line(clampedLine).from
-          view.dispatch({
-            effects: EditorView.scrollIntoView(linePos, {
-              y: 'start',
-              yMargin: 10,
-            }),
-          })
-        } catch {
-          // Line out of range — ignore (doc may be mid-update).
-        }
-      }
     }, [selectedTable, value])
+
+    // Scroll to the selected table's block ONLY when the selection itself
+    // changes — NOT on every keystroke. Re-scrolling on `value` would yank the
+    // viewport back to the selected table on each edit, so editing elsewhere
+    // (e.g. adding a table to a TableGroup) kept jumping away from the cursor.
+    // Reads the live doc from the view so `value` need not be a dependency.
+    useEffect(() => {
+      const view = viewRef.current
+      if (!view || !selectedTable) return
+      const range = tableLineRange(view.state.doc.toString(), selectedTable)
+      if (!range) return
+      const docLines = view.state.doc.lines
+      const clampedLine = Math.max(1, Math.min(docLines, range.fromLine))
+      try {
+        const linePos = view.state.doc.line(clampedLine).from
+        view.dispatch({
+          effects: EditorView.scrollIntoView(linePos, { y: 'start', yMargin: 10 }),
+        })
+      } catch {
+        // Line out of range — ignore (doc may be mid-update).
+      }
+    }, [selectedTable])
 
     // Push parse errors into CodeMirror as diagnostics (gutter + underline +
     // tooltip). Empty/none clears them. `value` is a dep so offsets are remapped

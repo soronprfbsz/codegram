@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { EditorView } from '@codemirror/view'
 import type { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { DbmlEditor } from './DbmlEditor'
 
@@ -80,5 +81,40 @@ describe('DbmlEditor', () => {
         />,
       )
     }).not.toThrow()
+  })
+
+  it('scrolls to a block only on selection change, NOT on every keystroke', () => {
+    // Regression: with a table selected, editing elsewhere (e.g. adding a table
+    // to a TableGroup) must NOT re-scroll the viewport to the selected table on
+    // every keystroke — that yanked the cursor away from the edit point.
+    const scrollSpy = vi.spyOn(EditorView, 'scrollIntoView')
+    const docA = 'Table users {\n  id int\n}\n\nTable posts {\n  id int\n}\n\nTableGroup g {\n  users\n}'
+
+    // Start with no selection so the EditorView is ready before we assert scrolls.
+    const { rerender } = render(
+      <DbmlEditor value={docA} onChange={() => {}} selectedTable={null} />,
+    )
+
+    // Deliberate selection → scrolls to that block.
+    scrollSpy.mockClear()
+    rerender(<DbmlEditor value={docA} onChange={() => {}} selectedTable="users" />)
+    expect(scrollSpy).toHaveBeenCalled()
+
+    // Keystroke: value changes, selectedTable unchanged → MUST NOT scroll
+    // (this is the bug: it used to re-scroll away from the cursor on every edit).
+    scrollSpy.mockClear()
+    rerender(
+      <DbmlEditor value={docA + '\n  posts'} onChange={() => {}} selectedTable="users" />,
+    )
+    expect(scrollSpy).not.toHaveBeenCalled()
+
+    // A new deliberate selection scrolls again.
+    scrollSpy.mockClear()
+    rerender(
+      <DbmlEditor value={docA + '\n  posts'} onChange={() => {}} selectedTable="posts" />,
+    )
+    expect(scrollSpy).toHaveBeenCalled()
+
+    scrollSpy.mockRestore()
   })
 })
