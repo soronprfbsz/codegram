@@ -66,7 +66,9 @@
     "loadingProjects": "Loading projects…",
     "emptyHint": "No projects yet. Create one above.",
     "tableCount_one": "{{count}} table",
-    "tableCount_other": "{{count}} tables"
+    "tableCount_other": "{{count}} tables",
+    "shared": "Shared",
+    "createdBy": "Created by {{email}}"
   },
   "projectRow": {
     "menu": "{{name}} menu",

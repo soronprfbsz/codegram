@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Database } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
+import { Badge } from '@/shared/ui/badge'
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog'
 import {
   useProjectList,
@@ -59,6 +60,8 @@ function ProjectCard({
   }
 
   const tableCount = countTables(project.dbml_text)
+  // 소유자가 아닌 프로젝트 = 공유받은 것 (role: editor/viewer).
+  const isShared = project.role != null && project.role !== 'owner'
 
   return (
     <li className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/25">
@@ -94,15 +97,31 @@ function ProjectCard({
               </>
             ) : (
               // 이름은 표시 전용 — 진입은 '열기' 버튼으로만(이름 클릭/hover 제거).
-              <span className="block w-full truncate font-medium">
-                {project.name}
-              </span>
+              <>
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {project.name}
+                </span>
+                {isShared && (
+                  <Badge
+                    variant="secondary"
+                    className="shrink-0"
+                    data-testid="project-shared-badge"
+                  >
+                    {t('projectList.shared')}
+                  </Badge>
+                )}
+              </>
             )}
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {t('projectList.tableCount', { count: tableCount })} ·{' '}
             {formatUpdated(project.updated_at)}
           </p>
+          {project.owner_email && (
+            <p className="truncate text-xs text-muted-foreground">
+              {t('projectList.createdBy', { email: project.owner_email })}
+            </p>
+          )}
         </div>
       </div>
 

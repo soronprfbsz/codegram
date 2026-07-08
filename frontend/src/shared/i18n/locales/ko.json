@@ -66,7 +66,9 @@
     "loadingProjects": "프로젝트 불러오는 중…",
     "emptyHint": "아직 프로젝트가 없습니다. 위에서 만들어 보세요.",
     "tableCount_one": "테이블 {{count}}개",
-    "tableCount_other": "테이블 {{count}}개"
+    "tableCount_other": "테이블 {{count}}개",
+    "shared": "공유",
+    "createdBy": "생성자 {{email}}"
   },
   "projectRow": {
     "menu": "{{name}} 메뉴",

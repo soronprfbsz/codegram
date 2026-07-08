@@ -122,6 +122,34 @@ describe('ProjectList', () => {
     expect(deleteMutateAsync).toHaveBeenCalledWith('p-1')
   })
 
+  it('badges shared projects and shows each project\'s creator', () => {
+    const owned: entities.Project = {
+      ...sampleProject,
+      id: 'p-own',
+      name: 'Owned One',
+      role: 'owner',
+      owner_email: 'me@tscorp.ai',
+    }
+    const shared: entities.Project = {
+      ...sampleProject,
+      id: 'p-shared',
+      name: 'Shared One',
+      role: 'editor',
+      owner_email: 'other@tscorp.ai',
+    }
+    mockEntities([owned, shared])
+    renderList()
+
+    // "Shared" badge only on the shared (non-owner) card.
+    const badges = screen.getAllByTestId('project-shared-badge')
+    expect(badges).toHaveLength(1)
+    expect(badges[0]).toHaveTextContent('Shared')
+
+    // Creator shown on every card.
+    expect(screen.getByText('Created by me@tscorp.ai')).toBeInTheDocument()
+    expect(screen.getByText('Created by other@tscorp.ai')).toBeInTheDocument()
+  })
+
   it('renames a project via the inline rename control', async () => {
     mockEntities([sampleProject])
     renderList()
