@@ -48,6 +48,30 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     expect(wb.getWorksheet('Enums')).toBeTruthy()
   })
 
+  it('sanitizes sheet names with Excel-forbidden chars / >31 chars (no throw)', async () => {
+    // Regression: exceljs throws on a worksheet name containing \ / ? * [ ] :
+    // (real project had a group "탐지 룰 오버라이드/정책 제어"), aborting the whole
+    // export so no file downloaded. The name must be sanitized, not rejected.
+    const badModel: TableDocModel = {
+      tables: [tbl('public', 'users'), tbl('public', 'roles')],
+      enums: [],
+      groups: [
+        { name: '탐지 룰 오버라이드/정책 제어', tableIds: ['public.users'] },
+        { name: 'a'.repeat(40) + '/[b]:c*?', tableIds: ['public.roles'] },
+      ],
+    }
+    const blob = await buildTableDocXlsxBlob(badModel, LABELS)
+    expect(blob).toBeInstanceOf(Blob)
+    const wb = await read(blob)
+    // Every worksheet name is Excel-legal: ≤31 chars, none of \ / ? * [ ] :
+    for (const ws of wb.worksheets) {
+      expect(ws.name.length).toBeLessThanOrEqual(31)
+      expect(ws.name).not.toMatch(/[\\/?*[\]:]/)
+    }
+    // The two groups still produced two distinct member sheets (beyond overview/…)
+    expect(wb.worksheets.length).toBeGreaterThanOrEqual(3)
+  })
+
   it('overview lists every table with its group name', async () => {
     const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
     const ov = wb.getWorksheet('테이블 목록')!

@@ -11,7 +11,18 @@ const FORM_COLS = 8
 const FORM_COLUMN_WIDTHS = [12, 24, 14, 8, 12, 9, 16, 30]
 
 const MAX_SHEET_NAME = 31
-const clampSheetName = (name: string): string => name.slice(0, MAX_SHEET_NAME)
+/**
+ * Make a string safe as an Excel worksheet name. Excel/exceljs forbid the
+ * characters \ / ? * [ ] : (they throw on addWorksheet), cap the name at 31
+ * chars, disallow a leading/trailing apostrophe, and reject an empty name. A
+ * table/group named e.g. "탐지 룰 오버라이드/정책 제어" (contains "/") otherwise
+ * aborts the whole xlsx export. Replace forbidden chars with a space, strip
+ * edge apostrophes, clamp length, and fall back to "sheet" if nothing remains.
+ */
+const clampSheetName = (name: string): string => {
+  const sanitized = name.replace(/[\\/?*[\]:]/g, ' ').replace(/^'+|'+$/g, '').trim()
+  return (sanitized.slice(0, MAX_SHEET_NAME).trim() || 'sheet')
+}
 
 /** Split a DBML type string into its bare name and parenthesized length, e.g.
  *  `varchar(255)` -> `{ varchar, 255 }`, `numeric(10,2)` -> `{ numeric, 10,2 }`,
