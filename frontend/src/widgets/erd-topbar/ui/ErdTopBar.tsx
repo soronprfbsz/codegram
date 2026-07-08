@@ -14,6 +14,9 @@ export interface ErdTopBarProps {
   projectMeta?: string
   /** Autosave lifecycle state (drives the Save pill). */
   autosaveStatus: AutosaveStatus
+  /** ISO timestamp of the project's last save (updated_at). When present and
+   *  not mid-save, the pill shows this instead of a bare "saved" label. */
+  lastModified?: string
   /**
    * The Export control (an `<ExportMenu/>`) rendered on the right — the single
    * export hub for the open project (preview · Diagram · Table Doc · SQL).
@@ -31,22 +34,34 @@ export interface ErdTopBarProps {
   lockStatus?: ReactNode
 }
 
-/** Dot + label for the save pill. */
-function SavePill({ status }: { status: AutosaveStatus }) {
-  const { t } = useTranslation()
-  const dot =
-    status === 'idle' || status === 'saved' ? (
-      <span
-        style={{ width: 7, height: 7, borderRadius: '50%', background: '#17B26A', flexShrink: 0 }}
-      />
-    ) : null
+/** Format an ISO timestamp as a compact localized date+time for the save pill. */
+function formatLastModified(iso: string, locale: string): string | null {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })
+}
 
+/** Dot + label for the save pill. When idle/saved and a last-modified time is
+ *  known, show that time (more useful than a bare "저장됨"); otherwise fall back
+ *  to the plain saved/saving/error label. */
+function SavePill({ status, lastModified }: { status: AutosaveStatus; lastModified?: string }) {
+  const { t, i18n } = useTranslation()
+  const settled = status === 'idle' || status === 'saved'
+  const dot = settled ? (
+    <span
+      style={{ width: 7, height: 7, borderRadius: '50%', background: '#17B26A', flexShrink: 0 }}
+    />
+  ) : null
+
+  const when = lastModified ? formatLastModified(lastModified, i18n.language) : null
   const label =
     status === 'saving'
       ? t('topbar.saving')
       : status === 'error'
         ? t('topbar.saveFailed')
-        : t('topbar.saved')
+        : when
+          ? t('topbar.lastSaved', { time: when })
+          : t('topbar.saved')
 
   return (
     <span
@@ -80,6 +95,7 @@ export function ErdTopBar({
   projectName,
   projectMeta,
   autosaveStatus,
+  lastModified,
   exportMenu,
   importMenu,
   searchBox,
@@ -139,7 +155,7 @@ export function ErdTopBar({
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {searchBox}
         {lockStatus}
-        <SavePill status={autosaveStatus} />
+        <SavePill status={autosaveStatus} lastModified={lastModified} />
         {infoButton}
         {historyButton}
         {importMenu}

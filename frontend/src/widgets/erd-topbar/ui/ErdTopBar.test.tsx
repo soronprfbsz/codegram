@@ -27,9 +27,20 @@ describe('ErdTopBar', () => {
     expect(screen.queryByText(/· public/)).toBeNull()
   })
 
-  it('shows "저장됨" with green dot when idle', () => {
+  it('shows "저장됨" with green dot when idle and no last-modified time', () => {
     renderTopBar({ autosaveStatus: 'idle' })
     expect(screen.getByText('저장됨')).toBeInTheDocument()
+  })
+
+  it('shows the last-modified time instead of "저장됨" when provided and saved', () => {
+    renderTopBar({ autosaveStatus: 'saved', lastModified: '2026-07-08T05:32:00Z' })
+    expect(screen.getByText(/최종 수정/)).toBeInTheDocument()
+    expect(screen.queryByText('저장됨')).toBeNull()
+  })
+
+  it('still shows "저장 중…" (not the time) while saving', () => {
+    renderTopBar({ autosaveStatus: 'saving', lastModified: '2026-07-08T05:32:00Z' })
+    expect(screen.getByText('저장 중…')).toBeInTheDocument()
   })
 
   it('shows "Saving…" when status is saving', () => {

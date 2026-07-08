@@ -120,6 +120,7 @@
   },
   "topbar": {
     "saved": "Saved",
+    "lastSaved": "Last saved {{time}}",
     "saving": "Saving…",
     "saveFailed": "Save failed",
     "info": "Info",

@@ -433,6 +433,7 @@ export function EditorPage() {
         projectName={project.name}
         projectMeta={projectMeta}
         autosaveStatus={status}
+        lastModified={project.updated_at}
         lockStatus={<LockStatusControl canEdit={canEdit} lease={lease} />}
         searchBox={<TableSearch schema={schema} onNavigate={focusTable} />}
         infoButton={

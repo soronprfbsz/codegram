@@ -120,6 +120,7 @@
   },
   "topbar": {
     "saved": "저장됨",
+    "lastSaved": "최종 수정 {{time}}",
     "saving": "저장 중…",
     "saveFailed": "저장 실패",
     "info": "정보",
