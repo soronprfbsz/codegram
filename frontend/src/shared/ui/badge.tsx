@@ -13,7 +13,12 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border-transparent bg-primary/10 text-primary',
+        // Light: a solid accent chip (bg-primary/10 amber-on-white was too low
+        // contrast to read). Dark: keep the softer tinted look, which reads well
+        // on the dark surface. Both use the design-system primary token pair so
+        // contrast holds in either theme.
+        default:
+          'border-transparent bg-primary text-primary-foreground dark:bg-primary/15 dark:text-primary',
         secondary: 'border-transparent bg-secondary text-secondary-foreground',
         outline: 'border-border text-muted-foreground',
       },
