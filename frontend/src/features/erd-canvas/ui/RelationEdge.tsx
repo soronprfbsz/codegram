@@ -56,6 +56,32 @@ const EDGE_HIT_WIDTH = 12
 const CARD_CLEARANCE = 14
 
 /**
+ * Module-level cache of computed A* routes, keyed by edge id. `onlyRenderVisibleElements`
+ * unmounts/remounts edges as the visible set changes on every pan/zoom step; a
+ * fresh per-instance useMemo would then re-run the (expensive) A* router each
+ * time even though the geometry is identical (zoom only changes the viewport
+ * transform, not flow coordinates). Surviving remounts here lets a remounted
+ * edge reuse its last route when its inputs (endpoint coords, sides, lane
+ * offsets, and the shared obstacle-node set) are unchanged — no re-route, no
+ * route-array allocation (which was driving heavy GC during zoom). A layout
+ * change moves coords AND yields a new obstacleNodes array, so the signature
+ * misses and the route is recomputed. Bounded by the edge count.
+ */
+interface CachedRoute {
+  obs: unknown
+  sx: number
+  sy: number
+  tx: number
+  ty: number
+  sp: Position
+  tp: Position
+  li: number
+  sli: number
+  points: ReturnType<typeof routeOrthogonal>
+}
+const routeCache = new Map<string, CachedRoute>()
+
+/**
  * 이 엣지의 A* 장애물 집합을 만든다.
  * - 모든 table/enum/sticky 카드는 항상 장애물.
  * - group 박스는 "이 엣지의 source 그룹도 target 그룹도 아닌" 경우에만 장애물
@@ -241,8 +267,25 @@ function RelationEdgeImpl({
     // preserved, so pulling one edge out to a manual path no longer makes its
     // siblings re-center/re-spread. (Only `dragging` and enum links opt out.)
     if (dragging) return null
+    // Reuse the cached route across virtualization remounts when nothing that
+    // affects the path changed (zoom/pan only move the viewport, not these).
+    const cached = routeCache.get(id)
+    if (
+      cached &&
+      cached.obs === obstacleNodes &&
+      cached.sx === sourceX &&
+      cached.sy === sourceY &&
+      cached.tx === targetX &&
+      cached.ty === targetY &&
+      cached.sp === sourcePosition &&
+      cached.tp === targetPosition &&
+      cached.li === laneIndex &&
+      cached.sli === sourceLaneIndex
+    ) {
+      return cached.points
+    }
     const obstacles = buildObstacles(obstacleNodes, source, target)
-    return routeOrthogonal(
+    const points = routeOrthogonal(
       { x: sourceX, y: sourceY },
       { x: targetX, y: targetY },
       sourcePosition === Position.Left ? 'left' : 'right',
@@ -253,7 +296,21 @@ function RelationEdgeImpl({
       sourceLaneIndex * LANE_GAP,
       sourceLaneIndex * LANE_GAP,
     )
+    routeCache.set(id, {
+      obs: obstacleNodes,
+      sx: sourceX,
+      sy: sourceY,
+      tx: targetX,
+      ty: targetY,
+      sp: sourcePosition,
+      tp: targetPosition,
+      li: laneIndex,
+      sli: sourceLaneIndex,
+      points,
+    })
+    return points
   }, [
+    id,
     dragging,
     isEnumLink,
     manualWaypoints,

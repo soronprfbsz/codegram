@@ -12,6 +12,37 @@ import {
   type ObstacleNode,
 } from './RelationEdge'
 import { EdgePathContext } from '../lib/edgePathContext'
+import * as routeLib from '../lib/routeOrthogonal'
+
+describe('orthoPoints route cache (survives virtualization remount)', () => {
+  it('reuses the cached route on remount with unchanged geometry, recomputes when it changes', () => {
+    const spy = vi.spyOn(routeLib, 'routeOrthogonal')
+    const props = {
+      ...baseProps,
+      id: 'route-cache-probe',
+      sourceX: 5,
+      sourceY: 5,
+      targetX: 220,
+      targetY: 140,
+    } as RelationEdgeProps
+
+    // First mount computes + caches the route.
+    renderEdge(props).unmount()
+
+    // Remount with identical geometry → cache hit, A* MUST NOT run again
+    // (this is the pan/zoom remount churn that was re-routing every frame).
+    spy.mockClear()
+    renderEdge(props).unmount()
+    expect(spy).not.toHaveBeenCalled()
+
+    // Changed geometry → signature misses → A* recomputes.
+    spy.mockClear()
+    renderEdge({ ...props, sourceX: 999 }).unmount()
+    expect(spy).toHaveBeenCalled()
+
+    spy.mockRestore()
+  })
+})
 
 describe('relation -> crow-foot marker mapping', () => {
   it('maps each relation half to the correct endpoint marker', () => {
