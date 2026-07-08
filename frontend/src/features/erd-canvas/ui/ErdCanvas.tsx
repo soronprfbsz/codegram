@@ -624,6 +624,20 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     [schema, selectedTableName],
   )
 
+  // Column ids that anchor at least one edge (source or target). TableNode
+  // renders the 4 edge-anchor Handles ONLY for these columns — a large schema
+  // otherwise mounts a Handle for every column (thousands), which dominates
+  // paint/pan/zoom/drag cost. Edge endpoints are in this set by construction, so
+  // no relationship loses its anchor. Recomputed only when edges change.
+  const connectedColumnIds = useMemo(() => {
+    const s = new Set<string>()
+    for (const e of edges) {
+      if (e.sourceHandle) s.add(e.sourceHandle)
+      if (e.targetHandle) s.add(e.targetHandle)
+    }
+    return s
+  }, [edges])
+
   // Derive display nodes: inject isSelected + highlightedColumnIds into data.
   // Base `nodes` (useNodesState) remain authoritative for positions; we never
   // modify them here — only produce a derived view for rendering.
@@ -635,13 +649,13 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   // reference STABLE across position-only updates, so memoized TableNode/EnumNode
   // skip re-render — only the dragged node re-renders instead of all ~350.
   const nodeDataCacheRef = useRef<
-    Map<string, { src: unknown; sel: boolean; hi: Set<string>; out: object }>
+    Map<string, { src: unknown; sel: boolean; hi: Set<string>; conn: Set<string>; out: object }>
   >(new Map())
   const displayNodes = useMemo(() => {
     const prevCache = nodeDataCacheRef.current
     const nextCache = new Map<
       string,
-      { src: unknown; sel: boolean; hi: Set<string>; out: object }
+      { src: unknown; sel: boolean; hi: Set<string>; conn: Set<string>; out: object }
     >()
     const out = nodes.map((n) => {
       if (n.type === 'table') {
@@ -649,7 +663,11 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
         const sel = data.tableName === selectedTableName
         const prev = prevCache.get(n.id)
         const derived =
-          prev && prev.src === data && prev.sel === sel && prev.hi === highlightColIds
+          prev &&
+          prev.src === data &&
+          prev.sel === sel &&
+          prev.hi === highlightColIds &&
+          prev.conn === connectedColumnIds
             ? (prev.out as TableNodeData)
             : {
                 ...data,
@@ -657,8 +675,9 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
                 highlightedColumnIds: data.columns
                   .filter((c: ErdColumn) => highlightColIds.has(c.id))
                   .map((c: ErdColumn) => c.id),
+                connectedColumnIds,
               }
-        nextCache.set(n.id, { src: data, sel, hi: highlightColIds, out: derived })
+        nextCache.set(n.id, { src: data, sel, hi: highlightColIds, conn: connectedColumnIds, out: derived })
         return { ...n, data: derived }
       }
       // enum 노드도 테이블과 동일하게 선택 링을 받는다(노드 id 기준).
@@ -670,14 +689,14 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
           prev && prev.src === data && prev.sel === sel
             ? (prev.out as EnumNodeData)
             : { ...data, isSelected: sel }
-        nextCache.set(n.id, { src: data, sel, hi: highlightColIds, out: derived })
+        nextCache.set(n.id, { src: data, sel, hi: highlightColIds, conn: connectedColumnIds, out: derived })
         return { ...n, data: derived }
       }
       return n
     })
     nodeDataCacheRef.current = nextCache
     return out
-  }, [nodes, selectedTableName, selectedNodeId, highlightColIds])
+  }, [nodes, selectedTableName, selectedNodeId, highlightColIds, connectedColumnIds])
 
   // Absolute X of every node (grouped members = parent origin + relative), used
   // to pick FK edge anchor sides by geometry below.

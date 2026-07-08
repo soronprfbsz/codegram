@@ -27,9 +27,14 @@ function TableNodeImpl({ data }: TableNodeProps) {
     columns,
     isSelected,
     highlightedColumnIds,
+    connectedColumnIds,
   } = data
 
   const highlightSet = new Set(highlightedColumnIds ?? [])
+  // Only columns that anchor an edge need Handles. Without the set (older
+  // callers / tests) keep rendering all so behavior is unchanged.
+  const hasHandles = (colId: string): boolean =>
+    !connectedColumnIds || connectedColumnIds.has(colId)
 
   return (
     <div
@@ -113,58 +118,63 @@ function TableNodeImpl({ data }: TableNodeProps) {
                 background: isHighlighted ? 'var(--erd-accent-soft)' : 'transparent',
               }}
             >
-              {/* Target handle on the left (default side) */}
-              <Handle
-                type="target"
-                position={Position.Left}
-                id={col.id}
-                isConnectable={false}
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 6,
-                  height: 6,
-                  opacity: 0,
-                  pointerEvents: 'none',
-                }}
-              />
-              {/* Alternate-side handles: edge anchor swap (`@left`/`@right`
-                  suffix) — ErdCanvas rewrites the edge handle id when a stored
-                  sourceSide/targetSide override flips an endpoint. */}
-              <Handle
-                type="target"
-                position={Position.Right}
-                id={`${col.id}@right`}
-                isConnectable={false}
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 6,
-                  height: 6,
-                  opacity: 0,
-                  pointerEvents: 'none',
-                }}
-              />
-              <Handle
-                type="source"
-                position={Position.Left}
-                id={`${col.id}@left`}
-                isConnectable={false}
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 6,
-                  height: 6,
-                  opacity: 0,
-                  pointerEvents: 'none',
-                }}
-              />
+              {/* Edge-anchor handles — rendered only for columns that actually
+                  anchor a relationship (see hasHandles). Default target on the
+                  left (FK receives), plus alternate-side swap handles
+                  (`@left`/`@right`) ErdCanvas rewrites to when a stored
+                  sourceSide/targetSide flips an endpoint. */}
+              {hasHandles(col.id) && (
+                <>
+                  <Handle
+                    type="target"
+                    position={Position.Left}
+                    id={col.id}
+                    isConnectable={false}
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 6,
+                      height: 6,
+                      opacity: 0,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                  <Handle
+                    type="target"
+                    position={Position.Right}
+                    id={`${col.id}@right`}
+                    isConnectable={false}
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 6,
+                      height: 6,
+                      opacity: 0,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                  <Handle
+                    type="source"
+                    position={Position.Left}
+                    id={`${col.id}@left`}
+                    isConnectable={false}
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 6,
+                      height: 6,
+                      opacity: 0,
+                      pointerEvents: 'none',
+                    }}
+                  />
+                </>
+              )}
 
               {/* Key badge slot (20px) */}
               <span style={{ width: 20, flexShrink: 0, display: 'flex', alignItems: 'center' }}>
@@ -294,23 +304,25 @@ function TableNodeImpl({ data }: TableNodeProps) {
                 </span>
               )}
 
-              {/* Source handle on the right */}
-              <Handle
-                type="source"
-                position={Position.Right}
-                id={col.id}
-                isConnectable={false}
-                style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: 6,
-                  height: 6,
-                  opacity: 0,
-                  pointerEvents: 'none',
-                }}
-              />
+              {/* Source handle on the right (default source — PK emits). */}
+              {hasHandles(col.id) && (
+                <Handle
+                  type="source"
+                  position={Position.Right}
+                  id={col.id}
+                  isConnectable={false}
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 6,
+                    height: 6,
+                    opacity: 0,
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
             </div>
           )
         })}

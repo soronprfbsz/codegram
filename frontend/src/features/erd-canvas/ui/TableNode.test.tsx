@@ -131,4 +131,32 @@ describe('TableNode', () => {
       'public.users.id',
     ])
   })
+
+  it('renders handles ONLY for columns in connectedColumnIds (perf: skip the rest)', () => {
+    const { container } = renderNode({
+      ...baseProps,
+      data: {
+        tableName: 'users',
+        tableId: 'public.users',
+        // only `id` participates in a relationship; `email` does not.
+        connectedColumnIds: new Set(['public.users.id']),
+        columns: [
+          { id: 'public.users.id', name: 'id', type: 'integer', pk: true, fk: false, nn: true, unique: false },
+          { id: 'public.users.email', name: 'email', type: 'text', pk: false, fk: false, nn: false, unique: false },
+        ],
+      },
+    } as TableNodeProps)
+
+    const ids = Array.from(container.querySelectorAll('.react-flow__handle')).map((h) =>
+      h.getAttribute('data-handleid'),
+    )
+    // The connected column keeps its 4 anchors; the unconnected one renders none.
+    expect(ids).toEqual([
+      'public.users.id',
+      'public.users.id@right',
+      'public.users.id@left',
+      'public.users.id',
+    ])
+    expect(ids.some((i) => i?.includes('email'))).toBe(false)
+  })
 })

@@ -41,6 +41,14 @@ export interface TableNodeData {
   isSelected?: boolean
   /** Set by Phase 5 selection state: column ids whose rows get accent-soft bg. */
   highlightedColumnIds?: string[]
+  /**
+   * Column ids that participate in a relationship (appear as any edge's
+   * source/target handle). Only these columns render the 4 edge-anchor Handles;
+   * a large schema otherwise mounts thousands of handles on columns with no
+   * relation, which dominates paint/pan/zoom cost. `undefined` → render handles
+   * for every column (safe default for callers that don't supply the set).
+   */
+  connectedColumnIds?: Set<string>
   [key: string]: unknown
 }
 
