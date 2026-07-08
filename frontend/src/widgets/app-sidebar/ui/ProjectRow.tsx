@@ -33,6 +33,7 @@ import {
   DialogDescription,
 } from '@/shared/ui/dialog'
 import { Button } from '@/shared/ui/button'
+import { Badge } from '@/shared/ui/badge'
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog'
 import { ShareDialog, useLeaveProject } from '@/features/project-sharing'
 import { cn } from '@/shared/lib/utils'
@@ -128,17 +129,18 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
         <ProjectGlyph glyph={project.glyph} color={project.color} bgColor={project.bg_color} size={20} className="opacity-90" />
         {!collapsed && <span className="truncate">{project.name}</span>}
         {!collapsed && isShared ? (
-          <span
+          <Badge
+            variant="default"
             data-testid={`sidebar-project-shared-${project.id}`}
             title={
               project.owner_email
                 ? t('projectRow.sharedBy', { email: project.owner_email })
                 : undefined
             }
-            className="shrink-0 rounded bg-sidebar-accent px-1.5 py-0.5 text-[10px] text-sidebar-foreground/70"
+            className="shrink-0"
           >
-            {t(`sharing.role_${project.role}`)}
-          </span>
+            {t('projectList.shared')}
+          </Badge>
         ) : null}
       </Link>
 

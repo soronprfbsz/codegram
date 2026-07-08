@@ -147,7 +147,7 @@ describe('ProjectRow role gating (shared projects)', () => {
   it('editor sees 편집·나가기 but not 공유/삭제, plus a shared badge', async () => {
     const user = setup()
     renderRow({ ...PROJECT, role: 'editor' })
-    expect(screen.getByTestId('sidebar-project-shared-p-1')).toHaveTextContent('편집자')
+    expect(screen.getByTestId('sidebar-project-shared-p-1')).toHaveTextContent('공유')
     await openMenu(user)
     expect(await screen.findByRole('menuitem', { name: '편집' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: '나가기' })).toBeInTheDocument()
@@ -158,7 +158,7 @@ describe('ProjectRow role gating (shared projects)', () => {
   it('viewer sees only 나가기 (no 편집/공유/삭제)', async () => {
     const user = setup()
     renderRow({ ...PROJECT, role: 'viewer' })
-    expect(screen.getByTestId('sidebar-project-shared-p-1')).toHaveTextContent('뷰어')
+    expect(screen.getByTestId('sidebar-project-shared-p-1')).toHaveTextContent('공유')
     await openMenu(user)
     expect(await screen.findByRole('menuitem', { name: '나가기' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: '편집' })).toBeNull()

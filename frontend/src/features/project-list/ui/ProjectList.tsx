@@ -103,7 +103,7 @@ function ProjectCard({
                 </span>
                 {isShared && (
                   <Badge
-                    variant="secondary"
+                    variant="default"
                     className="shrink-0"
                     data-testid="project-shared-badge"
                   >
