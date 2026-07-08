@@ -627,33 +627,57 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   // Derive display nodes: inject isSelected + highlightedColumnIds into data.
   // Base `nodes` (useNodesState) remain authoritative for positions; we never
   // modify them here — only produce a derived view for rendering.
-  const displayNodes = useMemo(
-    () =>
-      nodes.map((n) => {
-        if (n.type === 'table') {
-          const data = n.data as TableNodeData
-          return {
-            ...n,
-            data: {
-              ...data,
-              isSelected: data.tableName === selectedTableName,
-              highlightedColumnIds: data.columns
-                .filter((c: ErdColumn) => highlightColIds.has(c.id))
-                .map((c: ErdColumn) => c.id),
-            },
-          }
-        }
-        // enum 노드도 테이블과 동일하게 선택 링을 받는다(노드 id 기준).
-        if (n.type === 'enum') {
-          return {
-            ...n,
-            data: { ...(n.data as EnumNodeData), isSelected: n.id === selectedNodeId },
-          }
-        }
-        return n
-      }),
-    [nodes, selectedTableName, selectedNodeId, highlightColIds],
-  )
+  //
+  // PERF: a node DRAG updates `nodes` (a moved node's position) every pointer
+  // frame, but the injected `data` fields depend only on selection/highlight —
+  // NOT position. So we cache each node's derived `data` and reuse it whenever
+  // its source data + selection + highlight are unchanged. That keeps the `data`
+  // reference STABLE across position-only updates, so memoized TableNode/EnumNode
+  // skip re-render — only the dragged node re-renders instead of all ~350.
+  const nodeDataCacheRef = useRef<
+    Map<string, { src: unknown; sel: boolean; hi: Set<string>; out: object }>
+  >(new Map())
+  const displayNodes = useMemo(() => {
+    const prevCache = nodeDataCacheRef.current
+    const nextCache = new Map<
+      string,
+      { src: unknown; sel: boolean; hi: Set<string>; out: object }
+    >()
+    const out = nodes.map((n) => {
+      if (n.type === 'table') {
+        const data = n.data as TableNodeData
+        const sel = data.tableName === selectedTableName
+        const prev = prevCache.get(n.id)
+        const derived =
+          prev && prev.src === data && prev.sel === sel && prev.hi === highlightColIds
+            ? (prev.out as TableNodeData)
+            : {
+                ...data,
+                isSelected: sel,
+                highlightedColumnIds: data.columns
+                  .filter((c: ErdColumn) => highlightColIds.has(c.id))
+                  .map((c: ErdColumn) => c.id),
+              }
+        nextCache.set(n.id, { src: data, sel, hi: highlightColIds, out: derived })
+        return { ...n, data: derived }
+      }
+      // enum 노드도 테이블과 동일하게 선택 링을 받는다(노드 id 기준).
+      if (n.type === 'enum') {
+        const data = n.data as EnumNodeData
+        const sel = n.id === selectedNodeId
+        const prev = prevCache.get(n.id)
+        const derived =
+          prev && prev.src === data && prev.sel === sel
+            ? (prev.out as EnumNodeData)
+            : { ...data, isSelected: sel }
+        nextCache.set(n.id, { src: data, sel, hi: highlightColIds, out: derived })
+        return { ...n, data: derived }
+      }
+      return n
+    })
+    nodeDataCacheRef.current = nextCache
+    return out
+  }, [nodes, selectedTableName, selectedNodeId, highlightColIds])
 
   // Absolute X of every node (grouped members = parent origin + relative), used
   // to pick FK edge anchor sides by geometry below.
@@ -676,41 +700,73 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   // `@right` target) makes the edge take the short FACING path instead, so
   // distinct relationships stay distinct. A stored manual swap wins over
   // geometry; enum links keep the default sides.
-  const displayEdges = useMemo(
-    () =>
-      edges.map((e) => {
-        const stored = edgePaths?.[e.id]
-        let sourceHandle = e.sourceHandle
-        let targetHandle = e.targetHandle
-        // Anchor-side resolution applies to relation AND enum links alike (both
-        // carry a sourceHandle + targetHandle and both support drag-to-flip).
-        if (e.sourceHandle && e.targetHandle) {
-          const { sourceSide, targetSide } = resolveEdgeSides(
-            nodeAbsX.get(e.source) ?? 0,
-            nodeAbsX.get(e.target) ?? 0,
-            stored,
-          )
-          if (sourceSide === 'left') sourceHandle = `${e.sourceHandle}@left`
-          if (targetSide === 'right') targetHandle = `${e.targetHandle}@right`
-        }
-        return {
-          ...e,
-          ...(sourceHandle !== e.sourceHandle && { sourceHandle }),
-          ...(targetHandle !== e.targetHandle && { targetHandle }),
-          // Elevate the selected edge above the others so ITS segment-drag
-          // handles win the pointer over any overlapping edge line underneath
-          // (and aren't occluded). zIndexMode is 'basic' → edge.zIndex is honored.
-          ...(e.id === selectedEdgeId && { zIndex: 1000 }),
-          data: {
-            ...e.data,
-            active: activeEdgeIds.has(e.id),
-            waypoints: stored?.waypoints,
-            isEdgeSelected: e.id === selectedEdgeId,
-          },
-        }
-      }),
-    [edges, activeEdgeIds, edgePaths, selectedEdgeId, nodeAbsX],
-  )
+  // PERF: same idea as displayNodes. During a drag only the moved node's abs X
+  // changes, so an edge NOT touching it resolves to the same sides/data every
+  // frame. Cache each edge's derived object keyed by its inputs (edge ref,
+  // active/selected flags, stored path, and the two endpoint abs-X values) and
+  // reuse it when unchanged, keeping the reference stable so memoized
+  // RelationEdge skips re-render for all but the edges attached to the drag.
+  const edgeCacheRef = useRef<
+    Map<
+      string,
+      { e: unknown; act: boolean; sel: boolean; stored: unknown; sax: number; tax: number; out: object }
+    >
+  >(new Map())
+  const displayEdges = useMemo(() => {
+    const prevCache = edgeCacheRef.current
+    const nextCache = new Map<
+      string,
+      { e: unknown; act: boolean; sel: boolean; stored: unknown; sax: number; tax: number; out: object }
+    >()
+    const out = edges.map((e) => {
+      const stored = edgePaths?.[e.id]
+      const act = activeEdgeIds.has(e.id)
+      const sel = e.id === selectedEdgeId
+      const sax = nodeAbsX.get(e.source) ?? 0
+      const tax = nodeAbsX.get(e.target) ?? 0
+      const prev = prevCache.get(e.id)
+      if (
+        prev &&
+        prev.e === e &&
+        prev.act === act &&
+        prev.sel === sel &&
+        prev.stored === stored &&
+        prev.sax === sax &&
+        prev.tax === tax
+      ) {
+        nextCache.set(e.id, prev)
+        return prev.out
+      }
+      let sourceHandle = e.sourceHandle
+      let targetHandle = e.targetHandle
+      // Anchor-side resolution applies to relation AND enum links alike (both
+      // carry a sourceHandle + targetHandle and both support drag-to-flip).
+      if (e.sourceHandle && e.targetHandle) {
+        const { sourceSide, targetSide } = resolveEdgeSides(sax, tax, stored)
+        if (sourceSide === 'left') sourceHandle = `${e.sourceHandle}@left`
+        if (targetSide === 'right') targetHandle = `${e.targetHandle}@right`
+      }
+      const derived = {
+        ...e,
+        ...(sourceHandle !== e.sourceHandle && { sourceHandle }),
+        ...(targetHandle !== e.targetHandle && { targetHandle }),
+        // Elevate the selected edge above the others so ITS segment-drag
+        // handles win the pointer over any overlapping edge line underneath
+        // (and aren't occluded). zIndexMode is 'basic' → edge.zIndex is honored.
+        ...(e.id === selectedEdgeId && { zIndex: 1000 }),
+        data: {
+          ...e.data,
+          active: act,
+          waypoints: stored?.waypoints,
+          isEdgeSelected: sel,
+        },
+      }
+      nextCache.set(e.id, { e, act, sel, stored, sax, tax, out: derived })
+      return derived
+    })
+    edgeCacheRef.current = nextCache
+    return out
+  }, [edges, activeEdgeIds, edgePaths, selectedEdgeId, nodeAbsX])
 
   // Report coordinate info for the current selection — value-equality guarded
   // so identical re-computations don't loop the page state.
