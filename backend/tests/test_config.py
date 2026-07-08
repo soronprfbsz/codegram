@@ -50,7 +50,7 @@ def test_auth_settings_defaults(monkeypatch):
         monkeypatch.delenv(var, raising=False)
     settings = Settings(_env_file=None)
     assert settings.secret_key == "change-me-dev-only-not-for-production"
-    assert settings.jwt_lifetime_seconds == 3600
+    assert settings.jwt_lifetime_seconds == 86400
     assert settings.cookie_secure is False
     assert settings.cookie_samesite == "lax"
 

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # secret_key signs JWTs; the default is clearly dev-only and MUST be
     # overridden in production via the SECRET_KEY env var.
     secret_key: str = "change-me-dev-only-not-for-production"
-    jwt_lifetime_seconds: int = 3600
+    jwt_lifetime_seconds: int = 86400
     # cookie_secure=False allows the cookie over http in dev; set True in prod (https).
     cookie_secure: bool = False
     # Literal so an invalid value (e.g. COOKIE_SAMESITE=foo) fails at config load
