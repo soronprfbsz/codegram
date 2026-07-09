@@ -234,10 +234,17 @@ function RelationEdgeImpl({
   })
   // Skip the (expensive) re-route while any node is being dragged — the layout
   // is in flux; smoothstep is good enough mid-drag and routing settles on stop.
-  const dragging = useMemo(() => {
-    for (const n of nodeLookup.values()) if (n.dragging) return true
+  //
+  // MUST be a reactive store selector, NOT useMemo([nodeLookup]): React Flow
+  // mutates the nodeLookup Map in place (stable ref), so a useMemo keyed on it
+  // never recomputes and `dragging` stayed false for the whole drag — every
+  // re-rendering edge then ran the full A* router each pointer frame instead of
+  // the cheap smoothstep, which was the drag lag. useStore re-evaluates on every
+  // store tick and only re-renders when the boolean flips (drag start/stop).
+  const dragging = useStore((s) => {
+    for (const n of s.nodeLookup.values()) if (n.dragging) return true
     return false
-  }, [nodeLookup])
+  })
 
   const [smoothPath] = getSmoothStepPath({
     sourceX,
