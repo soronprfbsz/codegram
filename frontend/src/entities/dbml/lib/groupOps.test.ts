@@ -19,7 +19,7 @@ describe('createGroup', () => {
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.text.startsWith(BASE.trimEnd())).toBe(true)
-    expect(r.text).toContain('TableGroup auth {\n}')
+    expect(r.text).toContain('TableGroup "auth" {\n}')
     const parsed = parseDbml(r.text)
     expect(parsed.ok && parsed.schema.tableGroups.length).toBe(1)
   })
@@ -52,7 +52,7 @@ describe('createGroup', () => {
     const r = createGroup('', 'g')
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.text).toBe('TableGroup g {\n}\n')
+    expect(r.text).toBe('TableGroup "g" {\n}\n')
   })
 })
 
@@ -97,7 +97,7 @@ describe('renameGroup', () => {
     const r = renameGroup(GROUPED, 'auth', 'identity')
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.text).toContain('TableGroup identity [color: #1570EF] {')
+    expect(r.text).toContain('TableGroup "identity" [color: #1570EF] {')
     expect(r.text).toContain("Note: 'auth tables'")
   })
 
@@ -171,7 +171,7 @@ describe('moveTableToGroup', () => {
     const r = moveTableToGroup(text, schemaOf(text), 'public.posts', 'content')
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.text).toContain('TableGroup content {\n  posts\n}')
+    expect(r.text).toContain('TableGroup content {\n  "posts"\n}')
   })
 
   it('group → group: removes from the old block and adds to the new', () => {
@@ -205,7 +205,8 @@ describe('moveTableToGroup', () => {
     const r = moveTableToGroup(text, schemaOf(text), 'public.b', 'g')
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.text).toContain('TableGroup g {\n  a\n  b\n}')
+    // The existing bare member is preserved verbatim; the new one is quoted.
+    expect(r.text).toContain('TableGroup g {\n  a\n  "b"\n}')
   })
 
   it('non-public schema member is written qualified', () => {
@@ -213,7 +214,7 @@ describe('moveTableToGroup', () => {
     const r = moveTableToGroup(text, schemaOf(text), 'app.users', 'g')
     expect(r.ok).toBe(true)
     if (!r.ok) return
-    expect(r.text).toContain('app.users')
+    expect(r.text).toContain('"app"."users"')
   })
 })
 

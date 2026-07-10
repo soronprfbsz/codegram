@@ -14,9 +14,15 @@ export type GroupOpResult =
   | { ok: true; text: string }
   | { ok: false; error: string }
 
-/** Quote a DBML identifier unless it is a bare word. */
+/** Quote a DBML identifier. Every identifier is double-quoted so group ops emit
+ *  the SAME all-quoted style @dbml/core produces elsewhere — the DB-sync importer
+ *  and the merge ModelExporter both quote every name (incl. group names/members).
+ *  Without this, a UI-created `TableGroup auth { users }` flips to
+ *  `TableGroup "auth" { "users" }` on the next sync. Bare/unquoted can't be the
+ *  unified style since names with spaces/reserved words REQUIRE quoting, so we
+ *  unify on always-quoted (G1: one source of truth for the DBML shape). */
 function quoteName(name: string): string {
-  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ? name : `"${name}"`
+  return `"${name}"`
 }
 
 /** Parse guard: the rewritten text must still be valid DBML. */

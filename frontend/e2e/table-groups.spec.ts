@@ -101,7 +101,7 @@ test('table groups: full CRUD scenario', async ({ page }) => {
         page.getByTestId('dbml-editor').locator('.cm-content').textContent(),
       { timeout: 10_000 },
     )
-    .toContain('TableGroup auth {')
+    .toContain('TableGroup "auth" {')
 
   // ── Step 2: Move users into 'auth' ────────────────────────────────────
   await expect(page.getByText('유효')).toBeVisible({ timeout: 10_000 })
@@ -115,7 +115,7 @@ test('table groups: full CRUD scenario', async ({ page }) => {
         page.getByTestId('dbml-editor').locator('.cm-content').textContent(),
       { timeout: 10_000 },
     )
-    .toMatch(/TableGroup auth \{[\s\S]*users[\s\S]*\}/)
+    .toMatch(/TableGroup "auth" \{[\s\S]*"users"[\s\S]*\}/)
 
   // ── Step 3: Set color #EC4899 on 'auth' ───────────────────────────────
   await expect(page.getByText('유효')).toBeVisible({ timeout: 10_000 })
@@ -159,7 +159,7 @@ test('table groups: full CRUD scenario', async ({ page }) => {
         page.getByTestId('dbml-editor').locator('.cm-content').textContent(),
       { timeout: 10_000 },
     )
-    .toContain('TableGroup core')
+    .toContain('TableGroup "core"')
 
   // ── Step 6: Delete 'core' ─────────────────────────────────────────────
   await expect(page.getByText('유효')).toBeVisible({ timeout: 10_000 })
