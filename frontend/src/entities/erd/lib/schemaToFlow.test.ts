@@ -76,9 +76,11 @@ describe('schemaToFlow — edge de-dup', () => {
   it('collapses duplicate column-pair edges (single FK + same pair inside a composite)', () => {
     const schema = emptySchema({
       tables: [
+        // Composite PK (id, org_id) so BOTH pairs land on a PK target and
+        // survive the PK-target filter — this test isolates de-dup, not filtering.
         table('public', 'tenants', [
           col('public', 'tenants', 'id', { pk: true }),
-          col('public', 'tenants', 'org_id'),
+          col('public', 'tenants', 'org_id', { pk: true }),
         ]),
         table('public', 'users', [
           col('public', 'users', 'tenant_id', { isFk: true }),
@@ -88,7 +90,7 @@ describe('schemaToFlow — edge de-dup', () => {
       refs: [
         // single FK: tenants.id < users.tenant_id (same pair as the composite #0)
         ref('tenants', ['id'], 'users', ['tenant_id'], '1-n'),
-        // composite FK: id→tenant_id (DUP) + org_id→org_id (unique)
+        // composite FK: id→tenant_id (DUP) + org_id→org_id
         ref('tenants', ['id', 'org_id'], 'users', ['tenant_id', 'org_id'], '1-n'),
       ],
     })
@@ -348,6 +350,61 @@ describe('schemaToFlow — edges (crow-foot + column handles)', () => {
     ])
     // Edge ids are unique per pair.
     expect(new Set(edges.map((e) => e.id)).size).toBe(2)
+  })
+
+  it('composite FK referencing a UNIQUE (non-PK) key: draws only the PK-target pair', () => {
+    // Real multi-tenant shape: tenants PK is `id` alone; `(id, org_id)` is a
+    // UNIQUE (not PK) index and org_id is itself an FK. A composite FK
+    // tenants.(id,org_id) < assets.(tenant_id,org_id) must NOT draw the
+    // org_id↔org_id line (both non-PK/FK columns) — only the PK pair.
+    const schema = emptySchema({
+      tables: [
+        table('public', 'tenants', [
+          col('public', 'tenants', 'id', { pk: true }),
+          col('public', 'tenants', 'org_id', { isFk: true }),
+        ]),
+        table('public', 'assets', [
+          col('public', 'assets', 'tenant_id', { isFk: true }),
+          col('public', 'assets', 'org_id', { isFk: true }),
+        ]),
+      ],
+      refs: [ref('tenants', ['id', 'org_id'], 'assets', ['tenant_id', 'org_id'], '1-n')],
+    })
+    const { edges } = schemaToFlow(schema)
+    const rel = edges.filter((e) => e.type === 'relation')
+    expect(rel).toHaveLength(1)
+    expect(rel[0].sourceHandle).toBe('public.tenants.id')
+    expect(rel[0].targetHandle).toBe('public.assets.tenant_id')
+  })
+
+  it('composite FK referencing a pure UNIQUE (no PK member): keeps all pairs (fallback)', () => {
+    const schema = emptySchema({
+      tables: [
+        table('public', 'a', [
+          col('public', 'a', 'u1', { unique: true }),
+          col('public', 'a', 'u2', { unique: true }),
+        ]),
+        table('public', 'b', [
+          col('public', 'b', 'f1', { isFk: true }),
+          col('public', 'b', 'f2', { isFk: true }),
+        ]),
+      ],
+      refs: [ref('a', ['u1', 'u2'], 'b', ['f1', 'f2'], '1-n')],
+    })
+    const rel = schemaToFlow(schema).edges.filter((e) => e.type === 'relation')
+    expect(rel).toHaveLength(2)
+  })
+
+  it('single-column FK to a UNIQUE (non-PK) column: still drawn', () => {
+    const schema = emptySchema({
+      tables: [
+        table('public', 'a', [col('public', 'a', 'code', { unique: true })]),
+        table('public', 'b', [col('public', 'b', 'a_code', { isFk: true })]),
+      ],
+      refs: [ref('a', ['code'], 'b', ['a_code'], '1-n')],
+    })
+    const rel = schemaToFlow(schema).edges.filter((e) => e.type === 'relation')
+    expect(rel).toHaveLength(1)
   })
 
   it('self-reference: source and target nodes match, handles differ', () => {

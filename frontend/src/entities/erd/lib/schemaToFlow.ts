@@ -82,14 +82,51 @@ function columnHandleId(schema: string, table: string, column: string): string {
   return `${schema}.${table}.${column}`
 }
 
-/** One relationship edge per column pair (composite FK -> one edge per pair). */
-function refToEdges(ref: DbmlRef): ErdFlowEdge[] {
+/** Handle ids (`${schema}.${table}.${col}`) of every PRIMARY KEY column. */
+function pkHandleIds(schema: DbmlSchema): Set<string> {
+  const pk = new Set<string>()
+  for (const t of schema.tables)
+    for (const c of t.columns) if (c.pk) pk.add(c.id)
+  return pk
+}
+
+/**
+ * The pair index of the REFERENCED (should-be-PK, "one") side per cardinality,
+ * or null when there is no identifying side (n-n). Mirrors the FK/PK convention
+ * in parse.ts (`fkEndpointIds`): the `*`/many endpoint is the FK, so for a `1-1`
+ * the `from` side is treated as the FK and `to` as the referenced side.
+ */
+function referencedColumnId(ref: DbmlRef, i: number): string | null {
+  if (ref.relation === '1-n')
+    return columnHandleId(ref.fromSchema, ref.fromTable, ref.fromColumns[i])
+  if (ref.relation === 'n-1' || ref.relation === '1-1')
+    return columnHandleId(ref.toSchema, ref.toTable, ref.toColumns[i])
+  return null // n-n: no PK side
+}
+
+/**
+ * One relationship edge per column pair (composite FK -> one edge per pair),
+ * EXCEPT: when a composite FK references a UNIQUE-but-non-PK key, drop the pairs
+ * whose referenced column is not a PK — so extra members (e.g. the `org_id` of a
+ * multi-tenant `(id, org_id)` unique key, itself an FK) don't render as FK↔FK
+ * lines. Only pure PK columns anchor relationships. Fallback: if NO pair lands on
+ * a PK (a genuine FK to a non-PK unique key), keep all pairs so the relationship
+ * still renders.
+ */
+function refToEdges(ref: DbmlRef, pkIds: Set<string>): ErdFlowEdge[] {
   const { source, target } = relationMarkers(ref.relation)
   const sourceNode = `${ref.fromSchema}.${ref.fromTable}`
   const targetNode = `${ref.toSchema}.${ref.toTable}`
   const pairCount = Math.min(ref.fromColumns.length, ref.toColumns.length)
+  const refIsPk = Array.from({ length: pairCount }, (_, i) => {
+    const id = referencedColumnId(ref, i)
+    return id === null ? null : pkIds.has(id)
+  })
+  const anyPk = refIsPk.some((v) => v === true)
   const edges: ErdFlowEdge[] = []
   for (let i = 0; i < pairCount; i++) {
+    // keep the pair unless it targets a non-PK while a PK pair exists in this ref
+    if (anyPk && refIsPk[i] === false) continue
     const fromCol = ref.fromColumns[i]
     const toCol = ref.toColumns[i]
     const data: RelationEdgeData = {
@@ -326,8 +363,9 @@ export function schemaToFlow(schema: DbmlSchema): ErdFlow {
 
   // Drop edges to endpoints that aren't emitted nodes (dangling refs to missing
   // tables/columns) — React Flow silently drops such edges; emit only valid ones.
+  const pkIds = pkHandleIds(schema)
   const edges: ErdFlowEdge[] = [
-    ...schema.refs.flatMap(refToEdges),
+    ...schema.refs.flatMap((r) => refToEdges(r, pkIds)),
     ...enumLinkEdges(schema),
     ...checkEnums.edges,
   ]
