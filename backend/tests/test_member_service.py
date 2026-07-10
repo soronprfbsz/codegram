@@ -8,6 +8,7 @@ from app.models.user import User
 from app.services.access import EDITOR, OWNER, VIEWER
 from app.services.member import (
     AlreadyMemberError,
+    AlreadyOwnerError,
     MemberNotFoundError,
     MemberService,
     OwnerCannotLeaveError,
@@ -151,6 +152,62 @@ async def test_member_can_leave_but_owner_cannot(
 
     with pytest.raises(OwnerCannotLeaveError):
         await service.leave(project.id, owner)
+
+
+async def test_transfer_ownership_swaps_roles(
+    test_session: AsyncSession,
+) -> None:
+    owner = await _make_user(test_session, "owner@example.com")
+    bob = await _make_user(test_session, "bob@example.com")
+    service = MemberService(test_session)
+    project = await _project(test_session, owner)
+    await service.invite(project.id, owner, "bob@example.com", VIEWER)
+
+    roster = await service.transfer_ownership(project.id, owner, bob)
+    by_email = {v.email: v.role for v in roster}
+    assert by_email == {"bob@example.com": OWNER, "owner@example.com": EDITOR}
+
+    # Project.user_id now points at bob; the old owner is a plain member.
+    proj, role = await service.projects.resolve_role(project.id, bob)
+    assert proj.user_id == bob
+    assert role == OWNER
+    _proj, old_role = await service.projects.resolve_role(project.id, owner)
+    assert old_role == EDITOR
+    # Bob's former member row is gone (owner is never stored in project_member).
+    assert await service.members.get(project.id, bob) is None
+
+
+async def test_transfer_to_non_member_raises_member_not_found(
+    test_session: AsyncSession,
+) -> None:
+    owner = await _make_user(test_session, "owner@example.com")
+    service = MemberService(test_session)
+    project = await _project(test_session, owner)
+
+    with pytest.raises(MemberNotFoundError):
+        await service.transfer_ownership(project.id, owner, uuid.uuid4())
+
+
+async def test_transfer_to_current_owner_raises_already_owner(
+    test_session: AsyncSession,
+) -> None:
+    owner = await _make_user(test_session, "owner@example.com")
+    service = MemberService(test_session)
+    project = await _project(test_session, owner)
+
+    with pytest.raises(AlreadyOwnerError):
+        await service.transfer_ownership(project.id, owner, owner)
+
+
+async def test_non_owner_cannot_transfer(test_session: AsyncSession) -> None:
+    owner = await _make_user(test_session, "owner@example.com")
+    editor = await _make_user(test_session, "editor@example.com")
+    service = MemberService(test_session)
+    project = await _project(test_session, owner)
+    await service.invite(project.id, owner, "editor@example.com", EDITOR)
+
+    with pytest.raises(ProjectForbiddenError):
+        await service.transfer_ownership(project.id, editor, editor)
 
 
 async def test_leave_when_no_role_raises_not_found(

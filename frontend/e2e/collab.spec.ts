@@ -100,4 +100,48 @@ test.describe('Project collaboration', () => {
     await memberCtx.close()
     await ownerCtx.close()
   })
+
+  test('owner transfers ownership; the former owner becomes an editor', async ({
+    browser,
+  }) => {
+    const stamp = Date.now()
+    const password = 'password123'
+    const ownerEmail = `owner3-${stamp}@example.com`
+    const memberEmail = `editor3-${stamp}@example.com`
+
+    const memberCtx = await browser.newContext()
+    const member = await memberCtx.newPage()
+    await registerAndLogin(member, memberEmail, password)
+
+    const ownerCtx = await browser.newContext()
+    const owner = await ownerCtx.newPage()
+    await registerAndLogin(owner, ownerEmail, password)
+    const projectId = await createProject(owner, 'Transfer')
+
+    await inviteViaApi(ownerCtx, projectId, memberEmail, 'editor')
+
+    // From the sidebar, open the project's ⋯ menu → 공유 (owner-only).
+    await owner.goto('/')
+    await owner.getByTestId(`sidebar-project-menu-${projectId}`).click()
+    await owner.getByTestId(`sidebar-project-share-${projectId}`).click()
+
+    // Hand ownership to the member, then confirm in the dialog.
+    const transferred = owner.waitForResponse(
+      (r) =>
+        r.url().includes('/transfer-ownership') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+    )
+    await owner.getByTestId(`share-transfer-${memberEmail}`).click()
+    await owner.getByTestId('share-transfer-confirm-ok').click()
+    await transferred
+
+    // The former owner now sees the project as shared, owned by the member.
+    const badge = owner.getByTestId(`sidebar-project-shared-${projectId}`)
+    await expect(badge).toBeVisible()
+    await expect(badge).toHaveAttribute('title', new RegExp(memberEmail))
+
+    await memberCtx.close()
+    await ownerCtx.close()
+  })
 })

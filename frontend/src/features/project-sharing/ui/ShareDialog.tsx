@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Trash2, ChevronDown } from 'lucide-react'
+import { Trash2, ChevronDown, Crown } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog'
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -21,9 +22,10 @@ import { useMembers } from '../api/useMembers'
 import {
   useInviteMember,
   useRemoveMember,
+  useTransferOwnership,
   useUpdateMemberRole,
 } from '../api/useShareMutations'
-import type { MemberRole } from '../model/types'
+import type { Member, MemberRole } from '../model/types'
 
 export interface ShareDialogProps {
   projectId: string
@@ -45,11 +47,13 @@ export function ShareDialog({
   const members = useMembers(projectId, open)
   const invite = useInviteMember(projectId)
   const updateRole = useUpdateMemberRole(projectId)
+  const transfer = useTransferOwnership(projectId)
   const remove = useRemoveMember(projectId)
 
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<MemberRole>('editor')
   const [error, setError] = useState<string | null>(null)
+  const [transferTarget, setTransferTarget] = useState<Member | null>(null)
 
   const roleLabel = (r: string) => t(`sharing.role_${r}`)
 
@@ -74,6 +78,7 @@ export function ShareDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="share-dialog">
         <DialogHeader>
@@ -139,6 +144,16 @@ export function ShareDialog({
                       type="button"
                       variant="ghost"
                       size="icon"
+                      aria-label={t('sharing.transfer')}
+                      data-testid={`share-transfer-${m.email}`}
+                      onClick={() => setTransferTarget(m)}
+                    >
+                      <Crown size={15} />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
                       aria-label={t('sharing.remove')}
                       data-testid={`share-remove-${m.email}`}
                       onClick={() => remove.mutate(m.user_id)}
@@ -153,6 +168,29 @@ export function ShareDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={transferTarget !== null}
+      onOpenChange={(o) => {
+        if (!o) setTransferTarget(null)
+      }}
+      title={t('sharing.transferConfirmTitle')}
+      description={t('sharing.transferConfirmDesc', {
+        email: transferTarget?.email ?? '',
+      })}
+      confirmLabel={t('sharing.transferConfirm')}
+      testId="share-transfer-confirm"
+      onConfirm={() => {
+        const target = transferTarget
+        setTransferTarget(null)
+        if (target)
+          transfer.mutate(target.user_id, {
+            // The caller is no longer owner — close this owner-only dialog.
+            onSuccess: () => onOpenChange(false),
+          })
+      }}
+    />
+    </>
   )
 }
 

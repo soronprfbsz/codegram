@@ -17,6 +17,7 @@ from app.models.user import User
 from app.schemas.member import MemberInvite, MemberRead, MemberRoleUpdate
 from app.services.member import (
     AlreadyMemberError,
+    AlreadyOwnerError,
     MemberNotFoundError,
     MemberService,
     MemberView,
@@ -124,6 +125,34 @@ async def update_member_role(
             status.HTTP_404_NOT_FOUND, detail="Member not found"
         ) from None
     return _to_read(view)
+
+
+@router.post(
+    "/{target_user_id}/transfer-ownership",
+    response_model=list[MemberRead],
+)
+async def transfer_ownership(
+    project_id: uuid.UUID,
+    target_user_id: uuid.UUID,
+    user: User = Depends(current_active_user),
+    service: MemberService = Depends(get_member_service),
+) -> list[MemberRead]:
+    """Hand ownership to an existing member; old owner becomes editor (owner only)."""
+    try:
+        views = await service.transfer_ownership(
+            project_id, user.id, target_user_id
+        )
+    except (ProjectNotFoundError, ProjectForbiddenError) as exc:
+        raise _raise_access(exc) from None
+    except MemberNotFoundError:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="Member not found"
+        ) from None
+    except AlreadyOwnerError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail="Already the owner"
+        ) from None
+    return [_to_read(v) for v in views]
 
 
 @router.delete("/{target_user_id}", status_code=status.HTTP_204_NO_CONTENT)

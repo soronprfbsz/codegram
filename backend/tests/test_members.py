@@ -112,6 +112,55 @@ async def test_update_role_then_remove_revokes_access(
     ).status_code == 404
 
 
+async def test_transfer_ownership_swaps_owner_and_editor(
+    authenticated_client: AsyncClient,
+    second_authenticated_client: AsyncClient,
+) -> None:
+    pid = await _create_project(authenticated_client)
+    await authenticated_client.post(
+        f"/api/projects/{pid}/members",
+        json={"email": "bob@example.com", "role": "viewer"},
+    )
+    roster = await authenticated_client.get(f"/api/projects/{pid}/members")
+    bob_id = next(
+        m["user_id"] for m in roster.json() if m["email"] == "bob@example.com"
+    )
+
+    transferred = await authenticated_client.post(
+        f"/api/projects/{pid}/members/{bob_id}/transfer-ownership"
+    )
+    assert transferred.status_code == 200
+    pairs = {(m["email"], m["role"]) for m in transferred.json()}
+    assert ("bob@example.com", "owner") in pairs
+    assert ("alice@example.com", "editor") in pairs
+
+    # Bob (new owner) can now manage members; Alice (now editor) cannot.
+    assert (
+        await second_authenticated_client.post(
+            f"/api/projects/{pid}/members",
+            json={"email": "ghost@example.com", "role": "viewer"},
+        )
+    ).status_code == 404  # unknown email, but authorized as owner
+    assert (
+        await authenticated_client.post(
+            f"/api/projects/{pid}/members/{bob_id}/transfer-ownership"
+        )
+    ).status_code == 403  # Alice is only an editor now
+
+
+async def test_transfer_to_non_member_404(
+    authenticated_client: AsyncClient,
+    second_authenticated_client: AsyncClient,
+) -> None:
+    import uuid
+
+    pid = await _create_project(authenticated_client)
+    res = await authenticated_client.post(
+        f"/api/projects/{pid}/members/{uuid.uuid4()}/transfer-ownership"
+    )
+    assert res.status_code == 404
+
+
 async def test_member_leaves_owner_cannot_leave(
     authenticated_client: AsyncClient,
     second_authenticated_client: AsyncClient,

@@ -3,6 +3,7 @@ export { useMembers } from './api/useMembers'
 export {
   useInviteMember,
   useUpdateMemberRole,
+  useTransferOwnership,
   useRemoveMember,
   useLeaveProject,
 } from './api/useShareMutations'

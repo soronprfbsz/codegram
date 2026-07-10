@@ -59,6 +59,31 @@ describe('ShareDialog', () => {
     )
   })
 
+  it('transfers ownership via POST after confirming', async () => {
+    const fetchSpy = vi
+      .spyOn(client, 'apiFetch')
+      .mockImplementation((path: string, init?: RequestInit) => {
+        if (init?.method === 'POST' && path.includes('transfer-ownership')) {
+          return Promise.resolve([
+            { user_id: 'u-bob', email: 'bob@example.com', role: 'owner' },
+            { user_id: 'u-owner', email: 'alice@example.com', role: 'editor' },
+          ] as never)
+        }
+        return Promise.resolve(ROSTER as never)
+      })
+    renderDialog()
+    fireEvent.click(await screen.findByTestId('share-transfer-bob@example.com'))
+    // Confirmation is required before the mutation fires.
+    fireEvent.click(await screen.findByTestId('share-transfer-confirm-ok'))
+
+    await waitFor(() =>
+      expect(fetchSpy).toHaveBeenCalledWith(
+        '/projects/p-1/members/u-bob/transfer-ownership',
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
+  })
+
   it('shows a user-not-found message on a 404 invite', async () => {
     vi.spyOn(client, 'apiFetch').mockImplementation((_path: string, init?: RequestInit) => {
       if (init?.method === 'POST') {

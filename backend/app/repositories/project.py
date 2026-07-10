@@ -132,6 +132,14 @@ class ProjectRepository:
         await self.session.flush()
         return project
 
+    async def set_owner(
+        self, project: Project, new_owner_id: uuid.UUID
+    ) -> Project:
+        """Reassign the project's owner (ownership transfer, ADR-0015)."""
+        project.user_id = new_owner_id
+        await self.session.flush()
+        return project
+
     async def delete(self, project: Project) -> None:
         """Delete a project."""
         await self.session.delete(project)

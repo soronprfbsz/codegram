@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.member import MemberRepository
 from app.repositories.user import UserRepository
-from app.services.access import OWNER, Capability
+from app.services.access import EDITOR, OWNER, Capability
 from app.services.project import ProjectService
 
 
@@ -32,6 +32,10 @@ class MemberNotFoundError(Exception):
 
 class OwnerCannotLeaveError(Exception):
     """The owner has no membership to leave; they must delete instead (-> 400)."""
+
+
+class AlreadyOwnerError(Exception):
+    """The transfer target already owns the project (-> 409)."""
 
 
 @dataclass(frozen=True)
@@ -123,6 +127,33 @@ class MemberService:
         if member is None:
             raise MemberNotFoundError(target_user_id)
         await self.members.delete(member)
+
+    async def transfer_ownership(
+        self,
+        project_id: uuid.UUID,
+        requester_id: uuid.UUID,
+        target_user_id: uuid.UUID,
+    ) -> Sequence[MemberView]:
+        """Hand ownership to an existing member; the old owner becomes editor.
+
+        Owner only. The target must already be a member (editor/viewer). Its
+        project_member row is removed (the owner is never stored there),
+        Project.user_id becomes the target, and the former owner is granted the
+        editor role. Returns the updated roster.
+        """
+        project, _role = await self.projects.get_authorized(
+            project_id, requester_id, Capability.TRANSFER_OWNERSHIP
+        )
+        if target_user_id == project.user_id:
+            raise AlreadyOwnerError(target_user_id)
+        member = await self.members.get(project_id, target_user_id)
+        if member is None:
+            raise MemberNotFoundError(target_user_id)
+        old_owner_id = project.user_id
+        await self.members.delete(member)
+        await self.projects.repo.set_owner(project, target_user_id)
+        await self.members.create(project_id, old_owner_id, EDITOR)
+        return await self.list_members(project_id, requester_id)
 
     async def leave(
         self, project_id: uuid.UUID, requester_id: uuid.UUID

@@ -23,6 +23,7 @@ class Capability(str, Enum):
     CREATE_SNAPSHOT = "create_snapshot"
     DELETE_SNAPSHOT = "delete_snapshot"
     MANAGE_MEMBERS = "manage_members"  # invite / change role / remove
+    TRANSFER_OWNERSHIP = "transfer_ownership"  # hand ownership to a member
     DELETE_PROJECT = "delete_project"
     FORCE_LOCK = "force_lock"  # owner-only force takeover of a live edit lock
 
@@ -34,6 +35,7 @@ _ALLOWED: dict[Capability, frozenset[str]] = {
     Capability.CREATE_SNAPSHOT: frozenset({OWNER, EDITOR}),
     Capability.DELETE_SNAPSHOT: frozenset({OWNER}),
     Capability.MANAGE_MEMBERS: frozenset({OWNER}),
+    Capability.TRANSFER_OWNERSHIP: frozenset({OWNER}),
     Capability.DELETE_PROJECT: frozenset({OWNER}),
     Capability.FORCE_LOCK: frozenset({OWNER}),
 }
