@@ -14,6 +14,7 @@ from sqlalchemy.engine import Connection, URL
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.schema import CheckConstraint, CreateIndex, CreateTable
+from sqlalchemy.sql.ddl import SetColumnComment, SetTableComment
 from sqlalchemy.types import NullType, Text, UserDefinedType
 
 from app.schemas.introspect import IntrospectRequest
@@ -158,16 +159,41 @@ def _enum_type_ddls(metadata: MetaData, dialect: Dialect) -> list[str]:
     return ddls
 
 
+def _comment_ddls(table, dialect: Dialect) -> list[str]:
+    """`COMMENT ON TABLE/COLUMN … IS '…'` for a table's reflected comments.
+
+    PostgreSQL comments are NOT inline in CREATE TABLE (unlike MySQL) — they are
+    separate COMMENT ON statements, which CreateTable never emits, so reflected
+    table/column comments would otherwise be dropped from the DDL. @dbml/core's
+    postgres importer turns COMMENT ON into table/column Notes, but only for a
+    single-quoted literal (which SQLAlchemy's Set*Comment renders, escaping any
+    apostrophe). Postgres-only: MySQL emits comments inline in CreateTable.
+    """
+    ddls: list[str] = []
+    if table.comment:
+        ddls.append(str(SetTableComment(table).compile(dialect=dialect)).strip() + ";")
+    for column in table.columns:
+        if column.comment:
+            ddls.append(
+                str(SetColumnComment(column).compile(dialect=dialect)).strip() + ";"
+            )
+    return ddls
+
+
 def build_ddl(metadata: MetaData, dialect: Dialect) -> str:
     """Emit dialect DDL for every reflected table: CREATE TABLE (PK/FK/UQ/NN
     inline) followed by its secondary indexes, preceded by CREATE TYPE for any
-    named enum types. Tables are FK-sorted so the output reads top-down;
-    @dbml/core resolves refs regardless of order."""
+    named enum types. PostgreSQL table/column comments follow as COMMENT ON
+    statements (MySQL renders them inline). Tables are FK-sorted so the output
+    reads top-down; @dbml/core resolves refs regardless of order."""
+    is_postgres = dialect.name == "postgresql"
     parts: list[str] = _enum_type_ddls(metadata, dialect)
     for table in metadata.sorted_tables:
         parts.append(str(CreateTable(table).compile(dialect=dialect)).strip() + ";")
         for index in sorted(table.indexes, key=lambda i: i.name or ""):
             parts.append(str(CreateIndex(index).compile(dialect=dialect)).strip() + ";")
+        if is_postgres:
+            parts.extend(_comment_ddls(table, dialect))
     return "\n\n".join(parts)
 
 

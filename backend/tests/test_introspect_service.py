@@ -106,6 +106,48 @@ def test_build_ddl_mysql_dialect_parameterized():
     assert "FOREIGN KEY" in ddl
 
 
+def _metadata_with_comments() -> MetaData:
+    """A table carrying a table comment and a column comment (like reflected
+    Postgres COMMENT ON metadata)."""
+    from sqlalchemy import Column, Integer, Table, Text
+
+    md = MetaData()
+    Table(
+        "users",
+        md,
+        Column("id", Integer, primary_key=True),
+        Column("email", Text, nullable=False, comment="이메일's 코멘트"),
+        comment="유저 테이블 코멘트",
+        schema="public",
+    )
+    return md
+
+
+def test_build_ddl_postgres_emits_comment_on_statements():
+    """Postgres comments are separate COMMENT ON statements (not inline), so
+    build_ddl must emit them or @dbml/core loses the table/column notes."""
+    ddl = build_ddl(_metadata_with_comments(), postgresql.dialect())
+    assert "COMMENT ON TABLE public.users IS '유저 테이블 코멘트'" in ddl
+    assert "COMMENT ON COLUMN public.users.email IS" in ddl
+    # Single-quoted literal with the apostrophe doubled (what @dbml/core parses).
+    assert "'이메일''s 코멘트'" in ddl
+    # COMMENT ON follows the CREATE TABLE it annotates.
+    assert ddl.index("CREATE TABLE") < ddl.index("COMMENT ON TABLE")
+
+
+def test_build_ddl_mysql_does_not_emit_comment_on():
+    """MySQL renders comments inline in CREATE TABLE; COMMENT ON is postgres-only
+    syntax and must not be emitted for the mysql dialect."""
+    ddl = build_ddl(_metadata_with_comments(), mysql.dialect())
+    assert "COMMENT ON" not in ddl
+
+
+def test_build_ddl_postgres_omits_comment_on_when_no_comments():
+    """No reflected comments → no COMMENT ON noise."""
+    ddl = build_ddl(_reflect_sqlite(), postgresql.dialect())
+    assert "COMMENT ON" not in ddl
+
+
 def _metadata_with_named_enum() -> MetaData:
     """A table with a NAMED enum column, like a reflected Postgres enum."""
     from sqlalchemy import BigInteger, Column, Enum, Table
