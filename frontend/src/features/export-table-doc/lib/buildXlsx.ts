@@ -3,12 +3,10 @@ import { fkRow, type TableDocModel, type TableDocTable } from '@/entities/table-
 import type { TableDocLabels } from './labels'
 import { HEADER_FILL, HEADER_TEXT, GRID_BORDER } from './tableDocStyle'
 
-/** Column widths (chars) for the 8-column 테이블정의서 form: No · 컬럼ID · 타입 ·
- *  길이 · NULL · KEY · DEFAULT · 설명. Column A doubles as the metadata-grid
- *  label column (주제영역명/테이블설명/…), so it is widened past the "No" body
- *  cells' need to fit those Korean labels without clipping. */
+/** The 8-column 테이블정의서 form: No · 컬럼ID · 타입 · 길이 · NULL · KEY · DEFAULT ·
+ *  설명. Column widths are auto-fit to content (see autofitColumns) rather than
+ *  fixed, so long values (설명 notes, DEFAULT expressions) are not clipped. */
 const FORM_COLS = 8
-const FORM_COLUMN_WIDTHS = [12, 24, 14, 8, 12, 9, 16, 30]
 
 const MAX_SHEET_NAME = 31
 /**
@@ -105,6 +103,74 @@ function outlineBlock(ws: ExcelJS.Worksheet, r0: number, r1: number): void {
       }
     }
   }
+}
+
+/** Visual width of a string in Excel column units (~width of a digit). CJK /
+ *  fullwidth glyphs (Hangul, Kanji, …) render about twice as wide as a digit,
+ *  so they count as 2 — otherwise Korean text is under-measured and clips. */
+function visualLen(s: string): number {
+  let w = 0
+  for (const ch of s) {
+    w += /[ᄀ-ᅟ⺀-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/.test(ch)
+      ? 2
+      : 1
+  }
+  return w
+}
+
+/** Column letters → 1-based number ("A"->1, "H"->8, "AA"->27). */
+function colNum(letters: string): number {
+  let n = 0
+  for (const ch of letters) n = n * 26 + (ch.charCodeAt(0) - 64)
+  return n
+}
+
+/**
+ * `${row}:${col}` keys of every cell inside a MULTI-column merge (title A:H,
+ * metadata B:D/F:H, FK spans, …). Such a value renders across several columns,
+ * so it must not size any single column. Read from `ws.model.merges` (accurate
+ * merge ranges) rather than `cell.isMerged`, which mis-reports non-merged cells
+ * during build (before serialization). Single-column merges are NOT excluded —
+ * their value legitimately sizes that one column.
+ */
+function mergedSpanCells(ws: ExcelJS.Worksheet): Set<string> {
+  const covered = new Set<string>()
+  const merges = ((ws.model as { merges?: string[] }).merges ?? [])
+  for (const range of merges) {
+    const m = /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(range)
+    if (!m) continue
+    const c0 = colNum(m[1])
+    const c1 = colNum(m[3])
+    if (c1 <= c0) continue // single-column (vertical) merge — keep it
+    for (let r = Number(m[2]); r <= Number(m[4]); r++)
+      for (let c = c0; c <= c1; c++) covered.add(`${r}:${c}`)
+  }
+  return covered
+}
+
+/**
+ * Auto-fit each column's width to its longest cell text so long values (설명
+ * notes, DEFAULT expressions) are not clipped. Cells spanning several columns
+ * (see mergedSpanCells) are excluded. Width is clamped to [min, max] + padding.
+ */
+const AUTOFIT = { min: 6, max: 100, pad: 2 }
+function autofitColumns(ws: ExcelJS.Worksheet): void {
+  const span = mergedSpanCells(ws)
+  const widths: number[] = []
+  ws.eachRow((row, rn) => {
+    row.eachCell((cell, col) => {
+      if (span.has(`${rn}:${col}`)) return
+      widths[col] = Math.max(widths[col] ?? 0, visualLen(cell.text ?? ''))
+    })
+  })
+  widths.forEach((len, col) => {
+    if (col < 1) return // eachCell col index is 1-based
+    const w = Math.min(AUTOFIT.max, Math.max(AUTOFIT.min, len + AUTOFIT.pad))
+    // exceljs treats a width of exactly 9 as its default column width and DROPS
+    // it on serialization (the column then reopens at the client default, which
+    // can undershoot the fit) — nudge off 9 so the intended width persists.
+    ws.getColumn(col).width = w === 9 ? 9.5 : w
+  })
 }
 
 /**
@@ -250,7 +316,6 @@ export async function buildTableDocXlsxBlob(
 
   // 1) Overview sheet — every table with its group name.
   const overview = wb.addWorksheet(clampSheetName(labels.overviewSheet))
-  overview.columns = [{ width: 6 }, { width: 22 }, { width: 28 }, { width: 40 }]
   styleHeader(
     overview.addRow([labels.overviewNo, labels.overviewGroup, labels.overviewTable, labels.overviewDesc]),
   )
@@ -259,30 +324,31 @@ export async function buildTableDocXlsxBlob(
     borderRow(overview.addRow([n++, groupName, `${t.schema}.${t.name}`, t.note]))
   for (const g of groups) for (const t of g.tables) addOverviewRow(g.name, t)
   for (const t of ungrouped) addOverviewRow(labels.ungroupedSheet, t)
+  autofitColumns(overview)
 
   // 2) One sheet per group.
   for (const g of groups) {
     const ws = wb.addWorksheet(uniqueSheetName(g.name, used))
-    ws.columns = FORM_COLUMN_WIDTHS.map((w) => ({ width: w }))
     for (const t of g.tables) writeTableBlock(ws, t, labels, g.name, defaultDbName)
+    autofitColumns(ws)
   }
 
   // 3) Ungrouped sheet (only when there are ungrouped tables).
   if (ungrouped.length > 0) {
     const ws = wb.addWorksheet(uniqueSheetName(labels.ungroupedSheet, used))
-    ws.columns = FORM_COLUMN_WIDTHS.map((w) => ({ width: w }))
     for (const t of ungrouped) writeTableBlock(ws, t, labels, labels.ungroupedSheet, defaultDbName)
+    autofitColumns(ws)
   }
 
   // 4) Trailing Enums sheet.
   const enumWs = wb.addWorksheet(clampSheetName(labels.enumsSheet))
-  enumWs.columns = [{ width: 28 }, { width: 22 }, { width: 30 }]
   styleHeader(enumWs.addRow([labels.enumColEnum, labels.enumColValue, labels.enumColNote]))
   for (const en of model.enums) {
     for (const value of en.values) {
       borderRow(enumWs.addRow([`${en.schema}.${en.name}`, value.name, value.note]))
     }
   }
+  autofitColumns(enumWs)
 
   const buffer = await wb.xlsx.writeBuffer()
   return new Blob([buffer], {

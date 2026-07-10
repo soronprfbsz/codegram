@@ -164,6 +164,54 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     expect(String(db[6] ?? '')).toBe('') // 스키마명: public (no qualifier) → blank
   })
 
+  it('auto-fits column width to the longest cell text (설명 grows for a long note)', async () => {
+    const longNote = '데이터-플레인 토큰 폐기용 epoch (JWT tev 클레임; 비활성/전체revoke 시 +1)'
+    const long: TableDocModel = {
+      tables: [{
+        id: 'public.u', schema: 'public', name: 'u', note: '',
+        columns: [{ name: 'token_epoch', type: 'integer', pk: false, fk: false, notNull: true, unique: false, default: '0', note: longNote }],
+        fkTargets: [], checks: [],
+      }],
+      enums: [], groups: [{ name: 'g', tableIds: ['public.u'] }],
+    }
+    const short: TableDocModel = {
+      tables: [{
+        id: 'public.u', schema: 'public', name: 'u', note: '',
+        columns: [{ name: 'x', type: 'int', pk: false, fk: false, notNull: false, unique: false, default: '', note: '짧음' }],
+        fkTargets: [], checks: [],
+      }],
+      enums: [], groups: [{ name: 'g', tableIds: ['public.u'] }],
+    }
+    const wLong = (await read(await buildTableDocXlsxBlob(long, LABELS))).getWorksheet('g')!
+    const wShort = (await read(await buildTableDocXlsxBlob(short, LABELS))).getWorksheet('g')!
+    // 설명 is column 8 — it must fit the long note (CJK counted ~2/char) …
+    expect(wLong.getColumn(8).width).toBeGreaterThan(40)
+    // … and shrink when the content is short (auto-fit, not a fixed width).
+    expect(wShort.getColumn(8).width).toBeLessThan(wLong.getColumn(8).width)
+  })
+
+  it('does not widen a column to a merged multi-column cell (title/metadata)', async () => {
+    const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
+    const ws = wb.getWorksheet('사용자관리')!
+    // '테이블정의서' is merged across A:H; column A must stay label-sized, not title-sized.
+    expect(ws.getColumn(1).width).toBeLessThan(20)
+  })
+
+  it('every form column keeps an explicit width after serialization (exceljs drops width==9)', async () => {
+    const m: TableDocModel = {
+      tables: [{
+        id: 'public.u', schema: 'public', name: 'u', note: 'n',
+        columns: [{ name: 'id', type: 'INTEGER', pk: true, fk: false, notNull: true, unique: false, default: '', note: '설명' }],
+        fkTargets: [], checks: [],
+      }],
+      enums: [], groups: [{ name: 'g', tableIds: ['public.u'] }],
+    }
+    const ws = (await read(await buildTableDocXlsxBlob(m, LABELS))).getWorksheet('g')!
+    // 타입 (col 3) fits 'INTEGER' → ~9 chars; must round-trip as a real width, not
+    // be silently dropped (regression: exceljs omits width exactly 9 on save).
+    for (let c = 1; c <= 8; c++) expect(ws.getColumn(c).width, `col ${c}`).toBeGreaterThan(0)
+  })
+
   it('renders the CHECK section inside a group sheet', async () => {
     const m: TableDocModel = {
       tables: [{
