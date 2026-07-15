@@ -17,6 +17,7 @@ _password_helper = PasswordHelper()
 
 async def test_seed_admin_creates_admin_in_development(test_session, monkeypatch):
     monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "allow_admin_seed", True)
 
     await seed_admin(test_session)
 
@@ -40,6 +41,7 @@ async def test_seed_admin_creates_admin_in_development(test_session, monkeypatch
 
 async def test_seed_admin_is_idempotent(test_session, monkeypatch):
     monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "allow_admin_seed", True)
 
     await seed_admin(test_session)
     await seed_admin(test_session)
@@ -54,6 +56,7 @@ async def test_seed_admin_is_idempotent(test_session, monkeypatch):
 
 async def test_seed_admin_does_not_reset_existing_password(test_session, monkeypatch):
     monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "allow_admin_seed", True)
 
     await seed_admin(test_session)
     result = await test_session.execute(
@@ -76,6 +79,23 @@ async def test_seed_admin_does_not_reset_existing_password(test_session, monkeyp
 
 async def test_seed_admin_noop_outside_development(test_session, monkeypatch):
     monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "allow_admin_seed", True)
+
+    await seed_admin(test_session)
+
+    result = await test_session.execute(
+        select(func.count())
+        .select_from(User)
+        .where(User.email == "admin@tscorp.ai")
+    )
+    assert result.scalar_one() == 0
+
+
+async def test_seed_admin_noop_in_development_without_opt_in(test_session, monkeypatch):
+    # Fail-closed: ENVIRONMENT unset/misconfigured must not be enough on its
+    # own to seed a known-password admin. allow_admin_seed defaults to False.
+    monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "allow_admin_seed", False)
 
     await seed_admin(test_session)
 

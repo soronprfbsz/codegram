@@ -2,6 +2,8 @@
 import pytest
 from httpx import AsyncClient
 
+from app.repositories.user import UserRepository
+
 
 async def _register(client: AsyncClient, email: str, password: str):
     return await client.post(
@@ -96,3 +98,25 @@ async def test_per_user_isolation_me_reflects_logged_in_user(client: AsyncClient
     me2 = await client.get("/api/users/me")
     assert me2.json()["email"] == "user2@example.com"
     assert me1.json()["id"] != me2.json()["id"]
+
+
+async def test_must_change_password_user_cannot_patch_users_me(client, test_session):
+    # ADR-0016: a forced-password-change user must be blocked from mutating
+    # their own account via the fastapi-users /users/me route, not just our
+    # own gated routes.
+    await _register(client, "mustchange2@example.com", "password123")
+    await _login(client, "mustchange2@example.com", "password123")
+    user_repo = UserRepository(test_session)
+    user = await user_repo.get_by_email("mustchange2@example.com")
+    await user_repo.set_password_hash(user, user.hashed_password, must_change=True)
+
+    patch_resp = await client.patch(
+        "/api/users/me", json={"email": "changed@example.com"}
+    )
+    assert patch_resp.status_code == 403
+    assert patch_resp.json()["detail"] == {"reason": "must_change_password"}
+
+    # GET current-user must stay reachable during must-change (the frontend
+    # force-change screen depends on it).
+    get_resp = await client.get("/api/users/me")
+    assert get_resp.status_code == 200

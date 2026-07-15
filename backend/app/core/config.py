@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # App.
     debug: bool = False
     environment: str = "development"
+    # Explicit opt-in required (in addition to environment == "development")
+    # for scripts/seed_admin.py to seed the known-password bootstrap admin.
+    # environment defaults to "development", so that alone is fail-open if
+    # ENVIRONMENT is left unset; this flag keeps the seed fail-closed by
+    # default even in a dev-looking config.
+    allow_admin_seed: bool = False
 
     # Project snapshot history (ADR-0014). Cadences/retention are fixed
     # operator-tunable constants, not user-facing settings.

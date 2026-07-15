@@ -9,6 +9,12 @@ settings.environment == "development" and is a no-op otherwise.
 
 Idempotent: if admin@tscorp.ai already exists, it is left as-is (password is
 never reset on re-run).
+
+Fail-closed: settings.environment defaults to "development", so gating on
+that alone would seed the known-password admin if ENVIRONMENT is ever left
+unset. The seed additionally requires settings.allow_admin_seed (env var
+ALLOW_ADMIN_SEED) to be explicitly set truthy. Run it in dev with:
+    ALLOW_ADMIN_SEED=1 python -m app.scripts.seed_admin
 """
 import asyncio
 import uuid
@@ -29,8 +35,11 @@ _password_helper = PasswordHelper()
 
 
 async def seed_admin(session: AsyncSession) -> None:
-    """Upsert the dev-only bootstrap admin account (no-op outside development)."""
-    if settings.environment != "development":
+    """Upsert the dev-only bootstrap admin account.
+
+    No-op unless environment is "development" AND allow_admin_seed is
+    explicitly set (fail-closed: see module docstring)."""
+    if settings.environment != "development" or not settings.allow_admin_seed:
         return
 
     rbac = RbacRepository(session)

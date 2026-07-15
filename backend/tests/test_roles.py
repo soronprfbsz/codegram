@@ -120,6 +120,23 @@ async def test_removing_admin_manage_is_conflict(client, test_session):
     assert resp.json()["detail"] == {"reason": "admin_manage_required"}
 
 
+async def test_removing_admin_read_is_conflict(client, test_session):
+    # Admin must also keep user:read: GET /accounts and GET /roles require it,
+    # so losing it would soft-lock admins out of the account/matrix UI.
+    await RbacRepository(test_session).ensure_seed()
+    await _register_and_login(client, "admin6@example.com")
+    await _set_role(test_session, "admin6@example.com", "admin")
+
+    admin_role = await RbacRepository(test_session).role_by_name("admin")
+    resp = await client.patch(
+        f"/api/roles/{admin_role.id}/permissions",
+        json={"permission_codes": ["user:manage"]},
+    )
+
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == {"reason": "admin_manage_required"}
+
+
 async def test_unknown_permission_code_is_bad_request(client, test_session):
     await RbacRepository(test_session).ensure_seed()
     await _register_and_login(client, "admin4@example.com")

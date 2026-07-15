@@ -2,7 +2,8 @@
 
 The service does not commit; the request scope (get_session) commits the unit
 of work. update_role_permissions guards against self-lockout: the admin role
-may never lose the user:manage permission.
+may never lose the user:manage or user:read permission (losing user:read
+would soft-lock admins out of the account/matrix UI, which requires it).
 """
 import uuid
 
@@ -12,7 +13,7 @@ from app.repositories.rbac import RbacRepository
 from app.schemas.role import RoleRead
 
 _ADMIN_ROLE_NAME = "admin"
-_MANAGE_PERMISSION_CODE = "user:manage"
+_ADMIN_REQUIRED_PERMISSION_CODES = ("user:manage", "user:read")
 
 
 class RoleNotFoundError(Exception):
@@ -24,7 +25,8 @@ class UnknownPermissionError(Exception):
 
 
 class AdminManageRequiredError(Exception):
-    """Removing user:manage from the admin role would self-lock admins out."""
+    """Removing user:manage or user:read from the admin role would self-lock
+    admins out."""
 
 
 class RbacService:
@@ -55,7 +57,9 @@ class RbacService:
         if not set(codes) <= known_codes:
             raise UnknownPermissionError(set(codes) - known_codes)
 
-        if role.name == _ADMIN_ROLE_NAME and _MANAGE_PERMISSION_CODE not in codes:
+        if role.name == _ADMIN_ROLE_NAME and not set(
+            _ADMIN_REQUIRED_PERMISSION_CODES
+        ) <= set(codes):
             raise AdminManageRequiredError()
 
         await self.rbac.set_role_permissions(role_id, codes)
