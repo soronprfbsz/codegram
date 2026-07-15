@@ -46,7 +46,7 @@ export function ForcePasswordChangePage() {
       await queryClient.invalidateQueries({ queryKey: meQueryKey })
       navigate('/')
     } catch {
-      setError(t('account.currentPasswordWrong'))
+      setError(t('account.changePasswordError'))
     }
   }
 

@@ -127,4 +127,30 @@ describe('ForcePasswordChangePage', () => {
       expect.objectContaining({ queryKey: meQueryKey }),
     )
   })
+
+  it('shows a generic error (not the current-password-wrong message) when the mutation fails', async () => {
+    const mutateAsync = vi.fn().mockRejectedValue(new Error('network error'))
+    vi.spyOn(account, 'useChangePassword').mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof account.useChangePassword>)
+
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.type(
+      screen.getByTestId('force-new-password-input'),
+      'password123',
+    )
+    await user.type(
+      screen.getByTestId('force-confirm-password-input'),
+      'password123',
+    )
+    await user.click(screen.getByTestId('force-password-submit'))
+
+    expect(
+      await screen.findByText(/failed to change password/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/current password is incorrect/i)).toBeNull()
+  })
 })

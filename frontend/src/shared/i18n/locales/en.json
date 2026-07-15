@@ -26,7 +26,8 @@
     "changePassword": "Change password",
     "changingPassword": "Changing…",
     "passwordChanged": "Password changed",
-    "currentPasswordWrong": "Current password is incorrect"
+    "currentPasswordWrong": "Current password is incorrect",
+    "changePasswordError": "Failed to change password. Please try again."
   },
   "accounts": {
     "title": "Manage accounts",

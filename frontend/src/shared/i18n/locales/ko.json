@@ -26,7 +26,8 @@
     "changePassword": "비밀번호 변경",
     "changingPassword": "변경 중…",
     "passwordChanged": "비밀번호가 변경되었습니다",
-    "currentPasswordWrong": "현재 비밀번호가 올바르지 않습니다"
+    "currentPasswordWrong": "현재 비밀번호가 올바르지 않습니다",
+    "changePasswordError": "비밀번호 변경에 실패했습니다. 잠시 후 다시 시도하세요."
   },
   "accounts": {
     "title": "계정 관리",
