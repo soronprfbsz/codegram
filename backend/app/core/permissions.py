@@ -14,13 +14,24 @@ from app.models.user import User
 from app.repositories.rbac import RbacRepository
 
 
+def _ensure_password_ok(user: User) -> None:
+    """403 (with a machine-readable reason) if the caller must change their
+    password before doing anything else."""
+    if user.must_change_password:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, detail={"reason": "must_change_password"}
+        )
+
+
 def require_permission(code: str):
-    """Return a dependency that 403s unless the caller's role grants `code`."""
+    """Return a dependency that 403s unless the caller is password-ok and
+    their role grants `code`."""
 
     async def dep(
         user: User = Depends(current_active_user),
         session: AsyncSession = Depends(get_session),
     ) -> User:
+        _ensure_password_ok(user)
         perms = await RbacRepository(session).permissions_for_user(user.id)
         if code not in perms:
             raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Forbidden")
@@ -34,8 +45,5 @@ async def require_password_ok(
 ) -> User:
     """403 (with a machine-readable reason) if the caller must change their
     password before doing anything else."""
-    if user.must_change_password:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN, detail={"reason": "must_change_password"}
-        )
+    _ensure_password_ok(user)
     return user

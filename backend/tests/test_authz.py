@@ -70,6 +70,21 @@ async def test_require_permission_200_with_permission(client, test_session):
     assert resp.json()["email"] == "admin@example.com"
 
 
+async def test_require_permission_403_must_change_password_even_with_permission(
+    client, test_session
+):
+    await _register_and_login(client, "adminforced@example.com")
+    await _set_role(test_session, "adminforced@example.com", "admin")
+    user_repo = UserRepository(test_session)
+    user = await user_repo.get_by_email("adminforced@example.com")
+    await user_repo.set_password_hash(user, user.hashed_password, must_change=True)
+
+    resp = await client.get("/_test_authz/manage-only")
+
+    assert resp.status_code == 403
+    assert resp.json()["detail"] == {"reason": "must_change_password"}
+
+
 async def test_require_password_ok_200_when_not_must_change(client):
     await _register_and_login(client, "ok@example.com")
 
