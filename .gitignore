@@ -34,3 +34,6 @@ deploy/.deps-hash
 
 # Playwright MCP browser-snapshot artifacts
 .playwright-mcp/
+
+# Local-only agent notes (never committed — may contain credentials)
+CLAUDE.local.md
