@@ -24,7 +24,7 @@ describe('PasswordResetHelp', () => {
     useAdminContacts.mockReturnValue({ data: undefined, isLoading: false })
     render(<PasswordResetHelp />)
     expect(
-      screen.getByRole('button', { name: /reset password/i }),
+      screen.getByRole('button', { name: /forgot your password/i }),
     ).toBeInTheDocument()
   })
 
@@ -36,7 +36,7 @@ describe('PasswordResetHelp', () => {
     const user = userEvent.setup()
     render(<PasswordResetHelp />)
 
-    await user.click(screen.getByRole('button', { name: /reset password/i }))
+    await user.click(screen.getByRole('button', { name: /forgot your password/i }))
 
     expect(screen.getByText('admin1@example.com')).toBeInTheDocument()
     expect(screen.getByText('admin2@example.com')).toBeInTheDocument()
@@ -47,7 +47,7 @@ describe('PasswordResetHelp', () => {
     const user = userEvent.setup()
     render(<PasswordResetHelp />)
 
-    await user.click(screen.getByRole('button', { name: /reset password/i }))
+    await user.click(screen.getByRole('button', { name: /forgot your password/i }))
 
     expect(
       screen.getByText(/no admins are registered/i),

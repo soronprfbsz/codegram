@@ -57,7 +57,7 @@ describe('LoginForm', () => {
   it('shows a "Reset password" trigger for locked-out users', () => {
     renderForm()
     expect(
-      screen.getByRole('button', { name: /reset password/i }),
+      screen.getByRole('button', { name: /forgot your password/i }),
     ).toBeInTheDocument()
   })
 

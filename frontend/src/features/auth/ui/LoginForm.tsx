@@ -74,6 +74,7 @@ export function LoginForm() {
               placeholder="••••••••"
               disabled={login.isPending}
             />
+            <PasswordResetHelp />
           </div>
 
           {error && (
@@ -90,7 +91,6 @@ export function LoginForm() {
             {login.isPending ? t('auth.loggingIn') : t('auth.login')}
           </Button>
         </form>
-        <PasswordResetHelp />
       </CardContent>
     </Card>
   )

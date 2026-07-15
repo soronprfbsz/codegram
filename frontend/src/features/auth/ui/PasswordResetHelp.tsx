@@ -21,14 +21,16 @@ export function PasswordResetHelp() {
 
   return (
     <>
-      <Button
-        type="button"
-        variant="link"
-        className="w-full"
-        onClick={() => setOpen(true)}
-      >
-        {t('auth.forgotPassword')}
-      </Button>
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto p-0 text-sm"
+          onClick={() => setOpen(true)}
+        >
+          {t('auth.forgotPassword')}
+        </Button>
+      </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent data-testid="password-reset-help">
           <DialogHeader>

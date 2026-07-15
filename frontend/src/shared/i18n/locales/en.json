@@ -72,7 +72,7 @@
     "loginFailed": "Login failed. Check your email and password.",
     "alreadyHaveAccount": "Already have an account?",
     "noAccount": "Don't have an account?",
-    "forgotPassword": "Reset password",
+    "forgotPassword": "Forgot your password?",
     "forgotPasswordTitle": "Forgot your password?",
     "forgotPasswordDescription": "Forgot your password? Ask one of the admins below to reset it.",
     "adminContactsLoading": "Loading admin list…",
