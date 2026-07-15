@@ -218,13 +218,12 @@ function RoleRow({
 }
 
 /** Role x permission matrix (ADR-0016 Task 11): rows = roles, columns =
- * every permission code currently granted to at least one role. */
+ * every permission code in the fixed catalog (PERMISSION_LABEL_KEYS), so a
+ * permission not yet granted to any role still shows up as grantable. */
 function RolePermissionsMatrix() {
   const { t } = useTranslation()
   const { data: roles } = useRoles()
-  const permissionCodes = Array.from(
-    new Set((roles ?? []).flatMap((r) => r.permissions)),
-  ).sort()
+  const permissionCodes = Object.keys(PERMISSION_LABEL_KEYS)
 
   return (
     <div

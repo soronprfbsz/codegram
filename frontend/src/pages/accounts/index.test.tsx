@@ -200,6 +200,32 @@ describe('AccountsPage permission matrix tab', () => {
     })
   })
 
+  it('renders every catalog permission column even when no role currently holds it', async () => {
+    mockMe(['user:read', 'user:manage'])
+    mockUpdateRolePermissions()
+    vi.spyOn(account, 'useRoles').mockReturnValue({
+      data: [
+        { id: 'r-admin', name: 'admin', permissions: ['user:read'] },
+        { id: 'r-user', name: 'user', permissions: ['user:read'] },
+      ],
+      isPending: false,
+    } as ReturnType<typeof account.useRoles>)
+    const user = userEvent.setup()
+
+    renderPage()
+    await user.click(screen.getByTestId('accounts-tab-permissions'))
+
+    expect(
+      screen.getByTestId('role-permission-admin-user:read'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByTestId('role-permission-admin-user:manage'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByTestId('role-permission-admin-user:manage'),
+    ).toHaveAttribute('data-state', 'unchecked')
+  })
+
   it('surfaces an inline error on a 409 admin_manage_required rejection without crashing', async () => {
     mockMe(['user:read', 'user:manage'])
     mockUpdateRolePermissions({
