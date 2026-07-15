@@ -8,7 +8,7 @@
  *
  * entities layer: imports only entities/dbml + entities/erd types (FSD).
  */
-import { parseEnumCheck } from '@/entities/dbml'
+import { synthesizedEnumChecks } from '@/entities/dbml'
 import type {
   DbmlSchema,
   DbmlTable,
@@ -222,32 +222,26 @@ function checkEnumNodesAndEdges(
 ): { nodes: ErdFlowNode[]; edges: ErdFlowEdge[] } {
   const nodes: ErdFlowNode[] = []
   const edges: ErdFlowEdge[] = []
-  for (const table of schema.tables) {
-    const checks = Array.isArray(table.checks) ? table.checks : []
-    for (const check of checks) {
-      const { column, values } = parseEnumCheck(check.expression)
-      if (!column || values.length === 0) continue
-      if (!table.columns.some((c) => c.name === column)) continue
-      const id = reserveId(used, `enum:check:${table.id}.${column}`)
-      const data: EnumNodeData = { enumName: column, values, ownerTableId: table.id }
-      nodes.push({ id, type: 'enum', position: { ...ZERO }, data })
-      const colId = `${table.schema}.${table.name}.${column}`
-      const edgeData: RelationEdgeData = {
-        relation: 'n-1',
-        sourceMarker: 'many',
-        targetMarker: 'one',
-        isEnumLink: true,
-      }
-      edges.push({
-        id: `enumlink:check:${colId}`,
-        type: 'relation',
-        source: table.id,
-        sourceHandle: colId,
-        target: id,
-        targetHandle: 'in',
-        data: edgeData,
-      })
+  for (const { table, column, values } of synthesizedEnumChecks(schema)) {
+    const id = reserveId(used, `enum:check:${table.id}.${column}`)
+    const data: EnumNodeData = { enumName: column, values, ownerTableId: table.id }
+    nodes.push({ id, type: 'enum', position: { ...ZERO }, data })
+    const colId = `${table.schema}.${table.name}.${column}`
+    const edgeData: RelationEdgeData = {
+      relation: 'n-1',
+      sourceMarker: 'many',
+      targetMarker: 'one',
+      isEnumLink: true,
     }
+    edges.push({
+      id: `enumlink:check:${colId}`,
+      type: 'relation',
+      source: table.id,
+      sourceHandle: colId,
+      target: id,
+      targetHandle: 'in',
+      data: edgeData,
+    })
   }
   return { nodes, edges }
 }

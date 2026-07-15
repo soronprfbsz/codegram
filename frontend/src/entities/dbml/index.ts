@@ -1,8 +1,8 @@
 export { parseDbml } from './lib/parse'
 export { mergeDbml, previewSyncChanges } from './lib/mergeDbml'
 export type { SyncChangePreview } from './lib/mergeDbml'
-export { parseEnumCheck, extractEnumCheckValues } from './lib/enumCheck'
-export type { EnumCheck } from './lib/enumCheck'
+export { parseEnumCheck, extractEnumCheckValues, synthesizedEnumChecks } from './lib/enumCheck'
+export type { EnumCheck, SynthesizedEnumCheck } from './lib/enumCheck'
 export type {
   DbmlCheck,
   DbmlColumn,

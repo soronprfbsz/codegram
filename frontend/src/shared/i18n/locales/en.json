@@ -211,8 +211,6 @@
     "statRefs": "Refs",
     "statTableGroups": "Table groups",
     "statEnums": "Enums",
-    "statNotes": "Notes",
-    "statDialect": "Dialect",
     "tableGroups": "Table groups",
     "manageGroups": "Manage groups",
     "manageGroupsTooltip": "Manage groups (bulk move)",
@@ -298,6 +296,14 @@
     "confirmDesc": "Your current layout (table positions and manually adjusted relation paths) will be reset and redrawn automatically. This cannot be undone.",
     "confirmOk": "Reset and arrange",
     "fullscreen": "Toggle fullscreen"
+  },
+  "canvasHelp": {
+    "title": "Canvas controls",
+    "pan": "Pan — hold the middle (wheel) button and drag",
+    "zoom": "Zoom — mouse wheel scroll",
+    "fit": "Fit to screen — button at the bottom-left",
+    "move": "Move a table — drag its card",
+    "select": "Select — click a table or relation"
   },
   "snapshot": {
     "title": "Version history",

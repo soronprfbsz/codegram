@@ -14,7 +14,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useTranslation } from 'react-i18next'
-import { Maximize, Minimize, Wand2, Plus, Minus, Maximize2 } from 'lucide-react'
+import { Maximize, Minimize, Wand2, Plus, Minus, Maximize2, HelpCircle } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -324,6 +324,92 @@ function ZoomBar() {
         }}
       >
         <Maximize2 size={16} strokeWidth={2} />
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Canvas controls hint — a "?" pill (beside the zoom bar) that toggles a small
+ * legend of pointer controls. Users otherwise miss that panning is middle-click
+ * drag (좌클릭 패닝은 panOnDrag={[1]}로 꺼져 있다). Shares the zoom bar's --erd-*
+ * surface so both controls read as one system (F1: 표면 토큰 단일 출처).
+ */
+function CanvasHelp() {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+
+  const rows: [string, string][] = [
+    ['pan', t('canvasHelp.pan')],
+    ['zoom', t('canvasHelp.zoom')],
+    ['fit', t('canvasHelp.fit')],
+    ['move', t('canvasHelp.move')],
+    ['select', t('canvasHelp.select')],
+  ]
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {open && (
+        <div
+          data-testid="canvas-help-legend"
+          style={{
+            position: 'absolute',
+            bottom: 'calc(100% + 6px)',
+            left: 0,
+            width: 264,
+            padding: '10px 12px',
+            background: 'var(--erd-surface)',
+            border: '1px solid var(--erd-border)',
+            borderRadius: 10,
+            boxShadow: 'var(--erd-shadow-sm)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '.04em',
+              textTransform: 'uppercase',
+              color: 'var(--erd-text-2)',
+              marginBottom: 8,
+            }}
+          >
+            {t('canvasHelp.title')}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {rows.map(([id, label]) => (
+              <div
+                key={id}
+                style={{ fontSize: 12, color: 'var(--erd-text)', lineHeight: 1.4 }}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <button
+        data-testid="canvas-help-button"
+        aria-label={t('canvasHelp.title')}
+        title={t('canvasHelp.title')}
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: 38,
+          height: 38,
+          padding: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--erd-surface)',
+          border: '1px solid var(--erd-border)',
+          borderRadius: 10,
+          boxShadow: 'var(--erd-shadow-sm)',
+          color: open ? 'var(--erd-text)' : 'var(--erd-text-2)',
+          cursor: 'pointer',
+        }}
+      >
+        <HelpCircle size={16} strokeWidth={2} />
       </button>
     </div>
   )
@@ -935,9 +1021,12 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
         </div>
       </Panel>
 
-      {/* Bottom-left zoom bar */}
+      {/* Bottom-left zoom bar + controls hint */}
       <Panel position="bottom-left">
-        <ZoomBar />
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+          <ZoomBar />
+          <CanvasHelp />
+        </div>
       </Panel>
     </ReactFlow>
 

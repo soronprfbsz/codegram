@@ -60,26 +60,39 @@ describe('ErdInfoPanel — schema summary stats', () => {
     expect(screen.getByTestId('stat-refs').textContent).toBe('1')
     expect(screen.getByTestId('stat-table-groups').textContent).toBe('1')
     expect(screen.getByTestId('stat-enums').textContent).toBe('1')
-    expect(screen.getByTestId('stat-notes').textContent).toBe('1')
   })
 
-  it('shows dialect prop when provided', () => {
-    render(
-      <ErdInfoPanel
-        schema={baseSchema}
-        selected={null}
-        onSelect={() => {}}
-        dialect="MySQL 8.0"
-      />,
-    )
-    expect(screen.getByTestId('stat-dialect').textContent).toBe('MySQL 8.0')
-  })
-
-  it('shows — when dialect is undefined', () => {
+  it('drops the notes and dialect stat cells', () => {
     render(
       <ErdInfoPanel schema={baseSchema} selected={null} onSelect={() => {}} />,
     )
-    expect(screen.getByTestId('stat-dialect').textContent).toBe('—')
+    expect(screen.queryByTestId('stat-notes')).toBeNull()
+    expect(screen.queryByTestId('stat-dialect')).toBeNull()
+  })
+
+  it('counts enum-style CHECK constraints toward the Enum stat', () => {
+    const withCheck: DbmlSchema = {
+      ...baseSchema,
+      tables: baseSchema.tables.map((tbl) =>
+        tbl.name === 'posts'
+          ? {
+              ...tbl,
+              columns: [
+                ...tbl.columns,
+                { id: 'public.posts.state', name: 'state', type: 'text', pk: false, notNull: false, unique: false, increment: false, isFk: false },
+              ],
+              checks: [
+                { expression: "state = ANY (ARRAY['draft'::text, 'published'::text])" },
+              ],
+            }
+          : tbl,
+      ),
+    }
+    render(
+      <ErdInfoPanel schema={withCheck} selected={null} onSelect={() => {}} />,
+    )
+    // 1 native enum (status) + 1 CHECK-synthesized enum (posts.state) = 2
+    expect(screen.getByTestId('stat-enums').textContent).toBe('2')
   })
 
   it('renders zeros gracefully when schema is undefined', () => {

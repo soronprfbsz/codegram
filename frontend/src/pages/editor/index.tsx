@@ -92,15 +92,6 @@ function extractProjectMeta(dbml: string): string | undefined {
 }
 
 /**
- * Extract the `database_type` value from a DBML `Project` block.
- * Returns undefined if not present.
- */
-function extractDialect(dbml: string): string | undefined {
-  const m = /database_type\s*:\s*['"]?([^'"\n\r}]+?)['"]?\s*[\n\r}]/m.exec(dbml)
-  return m ? m[1].trim() : undefined
-}
-
-/**
  * Editor page (Phase 2): loads a project by :id and binds a CodeMirror 6
  * editor to dbml_text with debounced autosave (Plan 2 contract preserved),
  * plus live debounced parsing into the normalized model.
@@ -266,9 +257,6 @@ export function EditorPage() {
 
   // Extract the DBML `Project` block name for the TopBar subtitle.
   const projectMeta = useMemo(() => extractProjectMeta(dbmlText), [dbmlText])
-
-  // Extract the `database_type` from the DBML Project block for the info panel.
-  const dialect = useMemo(() => extractDialect(dbmlText), [dbmlText])
 
   // 단일 선택 모델: 노드(테이블/Enum/스티키) 또는 엣지 하나만 선택된다.
   const [selection, setSelection] = useState<CanvasSelection>(null)
@@ -856,7 +844,6 @@ export function EditorPage() {
                   schema={schema}
                   selected={selected}
                   onSelect={focusTable}
-                  dialect={dialect}
                   groupOps={groupOps}
                   mutationsEnabled={mutationsEnabled}
                   onCollapse={() => setActivePanel(null)}

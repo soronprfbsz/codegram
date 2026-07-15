@@ -10,6 +10,8 @@
  * Single source for both the table-doc "Allowed values" display and the ERD
  * canvas synthesized-enum node.
  */
+import type { DbmlSchema, DbmlTable } from '../model/types'
+
 export interface EnumCheck {
   /** Constrained column (last dotted segment, unquoted), or null if unparsed. */
   column: string | null
@@ -52,4 +54,32 @@ export function parseEnumCheck(expression: string): EnumCheck {
 /** Allowed values only (table-doc convenience). */
 export function extractEnumCheckValues(expression: string): string[] {
   return parseEnumCheck(expression).values
+}
+
+/** One CHECK-synthesized enum: its owning table, constrained column, values. */
+export interface SynthesizedEnumCheck {
+  table: DbmlTable
+  column: string
+  values: string[]
+}
+
+/**
+ * The enum-style CHECK constraints across a schema that render as synthesized
+ * enums — a column pinned to a value set (`col = ANY(ARRAY[…])` / `col IN (…)`)
+ * whose constrained column actually exists on the table. Single source for BOTH
+ * the ERD canvas synthesized-enum nodes and the schema-summary Enum count, so
+ * the two never drift. Pure, no I/O.
+ */
+export function synthesizedEnumChecks(schema: DbmlSchema): SynthesizedEnumCheck[] {
+  const result: SynthesizedEnumCheck[] = []
+  for (const table of schema.tables) {
+    const checks = Array.isArray(table.checks) ? table.checks : []
+    for (const check of checks) {
+      const { column, values } = parseEnumCheck(check.expression)
+      if (!column || values.length === 0) continue
+      if (!table.columns.some((c) => c.name === column)) continue
+      result.push({ table, column, values })
+    }
+  }
+  return result
 }

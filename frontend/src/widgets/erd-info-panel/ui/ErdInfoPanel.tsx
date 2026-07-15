@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, PanelRightClose, FolderCog } from 'lucide-react'
 import type { DbmlSchema } from '@/entities/dbml'
+import { synthesizedEnumChecks } from '@/entities/dbml'
 import { deriveDisplayGroups } from '@/entities/erd'
 import type { GroupOpHandlers } from '../model/types'
 import { GroupSection } from './GroupSection'
@@ -24,8 +25,6 @@ export interface ErdInfoPanelProps {
   selected: string | null
   /** Called when a table row is clicked, with the schema-qualified table id. */
   onSelect: (tableId: string) => void
-  /** DBML Project database_type value, when available. */
-  dialect?: string
   /** Group mutation callbacks. When omitted, renders in read-only mode. */
   groupOps?: GroupOpHandlers
   /** While false, mutation triggers are disabled. Defaults to true. */
@@ -82,7 +81,6 @@ export function ErdInfoPanel({
   schema,
   selected,
   onSelect,
-  dialect,
   groupOps,
   mutationsEnabled = true,
   onCollapse,
@@ -92,9 +90,9 @@ export function ErdInfoPanel({
   const tables = schema?.tables.length ?? 0
   const refs = schema?.refs.length ?? 0
   const tableGroups = schema?.tableGroups.length ?? 0
-  const enums = schema?.enums.length ?? 0
-  const notes = schema?.notes.length ?? 0
-  const dialectLabel = dialect ?? '—'
+  // Enum 수 = 네이티브 enum + enum형 CHECK 제약(예: `col = ANY(ARRAY[...])`)에서
+  // 합성되는 enum. 캔버스의 합성 enum 노드와 동일한 단일 출처를 공유한다.
+  const enums = (schema?.enums.length ?? 0) + (schema ? synthesizedEnumChecks(schema).length : 0)
 
   // [stable testid suffix, 표시 라벨(번역), 값] — testid는 언어와 무관하게 고정.
   const cells: [string, string, string | number][] = [
@@ -102,8 +100,6 @@ export function ErdInfoPanel({
     ['refs', t('infoPanel.statRefs'), refs],
     ['table-groups', t('infoPanel.statTableGroups'), tableGroups],
     ['enums', t('infoPanel.statEnums'), enums],
-    ['notes', t('infoPanel.statNotes'), notes],
-    ['dialect', t('infoPanel.statDialect'), dialectLabel],
   ]
 
   const displayGroups = schema ? deriveDisplayGroups(schema) : []
