@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { env } from '@/shared/config/env'
 import { sessionQueryKey } from '@/entities/session'
+import { meQueryKey } from '@/entities/account'
 
 export interface LoginPayload {
   email: string
@@ -42,7 +43,15 @@ export function useLogin() {
         throw new Error('Login failed')
       }
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: sessionQueryKey }),
+    onSuccess: () => {
+      // Drop the PREVIOUS user's cached identity so the new session never reads
+      // a stale ['account','me'] — e.g. an earlier user's
+      // must_change_password=false masking this user's forced change (the app's
+      // 5-min staleTime otherwise serves the stale value and the guard lets them
+      // straight into the app). Session is invalidated (awaited) so the guarded
+      // route sees the authenticated user before we navigate.
+      queryClient.removeQueries({ queryKey: meQueryKey })
+      return queryClient.invalidateQueries({ queryKey: sessionQueryKey })
+    },
   })
 }

@@ -85,7 +85,8 @@
     "title": "Password change required",
     "description": "For security, set a new password before continuing.",
     "submit": "Set password",
-    "submitting": "Setting…"
+    "submitting": "Setting…",
+    "logout": "Sign in as a different account (log out)"
   },
   "sidebar": {
     "home": "Codegram home",

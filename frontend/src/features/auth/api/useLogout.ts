@@ -21,6 +21,11 @@ export function useLogout() {
       }
     },
     onSuccess: () => {
+      // Wipe ALL cached per-user data (identity, projects, accounts, roles…) so
+      // the next user who logs in on this browser starts clean — no previous
+      // user's state leaks across the auth boundary. Then mark the session
+      // logged-out so guards redirect to /login immediately.
+      queryClient.clear()
       queryClient.setQueryData(sessionQueryKey, null)
     },
   })

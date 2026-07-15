@@ -4,6 +4,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useLogin } from './useLogin'
 import { sessionQueryKey, useCurrentUser } from '@/entities/session'
+import { meQueryKey } from '@/entities/account'
 
 function makeHarness() {
   const queryClient = new QueryClient({
@@ -61,6 +62,28 @@ describe('useLogin', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: sessionQueryKey,
     })
+  })
+
+  it('removes the previous user\'s cached identity so a stale me cannot mask the new session', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const { queryClient, wrapper } = makeHarness()
+    // Simulate a prior user's cached /account/me (must_change_password=false).
+    queryClient.setQueryData(meQueryKey, {
+      id: 'prev',
+      email: 'prev@example.com',
+      role_name: 'admin',
+      permissions: ['user:read', 'user:manage'],
+      must_change_password: false,
+    })
+
+    const { result } = renderHook(() => useLogin(), { wrapper })
+    await result.current.mutateAsync({
+      email: 'new@example.com',
+      password: 'password123',
+    })
+
+    // The stale identity is gone → the guarded route refetches /account/me fresh.
+    expect(queryClient.getQueryData(meQueryKey)).toBeUndefined()
   })
 
   it('awaits the session refetch before mutateAsync resolves', async () => {

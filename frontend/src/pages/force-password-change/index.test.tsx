@@ -18,6 +18,11 @@ vi.mock('react-router', () => ({
   useNavigate: () => navigate,
 }))
 
+const { logoutMutate } = vi.hoisted(() => ({ logoutMutate: vi.fn() }))
+vi.mock('@/features/auth/api/useLogout', () => ({
+  useLogout: () => ({ mutateAsync: logoutMutate, isPending: false }),
+}))
+
 function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -37,6 +42,8 @@ describe('ForcePasswordChangePage', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     navigate.mockReset()
+    logoutMutate.mockReset()
+    logoutMutate.mockResolvedValue(undefined)
   })
 
   it('renders new-password and confirm-password fields', () => {
@@ -152,5 +159,20 @@ describe('ForcePasswordChangePage', () => {
       await screen.findByText(/failed to change password/i),
     ).toBeInTheDocument()
     expect(screen.queryByText(/current password is incorrect/i)).toBeNull()
+  })
+
+  it('offers a logout action that logs out and returns to /login', async () => {
+    vi.spyOn(account, 'useChangePassword').mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof account.useChangePassword>)
+
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByTestId('force-password-logout'))
+
+    expect(logoutMutate).toHaveBeenCalled()
+    await vi.waitFor(() => expect(navigate).toHaveBeenCalledWith('/login'))
   })
 })

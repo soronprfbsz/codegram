@@ -85,7 +85,8 @@
     "title": "비밀번호 변경이 필요합니다",
     "description": "보안을 위해 계속하기 전에 새 비밀번호를 설정하세요.",
     "submit": "비밀번호 설정",
-    "submitting": "설정 중…"
+    "submitting": "설정 중…",
+    "logout": "다른 계정으로 로그인 (로그아웃)"
   },
   "sidebar": {
     "home": "Codegram 홈",

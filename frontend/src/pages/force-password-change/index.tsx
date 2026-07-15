@@ -7,6 +7,7 @@ import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { useChangePassword, meQueryKey } from '@/entities/account'
+import { useLogout } from '@/features/auth/api/useLogout'
 
 /**
  * Forced password-change screen (ADR-0016): reached via RequirePasswordOk
@@ -24,6 +25,15 @@ export function ForcePasswordChangePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const changePassword = useChangePassword()
+  const logout = useLogout()
+
+  async function handleLogout() {
+    try {
+      await logout.mutateAsync()
+    } finally {
+      navigate('/login')
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -110,6 +120,19 @@ export function ForcePasswordChangePage() {
                 : t('forcePasswordChange.submit')}
             </Button>
           </form>
+
+          <div className="mt-4 flex justify-center">
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-sm"
+              data-testid="force-password-logout"
+              disabled={logout.isPending}
+              onClick={handleLogout}
+            >
+              {t('forcePasswordChange.logout')}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </main>
