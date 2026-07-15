@@ -4,7 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AccountsPage } from './index'
 import * as account from '@/entities/account'
+import { copyText } from '@/shared/lib/copyText'
 import { ApiError } from '@/shared/api/client'
+
+vi.mock('@/shared/lib/copyText', () => ({
+  copyText: vi.fn().mockResolvedValue(true),
+}))
 
 const roles: account.Role[] = [
   { id: 'r-admin', name: 'admin', permissions: ['user:read', 'user:manage'] },
@@ -66,7 +71,7 @@ describe('AccountsPage', () => {
     expect(screen.getByText('user@example.com')).toBeInTheDocument()
   })
 
-  it('shows role select + reset button when the caller has user:manage, and reset opens a temp-password modal', async () => {
+  it('reset requires confirming a warning dialog before it issues a temp password', async () => {
     mockMe(['user:read', 'user:manage'])
     const mutateAsync = vi
       .fn()
@@ -80,14 +85,63 @@ describe('AccountsPage', () => {
     renderPage()
 
     expect(screen.getByTestId('account-role-select-a-1')).toBeInTheDocument()
-    const resetButton = screen.getByTestId('account-reset-button-a-1')
-    expect(resetButton).toBeInTheDocument()
+    await user.click(screen.getByTestId('account-reset-button-a-1'))
 
-    await user.click(resetButton)
+    // Warning dialog appears; the reset has NOT run yet.
+    expect(
+      await screen.findByTestId('account-reset-confirm-a-1'),
+    ).toBeInTheDocument()
+    expect(mutateAsync).not.toHaveBeenCalled()
 
+    // Confirming runs the reset and reveals the temp-password modal.
+    await user.click(screen.getByTestId('account-reset-confirm-a-1-ok'))
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith('a-1'))
     expect(await screen.findByTestId('account-reset-modal')).toBeInTheDocument()
     expect(screen.getByText('Temp1234Abc')).toBeInTheDocument()
+  })
+
+  it('cancelling the warning dialog does not reset the password', async () => {
+    mockMe(['user:read', 'user:manage'])
+    const mutateAsync = vi.fn().mockResolvedValue({ temp_password: 'X' })
+    vi.spyOn(account, 'useResetPassword').mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof account.useResetPassword>)
+
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByTestId('account-reset-button-a-1'))
+    await screen.findByTestId('account-reset-confirm-a-1')
+    await user.click(screen.getByTestId('account-reset-confirm-a-1-cancel'))
+
+    expect(mutateAsync).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('account-reset-modal')).not.toBeInTheDocument()
+  })
+
+  it('copies the temp password to the clipboard and reflects success', async () => {
+    mockMe(['user:read', 'user:manage'])
+    vi.mocked(copyText).mockResolvedValue(true)
+    vi.spyOn(account, 'useResetPassword').mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({ temp_password: 'Temp1234Abc' }),
+      isPending: false,
+    } as unknown as ReturnType<typeof account.useResetPassword>)
+
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByTestId('account-reset-button-a-1'))
+    await user.click(screen.getByTestId('account-reset-confirm-a-1-ok'))
+    await screen.findByTestId('account-reset-modal')
+
+    const copyBtn = screen.getByTestId('account-reset-copy')
+    const before = copyBtn.textContent
+    await user.click(copyBtn)
+
+    // The copy helper is invoked with the temp password, and the label flips to
+    // the success state (language-agnostic: it changed from the idle label).
+    await waitFor(() => expect(copyText).toHaveBeenCalledWith('Temp1234Abc'))
+    await waitFor(() => expect(copyBtn.textContent).not.toBe(before))
   })
 
   it('renders read-only (no select, no reset button) when the caller only has user:read', () => {

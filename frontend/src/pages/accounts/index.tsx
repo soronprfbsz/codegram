@@ -10,6 +10,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/shared/ui/dialog'
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog'
+import { copyText } from '@/shared/lib/copyText'
 import { ApiError } from '@/shared/api/client'
 import {
   useAccounts,
@@ -49,19 +51,27 @@ function AccountRow({
   const updateRole = useUpdateAccountRole()
   const resetPassword = useResetPassword()
   const [tempPassword, setTempPassword] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   async function handleReset() {
     const result = await resetPassword.mutateAsync(account.id)
     setTempPassword(result.temp_password)
-    setCopied(false)
+    setCopyState('idle')
   }
 
-  function handleCopy() {
+  async function handleCopy() {
     if (!tempPassword) return
-    navigator.clipboard?.writeText(tempPassword)
-    setCopied(true)
+    const ok = await copyText(tempPassword)
+    setCopyState(ok ? 'copied' : 'failed')
   }
+
+  const copyLabel =
+    copyState === 'copied'
+      ? t('accounts.copied')
+      : copyState === 'failed'
+        ? t('accounts.copyFailed')
+        : t('accounts.copy')
 
   return (
     <li
@@ -110,13 +120,24 @@ function AccountRow({
             email: account.email,
           })}
           disabled={resetPassword.isPending}
-          onClick={handleReset}
+          onClick={() => setConfirmOpen(true)}
         >
           {resetPassword.isPending
             ? t('accounts.resetPasswordPending')
             : t('accounts.resetPassword')}
         </Button>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        testId={`account-reset-confirm-${account.id}`}
+        title={t('accounts.resetConfirmTitle')}
+        description={t('accounts.resetConfirmDesc', { email: account.email })}
+        confirmLabel={t('accounts.resetPassword')}
+        confirmDisabled={resetPassword.isPending}
+        onConfirm={handleReset}
+      />
 
       <Dialog
         open={tempPassword !== null}
@@ -136,8 +157,13 @@ function AccountRow({
             >
               {tempPassword}
             </span>
-            <Button size="sm" variant="outline" onClick={handleCopy}>
-              {copied ? t('accounts.copied') : t('accounts.copy')}
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="account-reset-copy"
+              onClick={handleCopy}
+            >
+              {copyLabel}
             </Button>
           </div>
           <div className="flex justify-end">

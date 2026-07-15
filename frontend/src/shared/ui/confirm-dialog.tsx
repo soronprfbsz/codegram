@@ -57,7 +57,11 @@ export function ConfirmDialog({
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            data-testid={`${testId}-cancel`}
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             {cancelLabel ?? t('common.cancel')}
           </Button>
           <Button
