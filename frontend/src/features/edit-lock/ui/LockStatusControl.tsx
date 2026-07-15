@@ -13,7 +13,7 @@ const badgeStyle: React.CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 5,
-  fontSize: 12,
+  fontSize: 'var(--erd-fs-sm)',
   color: 'var(--erd-text-2)',
   padding: '4px 10px',
   borderRadius: 9999,

@@ -42,6 +42,7 @@
     --color-border: var(--border);
     --color-destructive: var(--destructive);
     --color-success: var(--success);
+    --color-warning: var(--warning);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
@@ -63,6 +64,14 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+
+    /* Font-size scale — general UI keeps Tailwind's standard steps (text-xs..3xl)
+       as design tokens; --text-2xs adds the one missing small step (labels,
+       counts, hints). Raw px in className is forbidden (F5): use these named
+       classes. ERD canvas surfaces use --erd-fs-* (below), mirroring the
+       --erd-* color split (F2). */
+    --text-2xs: 0.625rem;          /* 10px */
+    --text-2xs--line-height: 0.875rem;
 }
 
 :root {
@@ -143,6 +152,39 @@
     --erd-group-customer: #0E9384;
     --erd-group-release: #DC6803;
     --erd-group-resource: #B42318;
+
+    /* ERD note (StickyNote) surfaces — Light (yellow) */
+    --erd-note-bg: #fef9c3;
+    --erd-note-border: #fde047;
+    --erd-note-head-border: #fef08a;
+    --erd-note-head-text: #713f12;
+    --erd-note-text: #854d0e;
+    /* ERD enum node surfaces — Light (amber) */
+    --erd-enum-bg: #fffbeb;
+    --erd-enum-border: #fcd34d;
+    --erd-enum-head-bg: #fde68a;
+    --erd-enum-head-text: #78350f;
+    --erd-enum-text: #92400e;
+    /* ERD PK marker badge + on-accent foreground — Light */
+    --erd-pk: #DC6803;
+    --erd-pk-bg: rgba(220, 104, 3, 0.16);
+    --erd-on-accent: #ffffff;
+
+    /* ERD font-size scale — dense canvas typography (px preserved; only true
+       sub-px dupes collapse: 8.5/9/10.5→10, 12.5→12). Inline fontSize on ERD
+       surfaces uses var(--erd-fs-*), never raw px (F5). */
+    --erd-fs-2xs: 10px;
+    --erd-fs-xs: 11px;
+    --erd-fs-sm: 12px;
+    --erd-fs-base: 13px;
+    --erd-fs-md: 14px;
+    --erd-fs-lg: 15px;
+    --erd-fs-stat: 22px;
+}
+
+:root {
+    /* Warning (status) — general UI. Light. */
+    --warning: #b45309;
 }
 
 .dark {
@@ -215,6 +257,26 @@
     --erd-group-customer: #2DD4BF;
     --erd-group-release: #FB923C;
     --erd-group-resource: #F87171;
+
+    /* ERD note (StickyNote) surfaces — Dark */
+    --erd-note-bg: #422006;
+    --erd-note-border: #713f12;
+    --erd-note-head-border: #854d0e;
+    --erd-note-head-text: #fde68a;
+    --erd-note-text: #fcd34d;
+    /* ERD enum node surfaces — Dark */
+    --erd-enum-bg: #2a1a06;
+    --erd-enum-border: #78350f;
+    --erd-enum-head-bg: #451a03;
+    --erd-enum-head-text: #fcd34d;
+    --erd-enum-text: #fbbf24;
+    /* ERD PK marker badge + on-accent foreground — Dark */
+    --erd-pk: #FB923C;
+    --erd-pk-bg: rgba(251, 146, 60, 0.18);
+    --erd-on-accent: #ffffff;
+
+    /* Warning (status) — Dark */
+    --warning: #fbbf24;
 }
 
 @layer base {

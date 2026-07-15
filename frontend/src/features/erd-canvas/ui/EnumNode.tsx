@@ -16,7 +16,7 @@ function EnumNodeImpl({ data }: EnumNodeProps) {
   const { isSelected } = data
   return (
     <div
-      className="min-w-[140px] rounded border border-amber-300 bg-amber-50 text-xs shadow-sm"
+      className="min-w-[140px] rounded border border-[var(--erd-enum-border)] bg-[var(--erd-enum-bg)] text-xs shadow-sm"
       // 선택 링: 테이블 노드(TableNode)와 동일한 토큰(--primary)·동일 모양을 쓴다.
       // 미선택 시 기본 amber 보더/그림자 클래스를 그대로 두고, 선택 시에만 인라인으로
       // 덮어 일관된 선택 표시를 준다.
@@ -44,10 +44,10 @@ function EnumNodeImpl({ data }: EnumNodeProps) {
         isConnectable={false}
         style={{ right: 0, top: '50%', width: 6, height: 6, opacity: 0, pointerEvents: 'none' }}
       />
-      <div className="rounded-t bg-amber-200 px-3 py-1.5 text-sm font-semibold text-amber-900">
+      <div className="rounded-t bg-[var(--erd-enum-head-bg)] px-3 py-1.5 text-sm font-semibold text-[var(--erd-enum-head-text)]">
         {data.enumName}
       </div>
-      <ul className="flex flex-col gap-0.5 px-3 py-1.5 text-amber-800">
+      <ul className="flex flex-col gap-0.5 px-3 py-1.5 text-[var(--erd-enum-text)]">
         {data.values.map((value) => (
           <li key={value}>{value}</li>
         ))}

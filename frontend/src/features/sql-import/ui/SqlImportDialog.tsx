@@ -161,11 +161,11 @@ export function SqlImportDialog({
             className="flex flex-col gap-1"
           >
             {errors.map((err, i) => (
-              <li key={i} className="text-sm text-red-700">
+              <li key={i} className="text-sm text-destructive">
                 {err.message}
                 {typeof err.line === 'number' &&
                   typeof err.column === 'number' && (
-                    <span className="ml-2 text-xs text-red-500">
+                    <span className="ml-2 text-xs text-destructive">
                       {t('sqlImport.lineColumn', { line: err.line, column: err.column })}
                     </span>
                   )}
@@ -176,7 +176,7 @@ export function SqlImportDialog({
 
         {pendingDbml !== null ? (
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-amber-700">
+            <p className="text-sm text-warning">
               {t('sqlImport.replaceWarn')}
             </p>
             <div className="flex justify-end gap-2">

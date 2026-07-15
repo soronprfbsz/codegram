@@ -147,7 +147,7 @@ export function TableSearch({ schema, onNavigate }: TableSearchProps) {
               padding: 2,
               cursor: 'pointer',
               color: 'var(--erd-text-3)',
-              fontSize: 13,
+              fontSize: 'var(--erd-fs-base)',
               lineHeight: 1,
               flexShrink: 0,
             }}
@@ -177,7 +177,7 @@ export function TableSearch({ schema, onNavigate }: TableSearchProps) {
           }}
         >
           {results.length === 0 ? (
-            <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--erd-text-3)' }}>
+            <div style={{ padding: '10px 12px', fontSize: 'var(--erd-fs-sm)', color: 'var(--erd-text-3)' }}>
               {t('tableSearch.noResults')}
             </div>
           ) : (
@@ -210,11 +210,11 @@ export function TableSearch({ schema, onNavigate }: TableSearchProps) {
                   fontFamily: 'inherit',
                 }}
               >
-                <span style={{ fontSize: 12.5, fontWeight: 500 }}>{r.name}</span>
+                <span style={{ fontSize: 'var(--erd-fs-sm)', fontWeight: 500 }}>{r.name}</span>
                 {r.match.hint && (
                   <span
                     data-testid={`table-search-hint-${r.name}`}
-                    style={{ fontSize: 11, color: 'var(--erd-text-3)', marginLeft: 'auto' }}
+                    style={{ fontSize: 'var(--erd-fs-xs)', color: 'var(--erd-text-3)', marginLeft: 'auto' }}
                   >
                     {r.match.hint}
                   </span>

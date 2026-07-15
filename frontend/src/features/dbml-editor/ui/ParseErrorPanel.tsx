@@ -26,22 +26,22 @@ export function ParseErrorPanel({ status, errors, className }: ParseErrorPanelPr
       </CardHeader>
       <CardContent>
         {status === 'pending' && (
-          <p className="text-sm text-gray-600">Parsing…</p>
+          <p className="text-sm text-muted-foreground">Parsing…</p>
         )}
         {status === 'idle' && (
-          <p className="text-sm text-gray-600">Start typing DBML…</p>
+          <p className="text-sm text-muted-foreground">Start typing DBML…</p>
         )}
         {status === 'success' && (
-          <p className="text-sm text-green-700">Valid DBML</p>
+          <p className="text-sm text-success">Valid DBML</p>
         )}
         {status === 'error' && (
           <ul role="alert" aria-live="polite" className="flex flex-col gap-1">
             {(errors ?? []).map((err, i) => (
-              <li key={i} className="text-sm text-red-700">
+              <li key={i} className="text-sm text-destructive">
                 {err.message}
                 {typeof err.line === 'number' &&
                   typeof err.column === 'number' && (
-                    <span className="ml-2 text-xs text-red-500">
+                    <span className="ml-2 text-xs text-destructive">
                       (line {err.line}, column {err.column})
                     </span>
                   )}

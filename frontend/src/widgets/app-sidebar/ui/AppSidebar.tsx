@@ -69,7 +69,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
           <>
             <Link to="/" title={t('sidebar.home')} className="flex min-w-0 items-center gap-2">
               <img src={logomarkUrl} alt="" className="size-7 shrink-0 rounded-md" />
-              <span className="truncate font-display text-[15px] font-medium">
+              <span className="truncate font-display text-base font-medium">
                 Codegram
               </span>
             </Link>
@@ -126,7 +126,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
       {/* Project list */}
       <nav className="min-h-0 flex-1 overflow-y-auto px-2.5 py-1">
         {!collapsed && (
-          <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+          <div className="px-2 py-1.5 text-2xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
             {t('sidebar.projects')}
           </div>
         )}

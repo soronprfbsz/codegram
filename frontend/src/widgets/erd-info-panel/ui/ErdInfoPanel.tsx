@@ -55,7 +55,7 @@ function PanelHead({
     >
       <span
         style={{
-          fontSize: 14,
+          fontSize: 'var(--erd-fs-md)',
           fontWeight: 600,
           letterSpacing: '.04em',
           textTransform: 'uppercase' as const,
@@ -218,7 +218,7 @@ export function ErdInfoPanel({
             >
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 'var(--erd-fs-xs)',
                   color: 'var(--erd-text-3)',
                   marginBottom: 4,
                 }}
@@ -228,7 +228,7 @@ export function ErdInfoPanel({
               <div
                 data-testid={`stat-${id}`}
                 style={{
-                  fontSize: 22,
+                  fontSize: 'var(--erd-fs-stat)',
                   fontWeight: 600,
                   fontFamily: 'var(--font-mono, ui-monospace)',
                   letterSpacing: '-0.02em',
@@ -308,7 +308,7 @@ export function ErdInfoPanel({
               }}
               style={{
                 width: '100%',
-                fontSize: 12,
+                fontSize: 'var(--erd-fs-sm)',
                 fontFamily: 'var(--font-mono, ui-monospace)',
                 background: 'var(--erd-surface)',
                 border: '1px solid var(--erd-border)',
@@ -321,7 +321,7 @@ export function ErdInfoPanel({
             {createError && (
               <div
                 data-testid="group-create-error"
-                style={{ fontSize: 11, color: 'var(--erd-error)', marginTop: 4 }}
+                style={{ fontSize: 'var(--erd-fs-xs)', color: 'var(--erd-error)', marginTop: 4 }}
               >
                 {t('infoPanel.duplicateGroup')}
               </div>
@@ -331,7 +331,7 @@ export function ErdInfoPanel({
 
         {displayGroups.length === 0 && !creating && (
           <div
-            style={{ padding: '16px 14px', fontSize: 12, color: 'var(--erd-text-3)' }}
+            style={{ padding: '16px 14px', fontSize: 'var(--erd-fs-sm)', color: 'var(--erd-text-3)' }}
           >
             {t('infoPanel.noTables')}
           </div>

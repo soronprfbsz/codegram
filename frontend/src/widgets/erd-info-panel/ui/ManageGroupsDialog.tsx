@@ -225,7 +225,7 @@ export function ManageGroupsDialog({ open, onOpenChange, schema, groupOps }: Man
                     onChange={() => toggle(tbl.id)}
                     aria-label={t('manageGroups.selectAria', { name: tbl.name })}
                   />
-                  <span className="flex-1 truncate font-mono text-[13px]">{tbl.name}</span>
+                  <span className="flex-1 truncate font-mono text-[length:var(--erd-fs-base)]">{tbl.name}</span>
                   {/* Current-group chip */}
                   <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
                     <span

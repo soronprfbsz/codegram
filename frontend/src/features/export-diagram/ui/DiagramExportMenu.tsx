@@ -37,7 +37,7 @@ export function DiagramExportMenu({ diagram, disabled = false }: DiagramExportMe
             alignItems: 'center',
             gap: 7,
             padding: '8px 12px',
-            fontSize: 13,
+            fontSize: 'var(--erd-fs-base)',
             fontWeight: 500,
             lineHeight: 1,
             background: 'var(--erd-surface)',

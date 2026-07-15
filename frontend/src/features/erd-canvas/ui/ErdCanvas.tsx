@@ -298,7 +298,7 @@ function ZoomBar() {
       <span
         style={{
           fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
-          fontSize: 11,
+          fontSize: 'var(--erd-fs-xs)',
           color: 'var(--erd-text-2)',
           padding: '0 8px',
           minWidth: 42,
@@ -366,7 +366,7 @@ function CanvasHelp() {
         >
           <div
             style={{
-              fontSize: 11,
+              fontSize: 'var(--erd-fs-xs)',
               fontWeight: 600,
               letterSpacing: '.04em',
               textTransform: 'uppercase',
@@ -380,7 +380,7 @@ function CanvasHelp() {
             {rows.map(([id, label]) => (
               <div
                 key={id}
-                style={{ fontSize: 12, color: 'var(--erd-text)', lineHeight: 1.4 }}
+                style={{ fontSize: 'var(--erd-fs-sm)', color: 'var(--erd-text)', lineHeight: 1.4 }}
               >
                 {label}
               </div>
@@ -1084,7 +1084,7 @@ function ErdCanvasComponent({ schema, savedPositions, edgePaths, onEdgePathsChan
           justifyContent: 'center',
           borderRadius: 12,
           border: '1px dashed var(--erd-border)',
-          fontSize: 13,
+          fontSize: 'var(--erd-fs-base)',
           color: 'var(--erd-text-3)',
           background: 'var(--erd-canvas)',
         }}

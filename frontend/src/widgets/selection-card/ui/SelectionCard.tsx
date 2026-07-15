@@ -22,7 +22,7 @@ const rowStyle: React.CSSProperties = {
   padding: '4px 0',
 }
 const labelStyle: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 'var(--erd-fs-xs)',
   color: 'var(--erd-text-3)',
   width: 14,
   flexShrink: 0,
@@ -30,7 +30,7 @@ const labelStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   width: '100%',
   minWidth: 0,
-  fontSize: 12,
+  fontSize: 'var(--erd-fs-sm)',
   fontFamily: 'var(--font-mono, ui-monospace)',
   background: 'var(--erd-surface-2)',
   border: '1px solid var(--erd-border)',
@@ -198,7 +198,7 @@ export function SelectionCard({
         />
         <span
           style={{
-            fontSize: 12,
+            fontSize: 'var(--erd-fs-sm)',
             fontWeight: 600,
             fontFamily: 'var(--font-mono, ui-monospace)',
             flex: 1,
@@ -211,7 +211,7 @@ export function SelectionCard({
         </span>
         <span
           style={{
-            fontSize: 10,
+            fontSize: 'var(--erd-fs-2xs)',
             padding: '1px 6px',
             borderRadius: 9999,
             background: 'var(--erd-hover)',
@@ -281,7 +281,7 @@ export function SelectionCard({
             />
           </div>
         ) : info.waypoints.length === 0 ? (
-          <div style={{ fontSize: 11, color: 'var(--erd-text-3)' }}>
+          <div style={{ fontSize: 'var(--erd-fs-xs)', color: 'var(--erd-text-3)' }}>
             {t('selectionCard.noBends')}
           </div>
         ) : (

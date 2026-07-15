@@ -70,7 +70,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
         <span
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 13,
+            fontSize: 'var(--erd-fs-base)',
             fontWeight: 600,
             letterSpacing: '-0.01em',
             flex: 1,
@@ -85,7 +85,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
         <span
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: 10.5,
+            fontSize: 'var(--erd-fs-2xs)',
             color: 'var(--erd-text-3)',
             flexShrink: 0,
           }}
@@ -111,7 +111,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
                 gap: 7,
                 height: 28,
                 padding: '0 12px',
-                fontSize: 12,
+                fontSize: 'var(--erd-fs-sm)',
                 borderBottom: isLast
                   ? 'none'
                   : '1px solid color-mix(in srgb, var(--erd-border) 55%, transparent)',
@@ -184,13 +184,13 @@ function TableNodeImpl({ data }: TableNodeProps) {
                     title="Primary key"
                     style={{
                       fontFamily: 'var(--font-mono)',
-                      fontSize: 8.5,
+                      fontSize: 'var(--erd-fs-2xs)',
                       fontWeight: 700,
                       padding: '1px 3px',
                       borderRadius: 3,
                       letterSpacing: '0.02em',
-                      color: '#DC6803',
-                      background: 'rgba(220,104,3,0.16)',
+                      color: 'var(--erd-pk)',
+                      background: 'var(--erd-pk-bg)',
                     }}
                     className="erd-badge-pk"
                   >
@@ -203,7 +203,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
                     title="Foreign key"
                     style={{
                       fontFamily: 'var(--font-mono)',
-                      fontSize: 8.5,
+                      fontSize: 'var(--erd-fs-2xs)',
                       fontWeight: 700,
                       padding: '1px 3px',
                       borderRadius: 3,
@@ -255,7 +255,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
               <span
                 style={{
                   fontFamily: 'var(--font-mono)',
-                  fontSize: 10.5,
+                  fontSize: 'var(--erd-fs-2xs)',
                   color: 'var(--erd-text-3)',
                   flexShrink: 0,
                 }}
@@ -277,7 +277,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
                     <span
                       style={{
                         fontFamily: 'var(--font-mono)',
-                        fontSize: 8.5,
+                        fontSize: 'var(--erd-fs-2xs)',
                         fontWeight: 700,
                         padding: '1px 3px',
                         borderRadius: 3,
@@ -294,7 +294,7 @@ function TableNodeImpl({ data }: TableNodeProps) {
                     <span
                       style={{
                         fontFamily: 'var(--font-mono)',
-                        fontSize: 9,
+                        fontSize: 'var(--erd-fs-2xs)',
                         color: 'var(--erd-text-3)',
                       }}
                     >

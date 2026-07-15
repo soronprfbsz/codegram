@@ -85,7 +85,7 @@ export function GroupSection({
       <div
         style={{
           padding: '14px 14px 5px',
-          fontSize: 10,
+          fontSize: 'var(--erd-fs-2xs)',
           fontWeight: 600,
           letterSpacing: '.08em',
           textTransform: 'uppercase' as const,
@@ -120,7 +120,7 @@ export function GroupSection({
             style={{
               color: group.color,
               fontFamily: 'var(--font-mono, ui-monospace)',
-              fontSize: 10,
+              fontSize: 'var(--erd-fs-2xs)',
               opacity: 0.85,
             }}
             aria-hidden
@@ -157,7 +157,7 @@ export function GroupSection({
               }
             }}
             style={{
-              fontSize: 13,
+              fontSize: 'var(--erd-fs-base)',
               fontWeight: 600,
               letterSpacing: 'normal',
               textTransform: 'uppercase' as const,
@@ -171,14 +171,14 @@ export function GroupSection({
             }}
           />
         ) : (
-          <span style={{ flex: 1, fontSize: 13, letterSpacing: 'normal' }}>{group.label}</span>
+          <span style={{ flex: 1, fontSize: 'var(--erd-fs-base)', letterSpacing: 'normal' }}>{group.label}</span>
         )}
 
         {/* Table count for this group */}
         <span
           data-testid={`group-count-${group.key}`}
           style={{
-            fontSize: 10,
+            fontSize: 'var(--erd-fs-2xs)',
             fontWeight: 600,
             color: 'var(--erd-text-3)',
             fontFamily: 'var(--font-mono, ui-monospace)',
@@ -343,7 +343,7 @@ export function GroupSection({
                   ? 'var(--erd-hover)'
                   : undefined,
               boxShadow: isActive ? 'inset 2px 0 0 var(--erd-accent)' : undefined,
-              fontSize: 13,
+              fontSize: 'var(--erd-fs-base)',
             }}
             className={isSelected ? 'tlist-item-selected' : 'tlist-item'}
             onMouseEnter={(e) => {
@@ -364,7 +364,7 @@ export function GroupSection({
               <span
                 style={{
                   fontFamily: 'var(--font-mono, ui-monospace)',
-                  fontSize: 12.5,
+                  fontSize: 'var(--erd-fs-sm)',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap' as const,
@@ -376,7 +376,7 @@ export function GroupSection({
                 <span
                   data-testid={`tablelist-hint-${table.name}`}
                   style={{
-                    fontSize: 10.5,
+                    fontSize: 'var(--erd-fs-2xs)',
                     color: 'var(--erd-text-3)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -391,7 +391,7 @@ export function GroupSection({
             {/* Field count */}
             <span
               style={{
-                fontSize: 11,
+                fontSize: 'var(--erd-fs-xs)',
                 color: 'var(--erd-text-3)',
                 fontFamily: 'var(--font-mono, ui-monospace)',
               }}

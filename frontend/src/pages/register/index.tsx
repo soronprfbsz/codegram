@@ -9,7 +9,7 @@ export function RegisterPage() {
       <div className="w-full max-w-sm">
         <h1 className="mb-6 text-center text-2xl font-bold">{t('auth.brand')}</h1>
         <RegisterForm />
-        <p className="mt-4 text-center text-sm text-gray-600">
+        <p className="mt-4 text-center text-sm text-muted-foreground">
           {t('auth.alreadyHaveAccount')}{' '}
           <Link to="/login" className="font-medium underline">
             {t('auth.login')}

@@ -49,7 +49,7 @@ function SavePill({ status, lastModified }: { status: AutosaveStatus; lastModifi
   const settled = status === 'idle' || status === 'saved'
   const dot = settled ? (
     <span
-      style={{ width: 7, height: 7, borderRadius: '50%', background: '#17B26A', flexShrink: 0 }}
+      style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--erd-success)', flexShrink: 0 }}
     />
   ) : null
 
@@ -69,7 +69,7 @@ function SavePill({ status, lastModified }: { status: AutosaveStatus; lastModifi
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
-        fontSize: 12,
+        fontSize: 'var(--erd-fs-sm)',
         color: 'var(--erd-text-2)',
         padding: '4px 10px',
         borderRadius: 9999,
@@ -124,7 +124,7 @@ export function ErdTopBar({
         <div style={{ minWidth: 0 }}>
           <div
             style={{
-              fontSize: 15,
+              fontSize: 'var(--erd-fs-lg)',
               fontWeight: 700,
               letterSpacing: '-0.01em',
               color: 'var(--erd-text)',
@@ -137,7 +137,7 @@ export function ErdTopBar({
           {projectMeta && (
             <div
               style={{
-                fontSize: 12,
+                fontSize: 'var(--erd-fs-sm)',
                 fontFamily: 'var(--font-mono, ui-monospace)',
                 color: 'var(--erd-text-3)',
               }}

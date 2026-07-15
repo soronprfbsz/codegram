@@ -13,15 +13,15 @@ export type StickyNoteProps = NodeProps & { data: StickyNodeData }
 function StickyNoteImpl({ data }: StickyNoteProps) {
   return (
     <div
-      className="min-w-[160px] max-w-[260px] rounded border border-yellow-300 bg-yellow-100 text-xs shadow-sm"
+      className="min-w-[160px] max-w-[260px] rounded border border-[var(--erd-note-border)] bg-[var(--erd-note-bg)] text-xs shadow-sm"
       style={
         data.headerColor ? { borderTopColor: data.headerColor } : undefined
       }
     >
-      <div className="border-b border-yellow-200 px-3 py-1.5 text-sm font-semibold text-yellow-900">
+      <div className="border-b border-[var(--erd-note-head-border)] px-3 py-1.5 text-sm font-semibold text-[var(--erd-note-head-text)]">
         {data.title}
       </div>
-      <p className="whitespace-pre-wrap px-3 py-1.5 text-yellow-800">
+      <p className="whitespace-pre-wrap px-3 py-1.5 text-[var(--erd-note-text)]">
         {data.content}
       </p>
     </div>

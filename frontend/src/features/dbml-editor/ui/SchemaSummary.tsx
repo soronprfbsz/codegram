@@ -23,7 +23,7 @@ export function SchemaSummary({ schema, className }: SchemaSummaryProps) {
           <CardTitle className="text-sm">Schema summary</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-600">No parsed schema yet.</p>
+          <p className="text-sm text-muted-foreground">No parsed schema yet.</p>
         </CardContent>
       </Card>
     )
@@ -36,20 +36,20 @@ export function SchemaSummary({ schema, className }: SchemaSummaryProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-          <dt className="text-gray-600">Tables</dt>
+          <dt className="text-muted-foreground">Tables</dt>
           <dd data-testid="summary-tables">{schema.tables.length}</dd>
-          <dt className="text-gray-600">Refs</dt>
+          <dt className="text-muted-foreground">Refs</dt>
           <dd data-testid="summary-refs">{schema.refs.length}</dd>
-          <dt className="text-gray-600">Enums</dt>
+          <dt className="text-muted-foreground">Enums</dt>
           <dd data-testid="summary-enums">{schema.enums.length}</dd>
-          <dt className="text-gray-600">Table groups</dt>
+          <dt className="text-muted-foreground">Table groups</dt>
           <dd data-testid="summary-groups">{schema.tableGroups.length}</dd>
-          <dt className="text-gray-600">Notes</dt>
+          <dt className="text-muted-foreground">Notes</dt>
           <dd data-testid="summary-notes">{schema.notes.length}</dd>
         </dl>
         {schema.tables.length > 0 && (
           <div>
-            <p className="mb-1 text-xs font-medium text-gray-500">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
               Table names
             </p>
             <ul className="flex flex-col gap-0.5 text-sm">

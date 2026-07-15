@@ -29,7 +29,7 @@ function TableSection({ table }: { table: TableDocTable }) {
     <section className="flex flex-col gap-2">
       <h3 className="text-lg font-semibold">{`${table.schema}.${table.name}`}</h3>
       {table.note ? (
-        <p className="text-sm text-gray-600">{table.note}</p>
+        <p className="text-sm text-muted-foreground">{table.note}</p>
       ) : null}
       <table className="w-full border-collapse text-sm">
         <thead>
@@ -200,7 +200,7 @@ export function TableDocView({
                   {en.values.map((value) => (
                     <li key={value.name}>
                       <span>{value.name}</span>
-                      {value.note ? <span className="text-gray-500"> — {value.note}</span> : null}
+                      {value.note ? <span className="text-muted-foreground"> — {value.note}</span> : null}
                     </li>
                   ))}
                 </ul>

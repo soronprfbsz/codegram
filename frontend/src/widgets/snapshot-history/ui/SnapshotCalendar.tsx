@@ -69,7 +69,7 @@ export function SnapshotCalendar({
           <ChevronLeft size={16} />
         </button>
         <span
-          style={{ fontSize: 13, fontWeight: 600, color: 'var(--erd-text)' }}
+          style={{ fontSize: 'var(--erd-fs-base)', fontWeight: 600, color: 'var(--erd-text)' }}
         >
           {t('snapshot.monthLabel', { year, month: monthNum })}
         </span>
@@ -91,7 +91,7 @@ export function SnapshotCalendar({
             key={w}
             style={{
               textAlign: 'center',
-              fontSize: 11,
+              fontSize: 'var(--erd-fs-xs)',
               color: 'var(--erd-text-3)',
               padding: '2px 0',
             }}
@@ -123,7 +123,7 @@ export function SnapshotCalendar({
                 height: 32,
                 borderRadius: 6,
                 border: 'none',
-                fontSize: 12,
+                fontSize: 'var(--erd-fs-sm)',
                 cursor: has ? 'pointer' : 'default',
                 background: selected
                   ? 'var(--erd-accent)'
@@ -131,7 +131,7 @@ export function SnapshotCalendar({
                     ? 'var(--erd-hover)'
                     : 'transparent',
                 color: selected
-                  ? '#fff'
+                  ? 'var(--erd-on-accent)'
                   : has
                     ? 'var(--erd-text)'
                     : 'var(--erd-text-3)',

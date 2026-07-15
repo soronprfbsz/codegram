@@ -27,7 +27,7 @@
 | `auth` | 인증·접근제어 | 0006, 0016 |
 | `collaboration` | 협업·버전관리 | 0014, 0015 |
 | `architecture` | 코드베이스 구조 | 0007, 0017, 0019 |
-| `frontend` | 프론트엔드 횡단(국제화 등) | 0017 |
+| `frontend` | 프론트엔드 횡단(국제화·디자인토큰 등) | 0017, 0020 |
 | `deployment` | 배포·CI/CD·인프라 | 0019 |
 
 ## 시간순 (전체 로그)
@@ -53,3 +53,4 @@
 | [0017](0017-i18n-react-i18next.md) | 사용자 문자열은 react-i18next ko/en 단일 출처로 국제화 | `architecture`, `frontend` | Accepted · Related: 0007 |
 | [0018](0018-table-groups-in-dbml.md) | 테이블 그룹은 DBML TableGroup에 진실, 편집은 텍스트 국소 수술 | `data-model`, `rendering` | Accepted · Related: 0001, 0010, 0011 |
 | [0019](0019-deployment-compose-gitlab-ci.md) | 배포 = docker compose 3-파일 + GitLab CI 경로선택 재배포 | `deployment`, `architecture` | Accepted · Related: 0006, 0007 |
+| [0020](0020-design-token-only-styling.md) | 시각 스타일은 디자인 토큰으로만 + raw 하드코딩 금지(타이포 스케일 토큰화) | `frontend`, `architecture` | Accepted · Related: 0007, 0017 |

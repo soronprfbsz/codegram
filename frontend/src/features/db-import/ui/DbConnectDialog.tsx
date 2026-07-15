@@ -289,7 +289,7 @@ export function DbConnectDialog({
         {errors && (
           <ul role="alert" aria-live="polite" className="flex flex-col gap-1">
             {errors.map((err, i) => (
-              <li key={i} className="text-sm text-red-700">
+              <li key={i} className="text-sm text-destructive">
                 {err.message}
               </li>
             ))}

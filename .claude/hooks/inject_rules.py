@@ -14,6 +14,7 @@ FRONTEND = (
     "- F1: 같은 역할 UI는 공용 토큰/최소 컴포넌트(`shared/ui`)에서만 모양을 받는다. 호출부 인라인 스타일/매직넘버로 재구현 금지 — 없으면 공용 단위를 먼저 만든다.\n"
     "- F2: ERD 표면은 `--erd-*` CSS 변수, 범용은 shadcn Button. 임의 hex/변형 금지.\n"
     "- F3(FSD): import는 하위 계층만(shared←entities←features←widgets←pages←app). widget은 다른 widget을 import하지 않는다.\n"
+    "- F5: 색·폰트는 디자인 토큰으로만. raw 팔레트 클래스(`text-red-600`)·인라인 `#hex`·`fontSize:숫자`·`text-[NNpx]` 금지. 없으면 `index.css`에 토큰 신규 추가 후 사용(ADR-0020).\n"
     "- 공통(general): 외과적 변경, 종료 전 `npm run type-check`+`test:run` 증거, 사전이슈/회귀 구분.\n"
     "전체: `.claude/rules/frontend.md`, `.claude/rules/general.md`"
 )

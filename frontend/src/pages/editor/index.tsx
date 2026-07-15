@@ -522,14 +522,14 @@ export function EditorPage() {
                 }}
               >
                 <span
-                  style={{ fontSize: 15, color: 'var(--erd-text-2)', fontFamily: 'var(--font-mono, ui-monospace)' }}
+                  style={{ fontSize: 'var(--erd-fs-lg)', color: 'var(--erd-text-2)', fontFamily: 'var(--font-mono, ui-monospace)' }}
                   aria-hidden
                 >
                   {'</>'}
                 </span>
                 <span
                   style={{
-                    fontSize: 12,
+                    fontSize: 'var(--erd-fs-sm)',
                     fontWeight: 600,
                     letterSpacing: '.04em',
                     textTransform: 'uppercase',
@@ -548,7 +548,7 @@ export function EditorPage() {
                       gap: 5,
                       padding: '2px 8px',
                       borderRadius: 9999,
-                      fontSize: 11,
+                      fontSize: 'var(--erd-fs-xs)',
                       fontWeight: 500,
                       lineHeight: '18px',
                       background:
@@ -608,7 +608,7 @@ export function EditorPage() {
                     borderTop: '1px solid var(--erd-border)',
                     background: 'color-mix(in srgb, var(--erd-error) 8%, var(--erd-surface-2))',
                     color: 'var(--erd-error)',
-                    fontSize: 12,
+                    fontSize: 'var(--erd-fs-sm)',
                     lineHeight: 1.5,
                     padding: '8px 14px',
                     fontFamily: 'var(--font-mono, ui-monospace)',
@@ -670,7 +670,7 @@ export function EditorPage() {
               <span
                 style={{
                   writingMode: 'vertical-rl',
-                  fontSize: 11,
+                  fontSize: 'var(--erd-fs-xs)',
                   fontWeight: 600,
                   letterSpacing: '.08em',
                   textTransform: 'uppercase',
@@ -762,7 +762,7 @@ export function EditorPage() {
                   background: 'var(--erd-surface)',
                 }}
               >
-                <span style={{ fontSize: 13, color: 'var(--erd-text-2)', flex: 1 }}>
+                <span style={{ fontSize: 'var(--erd-fs-base)', color: 'var(--erd-text-2)', flex: 1 }}>
                   {t('editor.preview')}
                   {previewSnapshot
                     ? ` · ${new Date(previewSnapshot.created_at).toLocaleString()}`
@@ -799,7 +799,7 @@ export function EditorPage() {
                       height: '100%',
                       display: 'grid',
                       placeItems: 'center',
-                      fontSize: 13,
+                      fontSize: 'var(--erd-fs-base)',
                       color: 'var(--erd-text-3)',
                     }}
                   >
@@ -835,7 +835,7 @@ export function EditorPage() {
             ) : (
               <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 {groupOpError && (
-                  <div role="alert" data-testid="group-op-error" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', fontSize: 12, color: 'var(--erd-error)', borderBottom: '1px solid var(--erd-border)' }}>
+                  <div role="alert" data-testid="group-op-error" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', fontSize: 'var(--erd-fs-sm)', color: 'var(--erd-error)', borderBottom: '1px solid var(--erd-border)' }}>
                     <span style={{ flex: 1 }}>{groupOpError}</span>
                     <button aria-label="dismiss" onClick={() => setGroupOpError(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}>✕</button>
                   </div>

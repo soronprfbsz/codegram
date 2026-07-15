@@ -55,7 +55,7 @@ function GroupNodeImpl({ id, data }: GroupNodeProps) {
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            fontSize: 11,
+            fontSize: 'var(--erd-fs-xs)',
             fontWeight: 600,
             letterSpacing: '0.04em',
             color,

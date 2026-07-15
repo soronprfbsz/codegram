@@ -28,7 +28,7 @@ export const topbarFrameStyle: CSSProperties = {
   height: TOPBAR_CONTROL_HEIGHT,
   boxSizing: 'border-box',
   borderRadius: 6,
-  fontSize: 12,
+  fontSize: 'var(--erd-fs-sm)',
   fontWeight: 500,
   fontFamily: 'inherit',
   lineHeight: 1,

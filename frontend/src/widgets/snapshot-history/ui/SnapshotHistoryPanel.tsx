@@ -339,7 +339,7 @@ function SnapshotRow({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
-              fontSize: 13,
+              fontSize: 'var(--erd-fs-base)',
               color: 'var(--erd-text)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -397,7 +397,7 @@ function TabButton({
         height: 32,
         borderRadius: 6,
         border: 'none',
-        fontSize: 13,
+        fontSize: 'var(--erd-fs-base)',
         fontWeight: active ? 600 : 500,
         cursor: 'pointer',
         background: active ? 'var(--erd-hover)' : 'transparent',
@@ -414,7 +414,7 @@ function EmptyHint({ children }: { children: React.ReactNode }) {
     <div
       style={{
         padding: '16px 14px',
-        fontSize: 12,
+        fontSize: 'var(--erd-fs-sm)',
         color: 'var(--erd-text-3)',
         textAlign: 'center',
       }}
@@ -435,7 +435,7 @@ const panelHead: React.CSSProperties = {
 }
 
 const panelTitle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: 'var(--erd-fs-sm)',
   fontWeight: 600,
   letterSpacing: '.04em',
   textTransform: 'uppercase',
@@ -471,7 +471,7 @@ const list: React.CSSProperties = {
 // Muted secondary text inside a snapshot row (subtitle + author); ellipsizes so
 // a long author email never overflows the narrow panel.
 const metaLine: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: 'var(--erd-fs-xs)',
   color: 'var(--erd-text-3)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -483,7 +483,7 @@ const textInput: React.CSSProperties = {
   minWidth: 0,
   height: 32,
   padding: '0 10px',
-  fontSize: 13,
+  fontSize: 'var(--erd-fs-base)',
   borderRadius: 6,
   border: '1px solid var(--erd-border-2)',
   background: 'var(--erd-surface)',
@@ -493,6 +493,6 @@ const textInput: React.CSSProperties = {
 
 const errorText: React.CSSProperties = {
   padding: '0 14px 8px',
-  fontSize: 12,
+  fontSize: 'var(--erd-fs-sm)',
   color: 'var(--erd-error)',
 }

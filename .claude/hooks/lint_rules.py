@@ -40,6 +40,28 @@ def lint_backend(rel, src):
     return v
 
 
+_PALETTE = ("red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|"
+            "indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone")
+
+
+def lint_frontend_style(rel, src):
+    # F5/F2: 색·폰트는 디자인 토큰으로만. raw 하드코딩을 flag(advisory).
+    # .tsx(UI)만 대상 — .ts(lib/data)는 글리프·Monaco 테마 등 정당한 hex가 많아 제외.
+    if not (rel.startswith("frontend/src/") and rel.endswith(".tsx")):
+        return []
+    v = []
+    pal = re.findall(r"\b(?:text|bg|border|ring|from|to|via|fill|stroke)-(?:" + _PALETTE + r")-\d{2,3}\b", src)
+    if pal:
+        v.append(f"F5 위반: raw 팔레트 색 클래스 {sorted(set(pal))[:3]} — 시맨틱 토큰(text-muted-foreground/-destructive/-success/-warning)·--erd-*로 회수.")
+    if re.search(r"""['"]#[0-9a-fA-F]{3,6}['"]""", src) or re.search(r"\b(?:text|bg|border|ring|fill|stroke)-\[#", src):
+        v.append("F5 점검: 인라인 hex/`[#..]` 색 — 토큰(var(--erd-*)/시맨틱 클래스)으로. 도메인 데이터(글리프·프리셋)면 무시.")
+    if re.search(r"fontSize:\s*[0-9]", src):
+        v.append("F5 위반: 인라인 fontSize 숫자 — `var(--erd-fs-*)`(ERD) 또는 text-* named 토큰으로.")
+    if re.search(r"text-\[[0-9.]+px\]", src):
+        v.append("F5 위반: `text-[NNpx]` — text-* named step 또는 `text-[length:var(--erd-fs-*)]`로.")
+    return v
+
+
 def lint_adr(rel, src):
     # High-signal architectural paths — advisory design-first backstop (§G6).
     # Never asserts an ADR is required; asks to confirm one exists or is
@@ -69,7 +91,7 @@ def main():
     except Exception:
         return
 
-    violations = lint_frontend(rel, src) + lint_backend(rel, src) + lint_adr(rel, src)
+    violations = lint_frontend(rel, src) + lint_frontend_style(rel, src) + lint_backend(rel, src) + lint_adr(rel, src)
     if not violations:
         return
 
