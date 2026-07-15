@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
 import { Select } from '@/shared/ui/select'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/tabs'
 import { Checkbox } from '@/shared/ui/checkbox'
 import {
   Dialog,
@@ -289,6 +290,26 @@ export function AccountsPage() {
   const canManage = me?.permissions.includes('user:manage') ?? false
   const [tab, setTab] = useState<'accounts' | 'permissions'>('accounts')
 
+  const accountList = (
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div
+        className={
+          canManage
+            ? 'grid grid-cols-[1fr_160px_140px] gap-4 border-b border-border px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground'
+            : 'grid grid-cols-[1fr_160px] gap-4 border-b border-border px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground'
+        }
+      >
+        <span>{t('accounts.columnEmail')}</span>
+        <span>{t('accounts.columnRole')}</span>
+      </div>
+      <ul>
+        {(accounts ?? []).map((a) => (
+          <AccountRow key={a.id} account={a} canManage={canManage} />
+        ))}
+      </ul>
+    </div>
+  )
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl px-8 py-12">
@@ -300,46 +321,26 @@ export function AccountsPage() {
             {t('accounts.subtitle')}
           </p>
         </div>
-        {canManage && (
-          <div className="mb-4 flex gap-2">
-            <Button
-              variant={tab === 'accounts' ? 'default' : 'outline'}
-              size="sm"
-              data-testid="accounts-tab-accounts"
-              onClick={() => setTab('accounts')}
-            >
-              {t('accounts.tabAccounts')}
-            </Button>
-            <Button
-              variant={tab === 'permissions' ? 'default' : 'outline'}
-              size="sm"
-              data-testid="accounts-tab-permissions"
-              onClick={() => setTab('permissions')}
-            >
-              {t('accounts.tabPermissions')}
-            </Button>
-          </div>
-        )}
-        {canManage && tab === 'permissions' ? (
-          <RolePermissionsMatrix />
+        {canManage ? (
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v as 'accounts' | 'permissions')}
+          >
+            <TabsList>
+              <TabsTrigger value="accounts" data-testid="accounts-tab-accounts">
+                {t('accounts.tabAccounts')}
+              </TabsTrigger>
+              <TabsTrigger value="permissions" data-testid="accounts-tab-permissions">
+                {t('accounts.tabPermissions')}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="accounts">{accountList}</TabsContent>
+            <TabsContent value="permissions">
+              <RolePermissionsMatrix />
+            </TabsContent>
+          </Tabs>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-border bg-card">
-            <div
-              className={
-                canManage
-                  ? 'grid grid-cols-[1fr_160px_140px] gap-4 border-b border-border px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground'
-                  : 'grid grid-cols-[1fr_160px] gap-4 border-b border-border px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground'
-              }
-            >
-              <span>{t('accounts.columnEmail')}</span>
-              <span>{t('accounts.columnRole')}</span>
-            </div>
-            <ul>
-              {(accounts ?? []).map((a) => (
-                <AccountRow key={a.id} account={a} canManage={canManage} />
-              ))}
-            </ul>
-          </div>
+          accountList
         )}
       </div>
     </div>

@@ -143,12 +143,12 @@ function PasswordChangeSection() {
       </div>
 
       {error && (
-        <p role="alert" data-testid="account-change-password-error" className="text-sm text-red-600">
+        <p role="alert" data-testid="account-change-password-error" className="text-sm text-destructive">
           {error}
         </p>
       )}
       {success && (
-        <p data-testid="account-change-password-success" className="text-sm text-green-600">
+        <p data-testid="account-change-password-success" className="text-sm text-success">
           {t('account.passwordChanged')}
         </p>
       )}

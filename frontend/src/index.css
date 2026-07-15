@@ -41,6 +41,7 @@
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
+    --color-success: var(--success);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
@@ -88,6 +89,7 @@
     --accent: #f4f4f4;              /* subtle hover surface */
     --accent-foreground: #171a20;
     --destructive: #d83a34;
+    --success: #2e7d46;             /* status green (matches --erd-success) */
     --border: #eeeeee;              /* Cloud Gray hairline */
     --input: #d0d1d2;               /* Pale Silver */
     --ring: #3e6ae1;
@@ -160,6 +162,7 @@
     --accent: #262b33;
     --accent-foreground: #f4f4f5;
     --destructive: #e5564f;
+    --success: #2ead4b;             /* status green (matches --erd-success) */
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: #3e6ae1;
