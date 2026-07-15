@@ -115,6 +115,11 @@ class RbacRepository:
             out.append((role, list(perms_result.scalars().all())))
         return out
 
+    async def list_permission_codes(self) -> list[str]:
+        """Return every permission code in the catalog."""
+        result = await self.session.execute(select(Permission.code))
+        return list(result.scalars().all())
+
     async def set_role_permissions(
         self, role_id: uuid.UUID, codes: list[str]
     ) -> None:
