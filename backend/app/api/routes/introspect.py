@@ -2,12 +2,13 @@
 
 The reflection call is sync, so it runs in a threadpool (anyio.to_thread) to
 keep the event loop free. Domain errors map to safe HTTP responses; raw driver
-exceptions are never surfaced. Credentials in the body are used once.
+exceptions are never surfaced. Credentials in the body are used once. Every
+endpoint authenticates via require_password_ok.
 """
 import anyio
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.users import current_active_user
+from app.core.permissions import require_password_ok
 from app.models.user import User
 from app.schemas.introspect import (
     IntrospectRequest,
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/introspect", tags=["introspect"])
 @router.post("", response_model=IntrospectResponse)
 async def introspect(
     payload: IntrospectRequest,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
 ) -> IntrospectResponse:
     """Introspect the target DB and return DDL + the @dbml/core import dialect."""
     try:
@@ -52,7 +53,7 @@ async def introspect(
 @router.post("/schemas", response_model=SchemaListResponse)
 async def schemas(
     payload: IntrospectRequest,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
 ) -> SchemaListResponse:
     """List selectable schemas for the target DB (PostgreSQL; MariaDB → [])."""
     try:

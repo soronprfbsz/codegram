@@ -80,6 +80,13 @@ class RbacRepository:
         )
         return result.scalar_one_or_none()
 
+    async def role_by_id(self, role_id: uuid.UUID) -> Role | None:
+        """Return the role with this id, or None."""
+        result = await self.session.execute(
+            select(Role).where(Role.id == role_id)
+        )
+        return result.scalar_one_or_none()
+
     async def permissions_for_user(self, user_id: uuid.UUID) -> set[str]:
         """Resolve a user's role to its granted permission codes."""
         result = await self.session.execute(

@@ -1,16 +1,17 @@
 """Project CRUD routes: thin HTTP layer over ProjectService.
 
-Each endpoint authenticates via current_active_user (401 if missing) and builds
-a ProjectService from the request-scoped session. The router never touches the
-ORM/session directly (router -> service -> repository). ProjectNotFoundError is
-mapped to HTTP 404 (not 403) so cross-user access cannot reveal existence.
+Each endpoint authenticates via require_password_ok (401 if missing, 403 if the
+caller must change their password) and builds a ProjectService from the
+request-scoped session. The router never touches the ORM/session directly
+(router -> service -> repository). ProjectNotFoundError is mapped to HTTP 404
+(not 403) so cross-user access cannot reveal existence.
 """
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.users import current_active_user
+from app.core.permissions import require_password_ok
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
@@ -58,7 +59,7 @@ def _read(
 )
 async def create_project(
     payload: ProjectCreate,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectRead:
     """Create a new project owned by the authenticated user."""
@@ -73,7 +74,7 @@ async def create_project(
 
 @router.get("", response_model=list[ProjectRead])
 async def list_projects(
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectService = Depends(get_project_service),
 ) -> list[ProjectRead]:
     """List the authenticated user's accessible projects (owned + shared)."""
@@ -84,7 +85,7 @@ async def list_projects(
 @router.get("/{project_id}", response_model=ProjectRead)
 async def get_project(
     project_id: uuid.UUID,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectRead:
     """Get one accessible project (owner/editor/viewer), or 404 if no role."""
@@ -99,7 +100,7 @@ async def get_project(
 async def update_project(
     project_id: uuid.UUID,
     payload: ProjectUpdate,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectService = Depends(get_project_service),
 ) -> ProjectRead:
     """Partially update a project the caller may edit (owner/editor)."""
@@ -135,7 +136,7 @@ async def update_project(
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
     project_id: uuid.UUID,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectService = Depends(get_project_service),
 ) -> None:
     """Delete a project — owner only; 404 if no role, 403 if not owner."""

@@ -1,7 +1,7 @@
 """Project snapshot routes: history list, calendar, preview, restore (ADR-0014).
 
 Mounted under /api/projects/{project_id}/snapshots. Every endpoint authenticates
-via current_active_user and delegates to ProjectSnapshotService, which enforces
+via require_password_ok and delegates to ProjectSnapshotService, which enforces
 parent-project ownership (missing/not-owned -> 404). The router maps domain
 exceptions to HTTP status codes (404 for missing, 409 for business-rule
 conflicts) and never touches the ORM/session directly.
@@ -13,7 +13,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.users import current_active_user
+from app.core.permissions import require_password_ok
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.project import ProjectRead
@@ -64,7 +64,7 @@ def get_snapshot_service(
 async def create_snapshot(
     project_id: uuid.UUID,
     payload: ProjectSnapshotCreate,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectSnapshotService = Depends(get_snapshot_service),
 ) -> ProjectSnapshotRead:
     """Create a manual snapshot of the project's current state."""
@@ -95,7 +95,7 @@ async def list_snapshots(
     group: Literal["auto", "manual"] | None = None,
     day: date | None = Query(default=None, alias="date"),
     tz_offset: int = Query(default=0, ge=-1440, le=1440),
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectSnapshotService = Depends(get_snapshot_service),
 ) -> list[ProjectSnapshotMeta]:
     """List snapshot metadata (no body); optionally one local day / group."""
@@ -127,7 +127,7 @@ async def snapshot_calendar(
     month: str = Query(description="Local month as YYYY-MM"),
     group: Literal["auto", "manual"] | None = None,
     tz_offset: int = Query(default=0, ge=-1440, le=1440),
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectSnapshotService = Depends(get_snapshot_service),
 ) -> list[SnapshotCalendarDay]:
     """Return local dates with snapshots (and counts) for a local month."""
@@ -157,7 +157,7 @@ async def snapshot_calendar(
 async def get_snapshot(
     project_id: uuid.UUID,
     snapshot_id: uuid.UUID,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectSnapshotService = Depends(get_snapshot_service),
 ) -> ProjectSnapshotRead:
     """Get one snapshot with its full restorable body (for preview)."""
@@ -180,7 +180,7 @@ async def get_snapshot(
 async def delete_snapshot(
     project_id: uuid.UUID,
     snapshot_id: uuid.UUID,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectSnapshotService = Depends(get_snapshot_service),
 ) -> None:
     """Delete a manual snapshot (auto snapshots are not user-deletable)."""
@@ -203,7 +203,7 @@ async def delete_snapshot(
 async def restore_snapshot(
     project_id: uuid.UUID,
     snapshot_id: uuid.UUID,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: ProjectSnapshotService = Depends(get_snapshot_service),
 ) -> ProjectRead:
     """Restore the project to a snapshot (after a safety snapshot of current)."""

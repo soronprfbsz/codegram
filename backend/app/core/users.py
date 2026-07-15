@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.session import get_session
 from app.models.user import User
+from app.repositories.rbac import RbacRepository
 
 
 async def get_user_db(
@@ -33,7 +34,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     async def on_after_register(
         self, user: User, request: Request | None = None
     ) -> None:
-        """Hook fired after a successful registration (no-op for Plan 1)."""
+        """Hook fired after a successful registration: assign the default
+        "user" role (ADR-0016)."""
+        session = self.user_db.session
+        role = await RbacRepository(session).role_by_name("user")
+        if role is not None:
+            user.role_id = role.id
+            await session.flush()
 
 
 async def get_user_manager(
