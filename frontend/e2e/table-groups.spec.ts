@@ -166,6 +166,8 @@ test('table groups: full CRUD scenario', async ({ page }) => {
 
   await page.getByTestId('group-menu-core').click()
   await page.getByRole('menuitem', { name: '삭제' }).click()
+  // Deleting a group is a destructive action gated by a confirm dialog.
+  await page.getByTestId('group-delete-confirm-core-ok').click()
 
   await expect
     .poll(

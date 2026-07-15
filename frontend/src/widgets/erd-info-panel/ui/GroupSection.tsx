@@ -424,7 +424,11 @@ export function GroupSection({
                     <MoreHorizontal size={12} />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent>
+                {/* Menu content is portalled in the DOM but stays a React-tree
+                    child of this clickable row, so a menu-item click bubbles
+                    (React synthetic events) up to the row's onClick and would
+                    select the table — auto-expanding its group. Stop it here. */}
+                <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
                   <DropdownMenuLabel>{t('groupSection.moveTo')}</DropdownMenuLabel>
                   {moveTargets.map((n) => (
                     <DropdownMenuItem key={n} onSelect={() => groupOps.onMoveTable(table.id, n)}>
