@@ -26,3 +26,8 @@ export interface AccountMe {
 export interface PasswordResetResult {
   temp_password: string
 }
+
+/** Matches backend AdminContact: one admin's contact email (public list). */
+export interface AdminContact {
+  email: string
+}

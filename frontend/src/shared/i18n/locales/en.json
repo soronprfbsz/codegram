@@ -64,7 +64,12 @@
     "emailPasswordRequired": "Email and password are required",
     "loginFailed": "Login failed. Check your email and password.",
     "alreadyHaveAccount": "Already have an account?",
-    "noAccount": "Don't have an account?"
+    "noAccount": "Don't have an account?",
+    "forgotPassword": "Reset password",
+    "forgotPasswordTitle": "Forgot your password?",
+    "forgotPasswordDescription": "Forgot your password? Ask one of the admins below to reset it.",
+    "adminContactsLoading": "Loading admin list…",
+    "adminContactsEmpty": "No admins are registered. Contact your system administrator."
   },
   "forcePasswordChange": {
     "title": "Password change required",

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     account,
     accounts,
+    admins,
     auth,
     edit_lock,
     health,
@@ -19,6 +20,7 @@ api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(account.router)
 api_router.include_router(accounts.router)
+api_router.include_router(admins.router)
 api_router.include_router(roles.router)
 api_router.include_router(projects.router)
 api_router.include_router(members.router)

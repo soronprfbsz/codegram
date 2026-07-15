@@ -64,7 +64,12 @@
     "emailPasswordRequired": "이메일과 비밀번호를 입력하세요",
     "loginFailed": "로그인에 실패했습니다. 이메일과 비밀번호를 확인하세요.",
     "alreadyHaveAccount": "이미 계정이 있으신가요?",
-    "noAccount": "계정이 없으신가요?"
+    "noAccount": "계정이 없으신가요?",
+    "forgotPassword": "비밀번호 초기화",
+    "forgotPasswordTitle": "비밀번호를 잊으셨나요?",
+    "forgotPasswordDescription": "비밀번호를 잊으셨나요? 아래 관리자에게 초기화를 요청하세요.",
+    "adminContactsLoading": "관리자 목록을 불러오는 중…",
+    "adminContactsEmpty": "등록된 관리자가 없습니다. 시스템 담당자에게 문의하세요."
   },
   "forcePasswordChange": {
     "title": "비밀번호 변경이 필요합니다",

@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/shared/ui/card'
 import { useLogin } from '@/features/auth/api/useLogin'
+import { PasswordResetHelp } from './PasswordResetHelp'
 
 /**
  * Login form: controlled email + password inputs wired to the useLogin
@@ -89,6 +90,7 @@ export function LoginForm() {
             {login.isPending ? t('auth.loggingIn') : t('auth.login')}
           </Button>
         </form>
+        <PasswordResetHelp />
       </CardContent>
     </Card>
   )

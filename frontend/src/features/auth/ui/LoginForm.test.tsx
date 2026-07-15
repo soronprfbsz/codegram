@@ -21,6 +21,10 @@ vi.mock('react-router', () => ({
   useNavigate: () => navigate,
 }))
 
+vi.mock('@/entities/account', () => ({
+  useAdminContacts: () => ({ data: [], isLoading: false }),
+}))
+
 function renderForm() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -48,6 +52,13 @@ describe('LoginForm', () => {
     ).toBeInTheDocument()
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
+  })
+
+  it('shows a "Reset password" trigger for locked-out users', () => {
+    renderForm()
+    expect(
+      screen.getByRole('button', { name: /reset password/i }),
+    ).toBeInTheDocument()
   })
 
   it('shows a validation error when fields are empty', async () => {
