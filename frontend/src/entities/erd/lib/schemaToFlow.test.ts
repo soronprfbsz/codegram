@@ -352,13 +352,16 @@ describe('schemaToFlow — edges (crow-foot + column handles)', () => {
     expect(new Set(edges.map((e) => e.id)).size).toBe(2)
   })
 
-  it('composite FK referencing a UNIQUE (non-PK) key: draws only the PK-target pair', () => {
+  it('composite FK member is dropped only when its FK column already connects to a pure PK elsewhere', () => {
     // Real multi-tenant shape: tenants PK is `id` alone; `(id, org_id)` is a
-    // UNIQUE (not PK) index and org_id is itself an FK. A composite FK
-    // tenants.(id,org_id) < assets.(tenant_id,org_id) must NOT draw the
-    // org_id↔org_id line (both non-PK/FK columns) — only the PK pair.
+    // UNIQUE (not PK) index and org_id is itself an FK → organizations. assets
+    // has BOTH a simple org_id → organizations.id (PK) AND the composite
+    // tenants.(id,org_id) < assets.(tenant_id,org_id). Because assets.org_id is
+    // already anchored on organizations.id (a pure PK), its redundant
+    // org_id↔tenants.org_id (FK↔FK) member is dropped.
     const schema = emptySchema({
       tables: [
+        table('public', 'organizations', [col('public', 'organizations', 'id', { pk: true })]),
         table('public', 'tenants', [
           col('public', 'tenants', 'id', { pk: true }),
           col('public', 'tenants', 'org_id', { isFk: true }),
@@ -368,13 +371,45 @@ describe('schemaToFlow — edges (crow-foot + column handles)', () => {
           col('public', 'assets', 'org_id', { isFk: true }),
         ]),
       ],
-      refs: [ref('tenants', ['id', 'org_id'], 'assets', ['tenant_id', 'org_id'], '1-n')],
+      refs: [
+        ref('organizations', ['id'], 'assets', ['org_id'], '1-n'),
+        ref('tenants', ['id', 'org_id'], 'assets', ['tenant_id', 'org_id'], '1-n'),
+      ],
     })
-    const { edges } = schemaToFlow(schema)
-    const rel = edges.filter((e) => e.type === 'relation')
-    expect(rel).toHaveLength(1)
-    expect(rel[0].sourceHandle).toBe('public.tenants.id')
-    expect(rel[0].targetHandle).toBe('public.assets.tenant_id')
+    const rel = schemaToFlow(schema).edges.filter((e) => e.type === 'relation')
+    const pairs = rel.map((e) => `${e.sourceHandle}>${e.targetHandle}`).sort()
+    expect(pairs).toEqual([
+      'public.organizations.id>public.assets.org_id',
+      'public.tenants.id>public.assets.tenant_id',
+    ])
+    // the FK↔FK member is gone
+    expect(pairs).not.toContain('public.tenants.org_id>public.assets.org_id')
+  })
+
+  it('composite FK member is KEPT when it is the FK column’s only edge (never orphan an FK)', () => {
+    // collect_service has ONLY the composite tenants.(id,org_id) <
+    // collect_service.(tenant_id,org_id) — no separate org_id → organizations
+    // FK. Dropping the org_id member would leave collect_service.org_id with no
+    // line at all, so it must be kept even though tenants.org_id is not a PK.
+    const schema = emptySchema({
+      tables: [
+        table('public', 'tenants', [
+          col('public', 'tenants', 'id', { pk: true }),
+          col('public', 'tenants', 'org_id', { isFk: true }),
+        ]),
+        table('public', 'collect_service', [
+          col('public', 'collect_service', 'tenant_id', { isFk: true }),
+          col('public', 'collect_service', 'org_id', { isFk: true }),
+        ]),
+      ],
+      refs: [ref('tenants', ['id', 'org_id'], 'collect_service', ['tenant_id', 'org_id'], '1-n')],
+    })
+    const rel = schemaToFlow(schema).edges.filter((e) => e.type === 'relation')
+    const pairs = rel.map((e) => `${e.sourceHandle}>${e.targetHandle}`).sort()
+    expect(pairs).toEqual([
+      'public.tenants.id>public.collect_service.tenant_id',
+      'public.tenants.org_id>public.collect_service.org_id',
+    ])
   })
 
   it('composite FK referencing a pure UNIQUE (no PK member): keeps all pairs (fallback)', () => {
