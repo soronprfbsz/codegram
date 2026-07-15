@@ -34,3 +34,13 @@ class PasswordResetRead(BaseModel):
     password, shown once."""
 
     temp_password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    """Body of POST /account/change-password.
+
+    current_password is required unless the caller is in a forced
+    must-change-password state, in which case it is ignored."""
+
+    current_password: str | None = None
+    new_password: str
