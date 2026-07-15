@@ -5,6 +5,8 @@ app, role assignment via RbacRepository/UserRepository directly on
 test_session, then requests through the auth-cookie-carrying `client`
 fixture.
 """
+import uuid
+
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -130,3 +132,16 @@ async def test_unknown_permission_code_is_bad_request(client, test_session):
     )
 
     assert resp.status_code == 400
+
+
+async def test_unknown_role_id_is_not_found(client, test_session):
+    await RbacRepository(test_session).ensure_seed()
+    await _register_and_login(client, "admin5@example.com")
+    await _set_role(test_session, "admin5@example.com", "admin")
+
+    resp = await client.patch(
+        f"/api/roles/{uuid.uuid4()}/permissions",
+        json={"permission_codes": ["user:read"]},
+    )
+
+    assert resp.status_code == 404
