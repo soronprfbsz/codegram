@@ -31,3 +31,10 @@ export interface PasswordResetResult {
 export interface AdminContact {
   email: string
 }
+
+/** Matches backend RoleRead: one role with the permission codes it grants. */
+export interface Role {
+  id: string
+  name: string
+  permissions: string[]
+}

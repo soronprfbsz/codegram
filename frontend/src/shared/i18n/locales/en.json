@@ -44,7 +44,14 @@
     "resetModalTitle": "Temporary password",
     "resetModalDesc": "This password will not be shown again. Copy and share it now.",
     "copy": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "tabAccounts": "Accounts",
+    "tabPermissions": "Permissions",
+    "permissionUserRead": "View accounts",
+    "permissionUserManage": "Manage accounts",
+    "permissionCheckboxAria": "Grant {{permission}} to the {{role}} role",
+    "permissionsUpdateError": "Failed to update permissions.",
+    "permissionsAdminManageRequiredError": "The admin role cannot lose the manage-accounts permission."
   },
   "auth": {
     "brand": "Codegram",

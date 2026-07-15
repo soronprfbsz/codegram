@@ -44,7 +44,14 @@
     "resetModalTitle": "임시 비밀번호",
     "resetModalDesc": "이 비밀번호는 다시 표시되지 않습니다. 지금 복사해 전달하세요.",
     "copy": "복사",
-    "copied": "복사됨"
+    "copied": "복사됨",
+    "tabAccounts": "계정 목록",
+    "tabPermissions": "권한 관리",
+    "permissionUserRead": "계정 조회",
+    "permissionUserManage": "계정 관리",
+    "permissionCheckboxAria": "{{role}} 역할에 {{permission}} 권한 부여",
+    "permissionsUpdateError": "권한 변경에 실패했습니다.",
+    "permissionsAdminManageRequiredError": "관리자 역할에서 계정 관리 권한을 제거할 수 없습니다."
   },
   "auth": {
     "brand": "Codegram",

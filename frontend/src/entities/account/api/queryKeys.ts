@@ -9,3 +9,6 @@ export const meQueryKey = ['account', 'me'] as const
 
 /** Query key for the public admin-contact list (GET /admins). */
 export const adminContactsQueryKey = ['admins'] as const
+
+/** Query key for the role/permission matrix (GET /roles). */
+export const rolesQueryKey = ['roles'] as const
