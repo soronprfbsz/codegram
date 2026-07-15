@@ -28,6 +28,10 @@ class ProjectSnapshotMeta(BaseModel):
     label: str | None
     content_hash: str
     created_at: datetime
+    # Email of the user this snapshot is attributed to (see model.created_by).
+    # None for pre-feature snapshots, never-edited projects, or deleted users.
+    # Attached by the route (not an ORM column), like ProjectRead.owner_email.
+    created_by_email: str | None = None
 
 
 class ProjectSnapshotRead(ProjectSnapshotMeta):

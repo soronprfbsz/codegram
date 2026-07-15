@@ -71,6 +71,15 @@ class Project(Base):
         server_default=text("0"),
         nullable=False,
     )
+    # The user who most recently wrote content (dbml_text/layout) — set on create,
+    # every content write, and restore. Auto snapshots (scheduler, no logged-in
+    # actor) attribute their author to this value. ON DELETE SET NULL: the project
+    # outlives an editor whose account is removed.
+    last_edited_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

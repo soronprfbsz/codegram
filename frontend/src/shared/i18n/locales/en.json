@@ -267,6 +267,7 @@
     "loading": "Loading…",
     "empty": "No saved snapshots.",
     "untitled": "(untitled)",
+    "author": "by {{email}}",
     "pickDate": "Pick a date to see that day's snapshots.",
     "emptyForDate": "No snapshots for this date.",
     "delete": "Delete snapshot",

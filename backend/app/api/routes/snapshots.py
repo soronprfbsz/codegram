@@ -83,7 +83,10 @@ async def create_snapshot(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Manual snapshot limit reached (max {exc.args[0]})",
         ) from None
-    return ProjectSnapshotRead.model_validate(snapshot)
+    # A manual snapshot is authored by the acting user (== snapshot.created_by).
+    return ProjectSnapshotRead.model_validate(snapshot).model_copy(
+        update={"created_by_email": user.email}
+    )
 
 
 @router.get("", response_model=list[ProjectSnapshotMeta])
@@ -110,7 +113,12 @@ async def list_snapshots(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=_PROJECT_NOT_FOUND
         ) from None
-    return [ProjectSnapshotMeta.model_validate(s) for s in snapshots]
+    return [
+        ProjectSnapshotMeta.model_validate(s).model_copy(
+            update={"created_by_email": email}
+        )
+        for s, email in snapshots
+    ]
 
 
 @router.get("/calendar", response_model=list[SnapshotCalendarDay])
@@ -154,14 +162,18 @@ async def get_snapshot(
 ) -> ProjectSnapshotRead:
     """Get one snapshot with its full restorable body (for preview)."""
     try:
-        snapshot = await service.get_snapshot(project_id, snapshot_id, user.id)
+        snapshot, email = await service.get_snapshot(
+            project_id, snapshot_id, user.id
+        )
     except ProjectForbiddenError:
         raise _forbidden() from None
     except (ProjectNotFoundError, ProjectSnapshotNotFoundError):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=_SNAPSHOT_NOT_FOUND
         ) from None
-    return ProjectSnapshotRead.model_validate(snapshot)
+    return ProjectSnapshotRead.model_validate(snapshot).model_copy(
+        update={"created_by_email": email}
+    )
 
 
 @router.delete("/{snapshot_id}", status_code=status.HTTP_204_NO_CONTENT)

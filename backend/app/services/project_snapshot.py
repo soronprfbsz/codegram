@@ -89,8 +89,8 @@ class ProjectSnapshotService:
         group: SnapshotGroup | None = None,
         day: date | None = None,
         tz_offset_minutes: int = 0,
-    ) -> Sequence[ProjectSnapshot]:
-        """List a project's snapshots (optionally one local day), newest first."""
+    ) -> Sequence[tuple[ProjectSnapshot, str | None]]:
+        """List (snapshot, author email) pairs (optionally one local day), newest first."""
         await self.projects.get_authorized(project_id, user_id, Capability.VIEW)
         created_after: datetime | None = None
         created_before: datetime | None = None
@@ -135,13 +135,21 @@ class ProjectSnapshotService:
         project_id: uuid.UUID,
         snapshot_id: uuid.UUID,
         user_id: uuid.UUID,
-    ) -> ProjectSnapshot:
-        """Return one accessible snapshot (with body) or raise NotFound."""
+    ) -> tuple[ProjectSnapshot, str | None]:
+        """Return (snapshot with body, author email) or raise NotFound."""
         await self.projects.get_authorized(project_id, user_id, Capability.VIEW)
         snapshot = await self.repo.get_by_id_and_project(snapshot_id, project_id)
         if snapshot is None:
             raise ProjectSnapshotNotFoundError(snapshot_id)
-        return snapshot
+        email = await self._author_email(snapshot.created_by)
+        return snapshot, email
+
+    async def _author_email(self, user_id: uuid.UUID | None) -> str | None:
+        """Resolve a snapshot author's email (None when unset/user deleted)."""
+        if user_id is None:
+            return None
+        user = await self.projects.users.get_by_id(user_id)
+        return user.email if user is not None else None
 
     # -- writes --------------------------------------------------------------
 
@@ -165,6 +173,7 @@ class ProjectSnapshotService:
             dbml_text=project.dbml_text,
             layout=project.layout,
             content_hash=compute_content_hash(project.dbml_text, project.layout),
+            created_by=user_id,
         )
 
     async def delete_manual(
@@ -206,7 +215,8 @@ class ProjectSnapshotService:
         target = await self.repo.get_by_id_and_project(snapshot_id, project_id)
         if target is None:
             raise ProjectSnapshotNotFoundError(snapshot_id)
-        # Safety net: capture the soon-to-be-overwritten current state.
+        # Safety net: capture the soon-to-be-overwritten current state, attributed
+        # to the user performing the restore.
         await self.repo.create(
             project_id=project_id,
             kind=KIND_FINE,
@@ -214,6 +224,7 @@ class ProjectSnapshotService:
             dbml_text=project.dbml_text,
             layout=project.layout,
             content_hash=compute_content_hash(project.dbml_text, project.layout),
+            created_by=user_id,
         )
         return await self.projects.update_project(
             project_id,

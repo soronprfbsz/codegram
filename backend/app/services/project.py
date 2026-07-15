@@ -178,6 +178,9 @@ class ProjectService:
             if version is not None and version != project.version:
                 raise StaleVersionError(project_id)
             project.version += 1
+            # Record the author of this content edit (auto snapshots attribute to
+            # the project's last editor). Metadata-only writes don't count.
+            project.last_edited_by = user_id
         return await self.repo.update(
             project,
             name=name,

@@ -267,6 +267,7 @@
     "loading": "불러오는 중…",
     "empty": "저장된 스냅샷이 없습니다.",
     "untitled": "(무제목)",
+    "author": "작업자 {{email}}",
     "pickDate": "날짜를 선택하면 그날의 스냅샷이 표시됩니다.",
     "emptyForDate": "이 날짜의 스냅샷이 없습니다.",
     "delete": "스냅샷 삭제",

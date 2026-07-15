@@ -49,6 +49,9 @@ async def capture_auto_snapshots(session: AsyncSession, kind: str) -> int:
             dbml_text=project.dbml_text,
             layout=project.layout,
             content_hash=content_hash,
+            # No logged-in actor in the scheduler — attribute to the project's
+            # last content editor (NULL for a never-edited project).
+            created_by=project.last_edited_by,
         )
         created += 1
     return created

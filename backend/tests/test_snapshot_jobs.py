@@ -111,3 +111,47 @@ async def test_prune_respects_retain_windows_and_spares_manual(
     assert await _count(test_session, project.id, KIND_FINE) == 1
     assert await _count(test_session, project.id, KIND_COARSE) == 1
     assert await _count(test_session, project.id, KIND_MANUAL) == 1
+
+
+async def test_auto_snapshot_attributes_to_last_editor(
+    test_session: AsyncSession,
+) -> None:
+    """An auto snapshot's created_by = the project's last content editor."""
+    owner = await _make_user(test_session, "owner-auto@example.com")
+    project = await ProjectService(test_session).create_project(
+        user_id=owner, name="P", dbml_text="table a {}"
+    )
+    # create sets last_edited_by = owner → the auto snapshot is attributed to owner
+    assert await capture_auto_snapshots(test_session, KIND_FINE) == 1
+    snap = (
+        await test_session.execute(
+            select(ProjectSnapshot).where(
+                ProjectSnapshot.project_id == project.id,
+                ProjectSnapshot.kind == KIND_FINE,
+            )
+        )
+    ).scalar_one()
+    assert snap.created_by == owner
+
+
+async def test_auto_snapshot_author_null_when_never_edited(
+    test_session: AsyncSession,
+) -> None:
+    """No last editor (never a content write) → auto snapshot author is NULL."""
+    owner = await _make_user(test_session, "owner-null@example.com")
+    project = await ProjectService(test_session).create_project(
+        user_id=owner, name="P", dbml_text="table a {}"
+    )
+    # Simulate a legacy/never-edited project: clear the create-time attribution.
+    project.last_edited_by = None
+    await test_session.flush()
+    assert await capture_auto_snapshots(test_session, KIND_FINE) == 1
+    snap = (
+        await test_session.execute(
+            select(ProjectSnapshot).where(
+                ProjectSnapshot.project_id == project.id,
+                ProjectSnapshot.kind == KIND_FINE,
+            )
+        )
+    ).scalar_one()
+    assert snap.created_by is None

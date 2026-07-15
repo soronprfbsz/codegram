@@ -198,6 +198,11 @@ function ManualTab({
               active={s.id === previewId}
               onClick={() => onPreview(s.id)}
               subtitle={fmtDateTime(s.created_at)}
+              author={
+                s.created_by_email
+                  ? t('snapshot.author', { email: s.created_by_email })
+                  : undefined
+              }
               title={s.label || t('snapshot.untitled')}
               onDelete={() => setPendingDelete(s.id)}
             />
@@ -272,6 +277,11 @@ function AutoTab({
               onClick={() => onPreview(s.id)}
               title={fmtTime(s.created_at)}
               subtitle={kindBadge(s.kind, t)}
+              author={
+                s.created_by_email
+                  ? t('snapshot.author', { email: s.created_by_email })
+                  : undefined
+              }
             />
           ))}
         </ul>
@@ -286,6 +296,7 @@ function SnapshotRow({
   active,
   title,
   subtitle,
+  author,
   onClick,
   onDelete,
 }: {
@@ -293,6 +304,8 @@ function SnapshotRow({
   active: boolean
   title: string
   subtitle: string
+  /** Attributed author line (already localized); omitted when unknown. */
+  author?: string
   onClick: () => void
   onDelete?: () => void
 }) {
@@ -335,9 +348,12 @@ function SnapshotRow({
           >
             {title}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--erd-text-3)' }}>
-            {subtitle}
-          </div>
+          <div style={metaLine}>{subtitle}</div>
+          {author && (
+            <div data-testid={`snapshot-author-${snapshot.id}`} style={metaLine}>
+              {author}
+            </div>
+          )}
         </div>
         {onDelete && (
           <button
@@ -450,6 +466,16 @@ const list: React.CSSProperties = {
   listStyle: 'none',
   margin: 0,
   padding: 0,
+}
+
+// Muted secondary text inside a snapshot row (subtitle + author); ellipsizes so
+// a long author email never overflows the narrow panel.
+const metaLine: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--erd-text-3)',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
 }
 
 const textInput: React.CSSProperties = {

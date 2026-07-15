@@ -402,3 +402,87 @@ async def test_latest_hash_is_per_kind(test_session: AsyncSession) -> None:
     assert fine_hash == compute_content_hash("fine state", {})
     assert coarse_hash == compute_content_hash("coarse state", {})
     assert fine_hash != coarse_hash
+
+
+# --- author attribution ----------------------------------------------------
+async def test_manual_snapshot_records_author_email(
+    authenticated_client: AsyncClient,
+) -> None:
+    """A manual snapshot is authored by the acting user; email surfaces in
+    the create response AND the list row."""
+    project_id = await _create_project(authenticated_client)
+    created = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"label": "v1"}
+    )
+    assert created.status_code == 201
+    assert created.json()["created_by_email"] == "alice@example.com"
+    rows = (
+        await authenticated_client.get(
+            f"/api/projects/{project_id}/snapshots?group=manual"
+        )
+    ).json()
+    assert rows[0]["created_by_email"] == "alice@example.com"
+
+
+async def test_content_write_sets_last_editor_metadata_does_not(
+    test_session: AsyncSession,
+) -> None:
+    """A content write (dbml/layout) records last_edited_by; a metadata-only
+    write (name) leaves it untouched."""
+    owner = await _make_user(test_session, "editor@example.com")
+    svc = ProjectService(test_session)
+    project = await svc.create_project(user_id=owner, name="P")
+    # start from a cleared attribution to make the distinction observable
+    project.last_edited_by = None
+    await test_session.flush()
+
+    await svc.update_project(project.id, owner, name="renamed")  # metadata only
+    assert project.last_edited_by is None
+
+    await svc.update_project(project.id, owner, dbml_text="table x {}")  # content
+    assert project.last_edited_by == owner
+
+
+async def test_list_author_email_null_for_unattributed_snapshot(
+    test_session: AsyncSession,
+) -> None:
+    """A snapshot with no created_by (pre-feature / auto never-edited) lists
+    with created_by_email = None."""
+    owner = await _make_user(test_session, "legacy@example.com")
+    project = await ProjectService(test_session).create_project(
+        user_id=owner, name="P"
+    )
+    await _insert_snapshot(
+        test_session,
+        project.id,
+        KIND_MANUAL,
+        datetime(2026, 6, 22, 12, 0, tzinfo=timezone.utc),
+    )
+    rows = await ProjectSnapshotService(test_session).list_snapshots(
+        project.id, owner, group="manual"
+    )
+    assert len(rows) == 1
+    _snap, email = rows[0]
+    assert email is None
+
+
+async def test_restore_safety_snapshot_attributed_to_restorer(
+    authenticated_client: AsyncClient,
+) -> None:
+    """Restoring captures a safety snapshot authored by the restoring user."""
+    project_id = await _create_project(authenticated_client)
+    created = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"label": "v1"}
+    )
+    snap_id = created.json()["id"]
+    restore = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots/{snap_id}/restore"
+    )
+    assert restore.status_code == 200
+    autos = (
+        await authenticated_client.get(
+            f"/api/projects/{project_id}/snapshots?group=auto"
+        )
+    ).json()
+    assert len(autos) == 1
+    assert autos[0]["created_by_email"] == "alice@example.com"

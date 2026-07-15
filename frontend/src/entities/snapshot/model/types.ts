@@ -17,6 +17,9 @@ export interface SnapshotMeta {
   label: string | null
   content_hash: string
   created_at: string
+  /** Email of the attributed author; null when unknown (pre-feature / auto
+   *  snapshot of a never-edited project / deleted user). */
+  created_by_email: string | null
 }
 
 /** Matches backend ProjectSnapshotRead: meta + the restorable body. */

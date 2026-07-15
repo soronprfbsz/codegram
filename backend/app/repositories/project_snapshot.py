@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from app.models.project_snapshot import ProjectSnapshot
+from app.models.user import User
 
 
 class ProjectSnapshotRepository:
@@ -32,6 +33,7 @@ class ProjectSnapshotRepository:
         layout: dict[str, Any],
         content_hash: str,
         label: str | None = None,
+        created_by: uuid.UUID | None = None,
     ) -> ProjectSnapshot:
         """Create and persist a snapshot; return the ORM object."""
         snapshot = ProjectSnapshot(
@@ -41,6 +43,7 @@ class ProjectSnapshotRepository:
             dbml_text=dbml_text,
             layout=layout,
             content_hash=content_hash,
+            created_by=created_by,
         )
         self.session.add(snapshot)
         await self.session.flush()
@@ -63,10 +66,18 @@ class ProjectSnapshotRepository:
         kinds: Sequence[str] | None = None,
         created_after: datetime | None = None,
         created_before: datetime | None = None,
-    ) -> Sequence[ProjectSnapshot]:
-        """List a project's snapshots, newest first, with optional filters."""
-        stmt = select(ProjectSnapshot).where(
-            ProjectSnapshot.project_id == project_id
+    ) -> Sequence[tuple[ProjectSnapshot, str | None]]:
+        """List (snapshot, author email) for a project, newest first.
+
+        Author email is resolved by a LEFT JOIN to `user` (outer: created_by is
+        NULL for pre-feature/never-edited-project snapshots, and the user may
+        have been deleted). Returns tuples so the route can attach the email to
+        ProjectSnapshotMeta the same way projects attach owner_email.
+        """
+        stmt = (
+            select(ProjectSnapshot, User.email)
+            .outerjoin(User, User.id == ProjectSnapshot.created_by)
+            .where(ProjectSnapshot.project_id == project_id)
         )
         if kinds is not None:
             stmt = stmt.where(ProjectSnapshot.kind.in_(kinds))
@@ -83,7 +94,7 @@ class ProjectSnapshotRepository:
         )
         stmt = stmt.order_by(ProjectSnapshot.created_at.desc())
         result = await self.session.execute(stmt)
-        return result.scalars().all()
+        return [(row[0], row[1]) for row in result.all()]
 
     async def created_ats_for_project(
         self,

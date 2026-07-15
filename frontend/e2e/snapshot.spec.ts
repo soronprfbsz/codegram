@@ -27,7 +27,8 @@ test.describe('Snapshot history', () => {
   })
 
   test('create, preview, and restore a manual snapshot', async ({ page }) => {
-    await registerAndLogin(page, `snapshot-${Date.now()}@example.com`)
+    const email = `snapshot-${Date.now()}@example.com`
+    await registerAndLogin(page, email)
 
     // Seed a project via the authenticated API (cookie reused by page.request).
     const createResp = await page.request.post('/api/projects', {
@@ -58,6 +59,10 @@ test.describe('Snapshot history', () => {
     const row = page.locator('[data-testid^="snapshot-row-"]')
     await expect(row).toHaveCount(1)
     await expect(row).toContainText('first version')
+    // The row attributes the snapshot to its author (the acting user).
+    await expect(
+      page.locator('[data-testid^="snapshot-author-"]'),
+    ).toContainText(email)
 
     // Click the row -> preview overlay opens with restore controls.
     await row.click()

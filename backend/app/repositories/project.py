@@ -38,6 +38,9 @@ class ProjectRepository:
             name=name,
             dbml_text=dbml_text,
             layout=layout if layout is not None else {},
+            # The creator is the project's first editor (attributes initial auto
+            # snapshots before any explicit edit).
+            last_edited_by=user_id,
         )
         self.session.add(project)
         await self.session.flush()

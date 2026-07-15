@@ -52,6 +52,16 @@ class ProjectSnapshot(Base):
     # sha256 of dbml_text + canonical(layout); used to skip duplicate auto
     # snapshots (compared per-kind against the latest of the same kind).
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # The user this snapshot is attributed to, frozen at capture time: the actor
+    # for manual/restore snapshots, or the project's last editor for auto
+    # snapshots (the scheduler has no logged-in actor). NULL for pre-feature
+    # snapshots and never-edited projects. ON DELETE SET NULL: snapshots outlive
+    # the users who created them.
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
