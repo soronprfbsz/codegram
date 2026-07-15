@@ -1,7 +1,8 @@
 """Auth routes: fastapi-users register/login/logout/users + a protected sample."""
 from fastapi import APIRouter, Depends
 
-from app.core.users import auth_backend, current_active_user, fastapi_users
+from app.core.permissions import require_password_ok
+from app.core.users import auth_backend, fastapi_users
 from app.models.user import User
 from app.schemas.user import UserCreate, UserRead, UserUpdate
 
@@ -33,7 +34,7 @@ protected_router = APIRouter(prefix="/protected", tags=["protected"])
 
 
 @protected_router.get("/ping")
-async def protected_ping(user: User = Depends(current_active_user)) -> dict[str, str]:
+async def protected_ping(user: User = Depends(require_password_ok)) -> dict[str, str]:
     """Return the authenticated user's email; rejects unauthenticated callers."""
     return {"email": user.email}
 

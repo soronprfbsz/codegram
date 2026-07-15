@@ -11,7 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.users import current_active_user
+from app.core.permissions import require_password_ok
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.member import MemberInvite, MemberRead, MemberRoleUpdate
@@ -50,7 +50,7 @@ def _raise_access(exc: Exception) -> HTTPException:
 @router.get("", response_model=list[MemberRead])
 async def list_members(
     project_id: uuid.UUID,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: MemberService = Depends(get_member_service),
 ) -> list[MemberRead]:
     """List the owner + members of a project (any participant)."""
@@ -65,7 +65,7 @@ async def list_members(
 async def invite_member(
     project_id: uuid.UUID,
     payload: MemberInvite,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: MemberService = Depends(get_member_service),
 ) -> MemberRead:
     """Invite an existing user by email with a role (owner only)."""
@@ -89,7 +89,7 @@ async def invite_member(
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def leave_project(
     project_id: uuid.UUID,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: MemberService = Depends(get_member_service),
 ) -> None:
     """Leave a project the caller is a member of (owner cannot leave)."""
@@ -110,7 +110,7 @@ async def update_member_role(
     project_id: uuid.UUID,
     target_user_id: uuid.UUID,
     payload: MemberRoleUpdate,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: MemberService = Depends(get_member_service),
 ) -> MemberRead:
     """Change a member's role (owner only)."""
@@ -134,7 +134,7 @@ async def update_member_role(
 async def transfer_ownership(
     project_id: uuid.UUID,
     target_user_id: uuid.UUID,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: MemberService = Depends(get_member_service),
 ) -> list[MemberRead]:
     """Hand ownership to an existing member; old owner becomes editor (owner only)."""
@@ -159,7 +159,7 @@ async def transfer_ownership(
 async def remove_member(
     project_id: uuid.UUID,
     target_user_id: uuid.UUID,
-    user: User = Depends(current_active_user),
+    user: User = Depends(require_password_ok),
     service: MemberService = Depends(get_member_service),
 ) -> None:
     """Remove a member (owner only)."""
