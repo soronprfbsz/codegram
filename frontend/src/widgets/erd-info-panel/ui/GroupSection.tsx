@@ -157,9 +157,9 @@ export function GroupSection({
               }
             }}
             style={{
-              fontSize: 10,
+              fontSize: 13,
               fontWeight: 600,
-              letterSpacing: '.08em',
+              letterSpacing: 'normal',
               textTransform: 'uppercase' as const,
               color: 'var(--erd-text-3)',
               background: 'var(--erd-surface)',
@@ -171,7 +171,7 @@ export function GroupSection({
             }}
           />
         ) : (
-          <span style={{ flex: 1 }}>{group.label}</span>
+          <span style={{ flex: 1, fontSize: 13, letterSpacing: 'normal' }}>{group.label}</span>
         )}
 
         {/* Table count for this group */}

@@ -55,7 +55,7 @@ function PanelHead({
     >
       <span
         style={{
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: 600,
           letterSpacing: '.04em',
           textTransform: 'uppercase' as const,
