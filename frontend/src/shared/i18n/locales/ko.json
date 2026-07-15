@@ -20,6 +20,23 @@
     "themeLight": "라이트",
     "themeDark": "다크"
   },
+  "accounts": {
+    "title": "계정 관리",
+    "subtitle": "가입된 계정 목록과 시스템 역할을 관리합니다.",
+    "columnEmail": "이메일",
+    "columnRole": "역할",
+    "roleAdmin": "관리자",
+    "roleUser": "일반 사용자",
+    "roleUnknown": "미지정",
+    "roleSelectAria": "{{email}} 역할 선택",
+    "resetPassword": "비밀번호 초기화",
+    "resetPasswordPending": "초기화 중…",
+    "resetPasswordAria": "{{email}} 비밀번호 초기화",
+    "resetModalTitle": "임시 비밀번호",
+    "resetModalDesc": "이 비밀번호는 다시 표시되지 않습니다. 지금 복사해 전달하세요.",
+    "copy": "복사",
+    "copied": "복사됨"
+  },
   "auth": {
     "brand": "Codegram",
     "signup": "회원가입",
@@ -47,6 +64,7 @@
     "collapse": "사이드바 접기",
     "newProject": "새 프로젝트",
     "manageProjects": "프로젝트 관리",
+    "manageAccounts": "계정 관리",
     "projects": "프로젝트",
     "logout": "로그아웃"
   },

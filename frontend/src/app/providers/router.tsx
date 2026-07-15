@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router'
 import { HomePage } from '@/pages/home'
+import { AccountsPage } from '@/pages/accounts'
 import { LoginPage } from '@/pages/login'
 import { RegisterPage } from '@/pages/register'
 import { RequireAuth, RequireGuest } from '@/app/providers/RequireAuth'
@@ -38,6 +39,10 @@ const router = createBrowserRouter([
       {
         path: '/',
         element: <HomePage />,
+      },
+      {
+        path: '/accounts',
+        element: <AccountsPage />,
       },
       {
         path: '/editor/:id',

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { PanelLeft, FolderKanban, LogOut, Settings } from 'lucide-react'
+import { PanelLeft, FolderKanban, Users, LogOut, Settings } from 'lucide-react'
 import { useProjectList } from '@/entities/project'
 import { useCurrentUser } from '@/entities/session'
 import { useLogout } from '@/features/auth'
@@ -104,6 +104,22 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
         >
           <FolderKanban size={18} className="shrink-0" />
           {!collapsed && <span className="truncate">{t('sidebar.manageProjects')}</span>}
+        </Link>
+        <Link
+          to="/accounts"
+          title={t('sidebar.manageAccounts')}
+          data-testid="sidebar-manage-accounts"
+          aria-current={pathname === '/accounts' ? 'page' : undefined}
+          className={cn(
+            'flex h-9 items-center gap-2.5 rounded-lg px-2 text-sm transition',
+            pathname === '/accounts'
+              ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
+              : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60',
+            collapsed && 'justify-center px-0',
+          )}
+        >
+          <Users size={18} className="shrink-0" />
+          {!collapsed && <span className="truncate">{t('sidebar.manageAccounts')}</span>}
         </Link>
       </nav>
 

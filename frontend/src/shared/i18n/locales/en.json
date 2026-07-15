@@ -20,6 +20,23 @@
     "themeLight": "Light",
     "themeDark": "Dark"
   },
+  "accounts": {
+    "title": "Manage accounts",
+    "subtitle": "Manage registered accounts and their system role.",
+    "columnEmail": "Email",
+    "columnRole": "Role",
+    "roleAdmin": "Admin",
+    "roleUser": "User",
+    "roleUnknown": "Unassigned",
+    "roleSelectAria": "Select role for {{email}}",
+    "resetPassword": "Reset password",
+    "resetPasswordPending": "Resetting…",
+    "resetPasswordAria": "Reset password for {{email}}",
+    "resetModalTitle": "Temporary password",
+    "resetModalDesc": "This password will not be shown again. Copy and share it now.",
+    "copy": "Copy",
+    "copied": "Copied"
+  },
   "auth": {
     "brand": "Codegram",
     "signup": "Sign up",
@@ -47,6 +64,7 @@
     "collapse": "Collapse sidebar",
     "newProject": "New project",
     "manageProjects": "Manage projects",
+    "manageAccounts": "Manage accounts",
     "projects": "Projects",
     "logout": "Log out"
   },
