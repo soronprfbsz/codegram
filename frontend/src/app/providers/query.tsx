@@ -5,8 +5,10 @@ import {
   QueryCache,
   MutationCache,
 } from '@tanstack/react-query'
-import { UnauthorizedError } from '@/shared/api/client'
+import { ApiError, UnauthorizedError } from '@/shared/api/client'
 import { sessionQueryKey } from '@/entities/session'
+import { meQueryKey } from '@/entities/account'
+import type { AccountMe } from '@/entities/account'
 
 /**
  * Build the app QueryClient with a global 401 handler: any query/mutation that
@@ -15,17 +17,30 @@ import { sessionQueryKey } from '@/entities/session'
  * session query to null. RequireAuth reads that query, so it re-renders and
  * redirects to /login instead of letting the 401 bubble up as a feature-level
  * error. useCurrentUser swallows its OWN 401 into null, so this never fires for
- * the session query itself. Exported as a factory so tests get isolated clients.
+ * the session query itself.
+ *
+ * Defense-in-depth for ADR-0016 (server also gates most routes with a 403
+ * {reason: "must_change_password"} once a change is forced): patch the
+ * cached account/me onto must_change_password=true so RequirePasswordOk
+ * re-renders and redirects to /force-password-change, even if the client-side
+ * guard was somehow bypassed or is momentarily stale.
+ *
+ * Exported as a factory so tests get isolated clients.
  */
 export function createQueryClient(): QueryClient {
-  const onAuthError = (error: unknown): void => {
+  const onError = (error: unknown): void => {
     if (error instanceof UnauthorizedError) {
       client.setQueryData(sessionQueryKey, null)
     }
+    if (error instanceof ApiError && error.status === 403 && error.reason === 'must_change_password') {
+      client.setQueryData<AccountMe>(meQueryKey, (old) =>
+        old ? { ...old, must_change_password: true } : old,
+      )
+    }
   }
   const client = new QueryClient({
-    queryCache: new QueryCache({ onError: onAuthError }),
-    mutationCache: new MutationCache({ onError: onAuthError }),
+    queryCache: new QueryCache({ onError }),
+    mutationCache: new MutationCache({ onError }),
     defaultOptions: {
       queries: {
         staleTime: 1000 * 60 * 5,

@@ -18,7 +18,15 @@
     "en": "English",
     "theme": "테마",
     "themeLight": "라이트",
-    "themeDark": "다크"
+    "themeDark": "다크",
+    "passwordSectionTitle": "비밀번호 변경",
+    "currentPassword": "현재 비밀번호",
+    "newPassword": "새 비밀번호",
+    "confirmNewPassword": "새 비밀번호 확인",
+    "changePassword": "비밀번호 변경",
+    "changingPassword": "변경 중…",
+    "passwordChanged": "비밀번호가 변경되었습니다",
+    "currentPasswordWrong": "현재 비밀번호가 올바르지 않습니다"
   },
   "accounts": {
     "title": "계정 관리",
@@ -56,6 +64,12 @@
     "loginFailed": "로그인에 실패했습니다. 이메일과 비밀번호를 확인하세요.",
     "alreadyHaveAccount": "이미 계정이 있으신가요?",
     "noAccount": "계정이 없으신가요?"
+  },
+  "forcePasswordChange": {
+    "title": "비밀번호 변경이 필요합니다",
+    "description": "보안을 위해 계속하기 전에 새 비밀번호를 설정하세요.",
+    "submit": "비밀번호 설정",
+    "submitting": "설정 중…"
   },
   "sidebar": {
     "home": "Codegram 홈",

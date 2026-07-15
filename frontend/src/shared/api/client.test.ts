@@ -70,4 +70,18 @@ describe('apiFetch', () => {
       status: 404,
     })
   })
+
+  it('extracts the reason from a structured {detail:{reason}} error body', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ detail: { reason: 'must_change_password' } }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    await expect(apiFetch('/projects')).rejects.toMatchObject({
+      status: 403,
+      reason: 'must_change_password',
+    })
+  })
 })

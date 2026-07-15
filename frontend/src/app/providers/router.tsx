@@ -5,7 +5,13 @@ import { HomePage } from '@/pages/home'
 import { AccountsPage } from '@/pages/accounts'
 import { LoginPage } from '@/pages/login'
 import { RegisterPage } from '@/pages/register'
-import { RequireAuth, RequireGuest } from '@/app/providers/RequireAuth'
+import { ForcePasswordChangePage } from '@/pages/force-password-change'
+import {
+  RequireAuth,
+  RequireGuest,
+  RequirePasswordOk,
+  RequireMustChangePassword,
+} from '@/app/providers/RequireAuth'
 import { AppLayout } from '@/widgets/app-layout'
 import { Spinner } from '@/shared/ui/spinner'
 
@@ -29,10 +35,14 @@ function EditorChunkFallback() {
 
 const router = createBrowserRouter([
   {
-    // Authenticated shell: persistent sidebar + main outlet.
+    // Authenticated shell: persistent sidebar + main outlet. RequirePasswordOk
+    // (ADR-0016) blocks these routes and redirects to /force-password-change
+    // while the caller's password change is still forced.
     element: (
       <RequireAuth>
-        <AppLayout />
+        <RequirePasswordOk>
+          <AppLayout />
+        </RequirePasswordOk>
       </RequireAuth>
     ),
     children: [
@@ -68,6 +78,16 @@ const router = createBrowserRouter([
       <RequireGuest>
         <RegisterPage />
       </RequireGuest>
+    ),
+  },
+  {
+    path: '/force-password-change',
+    element: (
+      <RequireAuth>
+        <RequireMustChangePassword>
+          <ForcePasswordChangePage />
+        </RequireMustChangePassword>
+      </RequireAuth>
     ),
   },
   {

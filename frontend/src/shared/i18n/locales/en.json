@@ -18,7 +18,15 @@
     "en": "English",
     "theme": "Theme",
     "themeLight": "Light",
-    "themeDark": "Dark"
+    "themeDark": "Dark",
+    "passwordSectionTitle": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmNewPassword": "Confirm new password",
+    "changePassword": "Change password",
+    "changingPassword": "Changing…",
+    "passwordChanged": "Password changed",
+    "currentPasswordWrong": "Current password is incorrect"
   },
   "accounts": {
     "title": "Manage accounts",
@@ -56,6 +64,12 @@
     "loginFailed": "Login failed. Check your email and password.",
     "alreadyHaveAccount": "Already have an account?",
     "noAccount": "Don't have an account?"
+  },
+  "forcePasswordChange": {
+    "title": "Password change required",
+    "description": "For security, set a new password before continuing.",
+    "submit": "Set password",
+    "submitting": "Setting…"
   },
   "sidebar": {
     "home": "Codegram home",

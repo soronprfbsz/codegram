@@ -14,32 +14,45 @@ export class UnauthorizedError extends Error {
 /**
  * An API error carrying the server's {detail} message and the HTTP status.
  * Callers (e.g. CRUD forms) can show err.message and branch on err.status.
+ * `reason` surfaces a structured {detail: {reason}} body (e.g. ADR-0016's
+ * 403 must_change_password) for callers that need to branch on it.
  */
 export class ApiError extends Error {
   status: number
+  reason?: string
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, reason?: string) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.reason = reason
   }
 }
 
 /**
- * Read a FastAPI-style {detail} string from a non-ok response body.
- * Falls back to the status line when the body is missing or not JSON.
- * Clones the response so the body can still be consumed elsewhere.
+ * Read a FastAPI-style error body from a non-ok response: either a plain
+ * {detail} string, or a structured {detail: {reason}} object. Falls back to
+ * the status line when the body is missing or not JSON. Clones the response
+ * so the body can still be consumed elsewhere.
  */
-async function readErrorMessage(response: Response): Promise<string> {
+async function readError(
+  response: Response,
+): Promise<{ message: string; reason?: string }> {
   const fallback = `API request failed: ${response.status} ${response.statusText}`
   try {
     const body = (await response.clone().json()) as { detail?: unknown }
     if (typeof body.detail === 'string' && body.detail.length > 0) {
-      return body.detail
+      return { message: body.detail }
     }
-    return fallback
+    if (body.detail && typeof body.detail === 'object' && 'reason' in body.detail) {
+      const reason = (body.detail as { reason?: unknown }).reason
+      if (typeof reason === 'string') {
+        return { message: fallback, reason }
+      }
+    }
+    return { message: fallback }
   } catch {
-    return fallback
+    return { message: fallback }
   }
 }
 
@@ -70,8 +83,8 @@ export async function apiFetch<T>(
   }
 
   if (!response.ok) {
-    const message = await readErrorMessage(response)
-    throw new ApiError(message, response.status)
+    const { message, reason } = await readError(response)
+    throw new ApiError(message, response.status, reason)
   }
 
   return (await response.json()) as T
