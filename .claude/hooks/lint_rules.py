@@ -40,6 +40,18 @@ def lint_backend(rel, src):
     return v
 
 
+def lint_adr(rel, src):
+    # High-signal architectural paths — advisory design-first backstop (§G6).
+    # Never asserts an ADR is required; asks to confirm one exists or is
+    # intentionally not needed. The judgement stays with the model.
+    if rel in ("backend/pyproject.toml", "frontend/package.json"):
+        return ["G6 점검: 의존성 매니페스트 편집 — 라이브러리/외부 시스템 추가는 아키텍처 결정일 수 있다. "
+                "`docs/adr/README.md`에서 관련 도메인 ADR을 확인하고, 결정이면 ADR을 amend/신규로 남겼는지 보라(단순 버전 범프면 무시)."]
+    if rel.startswith("backend/app/models/") and rel.endswith(".py"):
+        return ["G6 점검: 모델 편집이 구조 결정(진실원천·계약)을 바꾸면 `docs/adr/`에 ADR을 남겼는지 확인(단순 컬럼 추가면 무시 — 마이그레이션은 B2)."]
+    return []
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -57,7 +69,7 @@ def main():
     except Exception:
         return
 
-    violations = lint_frontend(rel, src) + lint_backend(rel, src)
+    violations = lint_frontend(rel, src) + lint_backend(rel, src) + lint_adr(rel, src)
     if not violations:
         return
 
