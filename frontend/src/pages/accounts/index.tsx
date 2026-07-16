@@ -1,7 +1,13 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/button'
-import { Select } from '@/shared/ui/select'
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/shared/ui/select'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/tabs'
 import { Checkbox } from '@/shared/ui/checkbox'
 import {
@@ -86,22 +92,25 @@ function AccountRow({
       <span className="truncate">{account.email}</span>
       {canManage ? (
         <Select
-          aria-label={t('accounts.roleSelectAria', { email: account.email })}
-          data-testid={`account-role-select-${account.id}`}
           value={account.role_name ?? 'user'}
           disabled={updateRole.isPending}
-          onChange={(e) =>
-            updateRole.mutate({
-              accountId: account.id,
-              roleName: e.target.value,
-            })
+          onValueChange={(roleName) =>
+            updateRole.mutate({ accountId: account.id, roleName })
           }
         >
-          {ROLE_OPTIONS.map((role) => (
-            <option key={role} value={role}>
-              {t(`accounts.role${role === 'admin' ? 'Admin' : 'User'}`)}
-            </option>
-          ))}
+          <SelectTrigger
+            aria-label={t('accounts.roleSelectAria', { email: account.email })}
+            data-testid={`account-role-select-${account.id}`}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ROLE_OPTIONS.map((role) => (
+              <SelectItem key={role} value={role}>
+                {t(`accounts.role${role === 'admin' ? 'Admin' : 'User'}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       ) : (
         <span>
