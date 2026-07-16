@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, Pencil, Share2, Trash2, LogOut } from 'lucide-react'
 import {
   ProjectGlyph,
   useDeleteProject,
@@ -165,13 +165,17 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {canEditMeta ? (
-              <DropdownMenuItem onSelect={openEdit}>{t('projectRow.edit')}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={openEdit}>
+                <Pencil size={15} strokeWidth={2} />
+                {t('projectRow.edit')}
+              </DropdownMenuItem>
             ) : null}
             {isOwner ? (
               <DropdownMenuItem
                 data-testid={`sidebar-project-share-${project.id}`}
                 onSelect={() => setShareOpen(true)}
               >
+                <Share2 size={15} strokeWidth={2} />
                 {t('projectRow.share')}
               </DropdownMenuItem>
             ) : null}
@@ -180,6 +184,7 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
                 onSelect={() => setConfirmOpen(true)}
                 className="text-destructive focus:text-destructive"
               >
+                <Trash2 size={15} strokeWidth={2} />
                 {t('projectRow.delete')}
               </DropdownMenuItem>
             ) : null}
@@ -189,6 +194,7 @@ export function ProjectRow({ project, active, collapsed }: ProjectRowProps) {
                 onSelect={() => setLeaveOpen(true)}
                 className="text-destructive focus:text-destructive"
               >
+                <LogOut size={15} strokeWidth={2} />
                 {t('projectRow.leave')}
               </DropdownMenuItem>
             ) : null}

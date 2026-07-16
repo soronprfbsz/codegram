@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react'
+import { ChevronDown, ChevronRight, MoreHorizontal, Palette, Pencil, Trash2 } from 'lucide-react'
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog'
 import type { TableSearchMatch } from '@/entities/dbml'
 import type { DisplayGroup } from '@/entities/erd'
@@ -281,6 +281,7 @@ export function GroupSection({
                 </label>
               </div>
               <DropdownMenuItem onSelect={() => groupOps.onSetGroupColor(group.label, null)}>
+                <Palette size={15} strokeWidth={2} />
                 {t('groupSection.defaultColor')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -291,9 +292,14 @@ export function GroupSection({
                   setRenaming(true)
                 }}
               >
+                <Pencil size={15} strokeWidth={2} />
                 {t('groupSection.rename')}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setConfirmDelete(true)}>
+              <DropdownMenuItem
+                onSelect={() => setConfirmDelete(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 size={15} strokeWidth={2} />
                 {t('groupSection.delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>

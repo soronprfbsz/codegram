@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, Image } from 'lucide-react'
+import { ChevronDown, Image, Eye, Shapes, FileText, FileSpreadsheet, FileType, Database } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   DropdownMenu,
@@ -105,33 +105,49 @@ export function ExportMenu({ diagram, schema, dbmlText, projectName, disabled = 
           </TopbarButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem onSelect={preview}>{t('exportMenu.tableDocPreview')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={preview}>
+            <Eye size={15} strokeWidth={2} />
+            {t('exportMenu.tableDocPreview')}
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t('exportMenu.diagram')}</DropdownMenuLabel>
           <DropdownMenuItem
             onSelect={() => void withProgress(() => diagramExport.exportDiagramPng(diagram))}
           >
+            <Image size={15} strokeWidth={2} />
             {t('exportMenu.diagramPng')}
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => void withProgress(() => diagramExport.exportDiagramSvg(diagram))}
           >
+            <Shapes size={15} strokeWidth={2} />
             {t('exportMenu.diagramSvg')}
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => void withProgress(() => diagramExport.exportDiagramPdf(diagram))}
           >
+            <FileText size={15} strokeWidth={2} />
             {t('exportMenu.diagramPdf')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t('exportMenu.tableDoc')}</DropdownMenuLabel>
-          <DropdownMenuItem onSelect={() => setDbNameOpen(true)}>{t('exportMenu.tableDocExcel')}</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => exportPdf()}>{t('exportMenu.tableDocPdf')}</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => exportWord()}>{t('exportMenu.tableDocWord')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setDbNameOpen(true)}>
+            <FileSpreadsheet size={15} strokeWidth={2} />
+            {t('exportMenu.tableDocExcel')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => exportPdf()}>
+            <FileText size={15} strokeWidth={2} />
+            {t('exportMenu.tableDocPdf')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => exportWord()}>
+            <FileType size={15} strokeWidth={2} />
+            {t('exportMenu.tableDocWord')}
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>{t('exportMenu.sql')}</DropdownMenuLabel>
           {SQL_DIALECT_VALUES.map((d) => (
             <DropdownMenuItem key={d} onSelect={() => downloadSql(dbmlText, d)}>
+              <Database size={15} strokeWidth={2} />
               {`SQL · ${SQL_DIALECTS[d].label}`}
             </DropdownMenuItem>
           ))}
