@@ -101,7 +101,7 @@
     --success: #2e7d46;             /* status green (matches --erd-success) */
     --border: #eeeeee;              /* Cloud Gray hairline */
     --input: #d0d1d2;               /* Pale Silver */
-    --ring: #3e6ae1;
+    --ring: var(--primary);         /* focus/point color = brand gold (--primary) */
     --chart-1: #3e6ae1;
     --chart-2: #5c5e62;
     --chart-3: #8e8e8e;
@@ -115,7 +115,7 @@
     --sidebar-accent: #f4f4f4;
     --sidebar-accent-foreground: #171a20;
     --sidebar-border: #eeeeee;
-    --sidebar-ring: #3e6ae1;
+    --sidebar-ring: var(--primary);
 
     /* ERD design tokens — Light (derived from Tesla) */
     --erd-bg: #ffffff;
@@ -207,7 +207,7 @@
     --success: #2ead4b;             /* status green (matches --erd-success) */
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: #3e6ae1;
+    --ring: var(--primary);         /* focus/point color = brand gold (--primary) */
     --chart-1: #3e6ae1;
     --chart-2: #9b9ea3;
     --chart-3: #8e8e8e;
@@ -220,7 +220,7 @@
     --sidebar-accent: #262b33;
     --sidebar-accent-foreground: #f4f4f5;
     --sidebar-border: oklch(1 0 0 / 8%);
-    --sidebar-ring: #3e6ae1;
+    --sidebar-ring: var(--primary);
 
     /* ERD design tokens — Dark (neutral editor scale kept; blue accent) */
     --erd-bg: #131313;
