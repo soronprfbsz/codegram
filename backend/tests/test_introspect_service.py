@@ -1,6 +1,7 @@
 """Unit tests for the pure introspection helpers (no live DB)."""
 from app.schemas.introspect import IntrospectRequest
 from app.services.introspect import (
+    _assemble_clickhouse_tables,
     build_connection_url,
     reflect_schemas,
 )
@@ -423,3 +424,22 @@ def test_clickhouse_ssl_selects_https_protocol():
         _req(dialect="clickhouse", ssl=True)
     )
     assert url.query.get("protocol") == "https"
+
+
+def test_assemble_clickhouse_groups_columns_in_order():
+    from app.services.introspect import _assemble_clickhouse_tables
+
+    tables = _assemble_clickhouse_tables(
+        table_rows=[("events", "MergeTree"), ("empty", "")],
+        column_rows=[
+            ("events", "org_id", "LowCardinality(String)", ""),
+            ("events", "msg", "String", "the message"),
+        ],
+    )
+    assert [t.name for t in tables] == ["events", "empty"]
+    assert tables[0].engine == "MergeTree"
+    assert tables[1].engine is None            # "" -> None
+    assert [c.name for c in tables[0].columns] == ["org_id", "msg"]
+    assert tables[0].columns[0].comment is None  # "" -> None
+    assert tables[0].columns[1].comment == "the message"
+    assert tables[1].columns == []

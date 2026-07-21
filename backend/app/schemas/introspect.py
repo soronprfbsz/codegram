@@ -26,11 +26,29 @@ class IntrospectRequest(BaseModel):
     ssl: bool = False
 
 
-class IntrospectResponse(BaseModel):
-    """Backend returns DDL + the @dbml/core import dialect (ADR-0002/0008)."""
+class IntrospectedColumn(BaseModel):
+    """One ClickHouse column: name + full type text + optional comment."""
 
-    import_dialect: Literal["postgres", "mysql"]
-    ddl: str
+    name: str
+    type: str
+    comment: str | None = None
+
+
+class IntrospectedTable(BaseModel):
+    """One ClickHouse table/view/dictionary: name + engine + ordered columns."""
+
+    name: str
+    engine: str | None = None
+    columns: list[IntrospectedColumn]
+
+
+class IntrospectResponse(BaseModel):
+    """PostgreSQL/MariaDB return `ddl` + `import_dialect` (ADR-0002/0008).
+    ClickHouse returns structured `tables` instead (ADR-0021)."""
+
+    import_dialect: Literal["postgres", "mysql"] | None = None
+    ddl: str | None = None
+    tables: list[IntrospectedTable] | None = None
     table_count: int
 
 

@@ -17,7 +17,11 @@ from sqlalchemy.schema import CheckConstraint, CreateIndex, CreateTable
 from sqlalchemy.sql.ddl import SetColumnComment, SetTableComment
 from sqlalchemy.types import NullType, Text, UserDefinedType
 
-from app.schemas.introspect import IntrospectRequest
+from app.schemas.introspect import (
+    IntrospectedColumn,
+    IntrospectedTable,
+    IntrospectRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -293,9 +297,32 @@ class NoTablesFoundError(IntrospectError):
 
 @dataclass
 class IntrospectResult:
-    import_dialect: str
-    ddl: str
     table_count: int
+    import_dialect: str | None = None
+    ddl: str | None = None
+    tables: list[IntrospectedTable] | None = None
+
+
+def _assemble_clickhouse_tables(
+    table_rows: list[tuple[str, str]],
+    column_rows: list[tuple[str, str, str, str]],
+) -> list[IntrospectedTable]:
+    """Group already position-ordered columns under their tables. Pure — the
+    SQL (system.tables/system.columns) is issued by the caller so this stays
+    testable. Empty engine/comment strings normalize to None."""
+    cols_by_table: dict[str, list[IntrospectedColumn]] = {}
+    for table, name, type_, comment in column_rows:
+        cols_by_table.setdefault(table, []).append(
+            IntrospectedColumn(name=name, type=type_, comment=comment or None)
+        )
+    return [
+        IntrospectedTable(
+            name=name,
+            engine=engine or None,
+            columns=cols_by_table.get(name, []),
+        )
+        for name, engine in table_rows
+    ]
 
 
 def list_schemas(req: IntrospectRequest) -> list[str]:
