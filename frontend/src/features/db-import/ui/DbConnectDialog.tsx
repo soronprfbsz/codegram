@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { importSqlToDbml, type DbmlParseError } from '@/entities/dbml'
+import { importSqlToDbml, buildDbmlFromTables, type DbmlParseError } from '@/entities/dbml'
 import { ApiError } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import {
@@ -125,7 +125,10 @@ export function DbConnectDialog({
       setErrors([{ message }])
       return
     }
-    const result = importSqlToDbml(response.ddl ?? '', response.import_dialect ?? 'postgres')
+    const result =
+      dialect === 'clickhouse'
+        ? buildDbmlFromTables(response.tables ?? [])
+        : importSqlToDbml(response.ddl ?? '', response.import_dialect ?? 'postgres')
     if (!result.ok) {
       setErrors(result.errors)
       return
@@ -171,6 +174,7 @@ export function DbConnectDialog({
           >
             <option value="postgresql">PostgreSQL</option>
             <option value="mariadb">MariaDB</option>
+            <option value="clickhouse">ClickHouse</option>
           </select>
 
           <div className="flex gap-2">

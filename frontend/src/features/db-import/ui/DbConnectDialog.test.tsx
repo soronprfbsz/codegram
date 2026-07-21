@@ -118,6 +118,37 @@ describe('DbConnectDialog', () => {
     expect(mutateAsync.mock.calls[0][0].dialect).toBe('mariadb')
   })
 
+  it('introspects ClickHouse via structured tables and reports DBML up', async () => {
+    const user = setup()
+    const onIntrospected = vi.fn()
+    mutateAsync.mockResolvedValueOnce({
+      table_count: 1,
+      tables: [
+        {
+          name: 'events',
+          engine: 'MergeTree',
+          columns: [
+            { name: 'org_id', type: 'LowCardinality(String)', comment: null },
+          ],
+        },
+      ],
+    })
+    render(
+      <DbConnectDialog open onOpenChange={vi.fn()} onIntrospected={onIntrospected} />,
+    )
+    await user.selectOptions(screen.getByTestId('db-connect-dialect'), 'clickhouse')
+    expect(screen.queryByTestId('db-connect-load-schemas')).toBeNull()
+    await fillRequired(user)
+    await user.click(screen.getByRole('button', { name: 'Connect' }))
+
+    expect(mutateAsync.mock.calls[0][0].dialect).toBe('clickhouse')
+    expect(mutateAsync.mock.calls[0][0].db_schemas).toBeUndefined()
+    expect(onIntrospected).toHaveBeenCalledTimes(1)
+    const [dbml] = onIntrospected.mock.calls[0]
+    expect(dbml).toContain('Table "events"')
+    expect(dbml).toContain('"org_id" "LowCardinality(String)"')
+  })
+
   it('keeps the dialog open and shows an alert if onIntrospected fails', async () => {
     const user = setup()
     const onIntrospected = vi.fn().mockRejectedValueOnce(new Error('save failed'))
