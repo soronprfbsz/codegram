@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 class IntrospectRequest(BaseModel):
     """Body for POST /api/introspect. Credentials are used once, never stored."""
 
-    dialect: Literal["postgresql", "mariadb"]
+    dialect: Literal["postgresql", "mariadb", "clickhouse"]
     host: str = Field(min_length=1)
     port: int = Field(gt=0, le=65535)
     username: str = Field(min_length=1)

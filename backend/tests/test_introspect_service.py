@@ -406,3 +406,20 @@ def test_list_schemas_mariadb_returns_empty():
     """MariaDB has no schema concept (the database is the scope) — no connect."""
     from app.services.introspect import list_schemas
     assert list_schemas(_req(dialect="mariadb")) == []
+
+
+def test_clickhouse_url_and_driver():
+    url, connect_args, _ = build_connection_url(
+        _req(dialect="clickhouse", port=8123, database="hawkeye")
+    )
+    assert url.drivername == "clickhouse+http"
+    assert url.host == "db.example.com"
+    assert url.port == 8123
+    assert connect_args == {}
+
+
+def test_clickhouse_ssl_selects_https_protocol():
+    url, _connect_args, _ = build_connection_url(
+        _req(dialect="clickhouse", ssl=True)
+    )
+    assert url.query.get("protocol") == "https"

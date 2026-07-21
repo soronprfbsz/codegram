@@ -24,8 +24,10 @@ logger = logging.getLogger(__name__)
 _DRIVERNAME = {
     "postgresql": "postgresql+psycopg2",
     "mariadb": "mysql+pymysql",
+    "clickhouse": "clickhouse+http",
 }
-_IMPORT_DIALECT = {"postgresql": "postgres", "mariadb": "mysql"}
+# ClickHouse는 @dbml/core importer를 쓰지 않아 import dialect가 없다(빈 문자열).
+_IMPORT_DIALECT = {"postgresql": "postgres", "mariadb": "mysql", "clickhouse": ""}
 
 # Hosts that mean "this machine". Inside a container they resolve to the
 # CONTAINER, not the host running it — so a user who types one of these to
@@ -112,6 +114,11 @@ def build_connection_url(
     if req.ssl:
         if req.dialect == "postgresql":
             connect_args["sslmode"] = "require"
+        elif req.dialect == "clickhouse":
+            # clickhouse+http over TLS: select the https protocol via URL query.
+            # Best-effort — the primary target is plaintext 8123; verify against
+            # a TLS-enabled ClickHouse if that path is exercised.
+            url = url.update_query_dict({"protocol": "https"})
         else:
             # PyMySQL treats an empty dict as falsy and would NOT enable TLS.
             # Pass an SSLContext that encrypts without verifying the server
