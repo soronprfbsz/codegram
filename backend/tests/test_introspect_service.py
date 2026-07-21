@@ -420,15 +420,14 @@ def test_clickhouse_url_and_driver():
 
 
 def test_clickhouse_ssl_selects_https_protocol():
-    url, _connect_args, _ = build_connection_url(
+    url, connect_args, _ = build_connection_url(
         _req(dialect="clickhouse", ssl=True)
     )
     assert url.query.get("protocol") == "https"
+    assert connect_args == {}
 
 
 def test_assemble_clickhouse_groups_columns_in_order():
-    from app.services.introspect import _assemble_clickhouse_tables
-
     tables = _assemble_clickhouse_tables(
         table_rows=[("events", "MergeTree"), ("empty", "")],
         column_rows=[

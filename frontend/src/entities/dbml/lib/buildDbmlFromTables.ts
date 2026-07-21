@@ -1,14 +1,23 @@
 import type { SqlImportResult } from '../model/sqlTypes'
 import type { IntrospectedTable } from '../model/introspect'
 
-/** Quote a DBML identifier/type, backslash-escaping inner double quotes. */
+/**
+ * Quote a DBML identifier/type. Backslashes are doubled BEFORE double quotes
+ * are escaped — otherwise the backslash inserted for the quote escape would
+ * itself get doubled, and @dbml/core would see an unescaped quote mid-string.
+ */
 function q(s: string): string {
-  return '"' + s.replace(/"/g, '\\"') + '"'
+  return '"' + s.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"'
 }
 
-/** A single-quoted DBML string literal, backslash-escaping inner apostrophes. */
+/**
+ * A single-quoted DBML string literal. Same backslash-before-quote escaping
+ * as `q()`; newlines are neutralized to a space since @dbml/core cannot parse
+ * a literal newline inside a single-quoted string (comments are advisory, so
+ * collapsing to single-line is fine).
+ */
 function noteLiteral(s: string): string {
-  return "'" + s.replace(/'/g, "\\'") + "'"
+  return "'" + s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ') + "'"
 }
 
 /**
@@ -19,8 +28,8 @@ function noteLiteral(s: string): string {
  * AggregateFunction, …) survive @dbml/core parsing verbatim. A DBML Table must
  * have >=1 column, so zero-column tables are skipped. Column comments become
  * `[note: '...']`; the table engine becomes a table `Note`. Pure; never throws.
- * entities layer, alongside the other @dbml/core-adjacent code (ADR-0002:
- * DBML generation stays in the frontend).
+ * Lives in the entities layer, alongside the other @dbml/core-adjacent code
+ * (ADR-0002: DBML generation stays in the frontend).
  */
 export function buildDbmlFromTables(tables: IntrospectedTable[]): SqlImportResult {
   const blocks = tables
