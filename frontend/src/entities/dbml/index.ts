@@ -37,3 +37,4 @@ export type {
   SqlImportResult,
   SqlExportResult,
 } from './model/sqlTypes'
+export type { IntrospectedColumn, IntrospectedTable } from './model/introspect'

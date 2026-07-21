@@ -1,5 +1,7 @@
 /** DB-import DTOs mirroring backend app/schemas/introspect.py. */
-export type IntrospectDialect = 'postgresql' | 'mariadb'
+import type { IntrospectedTable } from '@/entities/dbml'
+
+export type IntrospectDialect = 'postgresql' | 'mariadb' | 'clickhouse'
 
 /** Matches backend IntrospectRequest. */
 export interface IntrospectRequest {
@@ -13,10 +15,12 @@ export interface IntrospectRequest {
   ssl: boolean
 }
 
-/** Matches backend IntrospectResponse. import_dialect is a @dbml/core SqlDialect. */
+/** Matches backend IntrospectResponse. PostgreSQL/MariaDB return ddl +
+ *  import_dialect; ClickHouse returns structured tables instead (ADR-0021). */
 export interface IntrospectResponse {
-  import_dialect: 'postgres' | 'mysql'
-  ddl: string
+  import_dialect?: 'postgres' | 'mysql'
+  ddl?: string
+  tables?: IntrospectedTable[]
   table_count: number
 }
 

@@ -29,6 +29,7 @@ export interface DbConnectDialogProps {
 const DEFAULT_PORT: Record<IntrospectDialect, number> = {
   postgresql: 5432,
   mariadb: 3306,
+  clickhouse: 8123,
 }
 
 /**
@@ -124,7 +125,7 @@ export function DbConnectDialog({
       setErrors([{ message }])
       return
     }
-    const result = importSqlToDbml(response.ddl, response.import_dialect)
+    const result = importSqlToDbml(response.ddl ?? '', response.import_dialect ?? 'postgres')
     if (!result.ok) {
       setErrors(result.errors)
       return
