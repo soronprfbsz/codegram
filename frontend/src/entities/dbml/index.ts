@@ -38,3 +38,4 @@ export type {
   SqlExportResult,
 } from './model/sqlTypes'
 export type { IntrospectedColumn, IntrospectedTable } from './model/introspect'
+export { buildDbmlFromTables } from './lib/buildDbmlFromTables'
