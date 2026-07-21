@@ -58,3 +58,44 @@ async def test_no_tables_maps_to_400(authenticated_client, monkeypatch):
     resp = await authenticated_client.post("/api/introspect", json=PAYLOAD)
     assert resp.status_code == 400
     assert resp.json()["detail"] == "테이블 없음"
+
+
+async def test_introspect_clickhouse_returns_tables(authenticated_client, monkeypatch):
+    from app.schemas.introspect import IntrospectedColumn, IntrospectedTable
+
+    def fake(req):
+        assert req.dialect == "clickhouse"
+        return IntrospectResult(
+            table_count=1,
+            tables=[
+                IntrospectedTable(
+                    name="events",
+                    engine="MergeTree",
+                    columns=[
+                        IntrospectedColumn(
+                            name="org_id", type="LowCardinality(String)", comment=None
+                        )
+                    ],
+                )
+            ],
+        )
+
+    monkeypatch.setattr(introspect_route, "introspect_to_ddl", fake)
+    resp = await authenticated_client.post(
+        "/api/introspect",
+        json={
+            "dialect": "clickhouse",
+            "host": "10.140.1.40",
+            "port": 8123,
+            "username": "hawkeye",
+            "password": "x",
+            "database": "hawkeye",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["ddl"] is None
+    assert body["table_count"] == 1
+    assert body["tables"][0]["name"] == "events"
+    assert body["tables"][0]["engine"] == "MergeTree"
+    assert body["tables"][0]["columns"][0]["type"] == "LowCardinality(String)"

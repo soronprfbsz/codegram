@@ -356,9 +356,59 @@ def list_schemas(req: IntrospectRequest) -> list[str]:
         engine.dispose()
 
 
+_CH_TABLES_SQL = (
+    "SELECT name, engine FROM system.tables "
+    "WHERE database = :db AND name NOT LIKE '.inner_id.%' "
+    "ORDER BY name"
+)
+_CH_COLUMNS_SQL = (
+    "SELECT table, name, type, comment FROM system.columns "
+    "WHERE database = :db AND table NOT LIKE '.inner_id.%' "
+    "ORDER BY table, position"
+)
+
+
+def introspect_clickhouse(req: IntrospectRequest) -> IntrospectResult:
+    """Read ClickHouse tables/columns from system tables into a structured list
+    (ADR-0021). Views/materialized views/dictionaries are included; the hidden
+    `.inner_id.*` backing tables of materialized views are excluded. There are
+    no foreign keys, so no relations. SYNC — run in a threadpool. Always
+    disposes the engine."""
+    url, connect_args, _ = build_connection_url(req)
+    engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
+    try:
+        try:
+            with engine.connect() as conn:
+                table_rows = [
+                    (r.name, r.engine)
+                    for r in conn.execute(text(_CH_TABLES_SQL), {"db": req.database})
+                ]
+                column_rows = [
+                    (r.table, r.name, r.type, r.comment)
+                    for r in conn.execute(text(_CH_COLUMNS_SQL), {"db": req.database})
+                ]
+        except OperationalError as exc:
+            raise ConnectionFailedError(
+                "데이터베이스에 접속할 수 없습니다. 접속 정보를 확인하세요."
+            ) from exc
+        except SQLAlchemyError as exc:
+            raise ConnectionFailedError(
+                "스키마를 읽는 중 오류가 발생했습니다."
+            ) from exc
+        tables = _assemble_clickhouse_tables(table_rows, column_rows)
+        if not tables:
+            raise NoTablesFoundError("대상 database에서 테이블을 찾지 못했습니다.")
+        return IntrospectResult(table_count=len(tables), tables=tables)
+    finally:
+        engine.dispose()
+
+
 def introspect_to_ddl(req: IntrospectRequest) -> IntrospectResult:
     """Connect, reflect the target schema, and emit DDL. SYNC — run in a
-    threadpool from the async route. Always disposes the engine."""
+    threadpool from the async route. Always disposes the engine.
+    ClickHouse is delegated to introspect_clickhouse (structured, ADR-0021)."""
+    if req.dialect == "clickhouse":
+        return introspect_clickhouse(req)
     url, connect_args, import_dialect = build_connection_url(req)
     engine = create_engine(url, connect_args=connect_args, pool_pre_ping=True)
     try:

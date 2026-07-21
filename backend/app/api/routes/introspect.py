@@ -46,6 +46,7 @@ async def introspect(
     return IntrospectResponse(
         import_dialect=result.import_dialect,
         ddl=result.ddl,
+        tables=result.tables,
         table_count=result.table_count,
     )
 
