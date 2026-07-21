@@ -67,7 +67,7 @@ _Avoid_: (Project) 소유자/편집자/뷰어와 혼동 — 시스템 역할은 
 _Avoid_: 스키마 문서, 명세서 (정의서가 정식 명칭)
 
 **DB 가져오기** (Database Import / Schema Introspection):
-실행 중인 외부 데이터베이스(PostgreSQL·MariaDB)에 접속해 스키마를 읽어(introspection) 그 구조를 새 Project의 DBML로 옮기는 동작. 접속 정보(호스트·유저·비밀번호)는 **1회용**으로만 쓰이고 저장되지 않는다. 백엔드는 외부 DB에 접속해 스키마를 reflection으로 읽고 DDL을 만들 뿐, **DBML 의미는 여전히 다루지 않는다** — DDL→DBML 변환은 프론트의 `@dbml/core`가 수행한다(ADR-0002 유지). 한 번의 가져오기는 한 schema(PG는 기본 `public`, MariaDB는 접속한 database)를 대상으로 하고 결과는 새 Project 하나가 된다.
+실행 중인 외부 데이터베이스(PostgreSQL·MariaDB·ClickHouse)에 접속해 스키마를 읽어(introspection) 그 구조를 새 Project의 DBML로 옮기는 동작. 접속 정보(호스트·유저·비밀번호)는 **1회용**으로만 쓰이고 저장되지 않는다. 백엔드가 외부 DB에 접속해 스키마를 읽는 방식은 dialect별로 다르다 — PostgreSQL·MariaDB는 reflection으로 **DDL**을 만들고(프론트 `@dbml/core`가 DDL→DBML 변환), ClickHouse는 `system.tables`/`system.columns`를 읽어 **구조화된 테이블·컬럼 목록**을 반환하고 프론트가 그것으로 DBML을 직접 만든다(ADR-0021). 어느 경우든 **DBML 의미는 여전히 프론트에서만 다룬다**(ADR-0002 유지). ClickHouse는 외래키가 없어 **관계 없는 테이블·컬럼만** 옮긴다. 한 번의 가져오기는 한 schema(PG는 기본 `public`, MariaDB·ClickHouse는 접속한 database)를 대상으로 하고 결과는 새 Project 하나가 된다.
 _Avoid_: DB 연동 (가져오기는 새 Project를 만드는 1회성 동작 — 기존 Project를 갱신하는 것은 아래 **DB 동기화**다)
 
 **DB 동기화** (Sync):
