@@ -174,8 +174,8 @@ function autofitColumns(ws: ExcelJS.Worksheet): void {
 }
 
 /**
- * Write one table's "테이블정의서" form block: a merged title row, a 2x2 metadata
- * grid (주제영역명/테이블명, DB명/스키마명) + full-width 테이블설명, the body column
+ * Write one table's "테이블정의서" form block: a 2x2 metadata
+ * grid (주제영역명/DB명, 테이블명/스키마명) + full-width 테이블설명, the body column
  * header (No·컬럼ID·타입·길이·NULL·KEY·DEFAULT·설명) and one row per column, an
  * optional FK sub-table and CHECK sub-table, a trailing 기타 row, then a blank separator.
  * `groupName` fills 주제영역명 (the table's owning group / "미분류").
@@ -189,16 +189,13 @@ function writeTableBlock(
 ): void {
   const f = labels.form
 
-  // Title row — merged across all columns, centered.
+  // The block leads directly with the metadata grid — no "테이블정의서" title row
+  // (it repeats on every table and adds nothing over the sheet/overview naming).
   const blockStart = ws.rowCount + 1
-  const titleRow = ws.addRow([f.title])
-  ws.mergeCells(titleRow.number, 1, titleRow.number, FORM_COLS)
-  fillHeaderCell(titleRow.getCell(1))
-  titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
-  borderFormRow(titleRow)
 
-  // Metadata grid: A=label, B:D=value, E=label, F:H=value. DB명 comes only from
-  // the export-time default (DBML has no DB-name concept); 스키마명 is the table's
+  // Metadata grid: A=label, B:D=value, E=label, F:H=value. 테이블명 is the table's
+  // primary identity so it leads the left column; DB명 comes only from the
+  // export-time default (DBML has no DB-name concept); 스키마명 is the table's
   // own schema, left blank for the default "public" (i.e. no schema qualifier in
   // the DBML — `Table "core"."x"` => "core", `Table x` => '').
   const schemaName = table.schema === 'public' ? '' : table.schema
@@ -210,8 +207,8 @@ function writeTableBlock(
     fillHeaderCell(r.getCell(1))
     fillHeaderCell(r.getCell(5))
   }
-  metaPairRow(f.subjectArea, groupName, f.tableName, table.name)
-  metaPairRow(f.dbName, defaultDbName, f.schemaName, schemaName)
+  metaPairRow(f.subjectArea, groupName, f.dbName, defaultDbName)
+  metaPairRow(f.tableName, table.name, f.schemaName, schemaName)
 
   // 테이블설명 — A=label, B:H=value.
   const descRow = ws.addRow([f.tableDesc, table.note])

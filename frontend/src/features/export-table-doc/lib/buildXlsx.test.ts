@@ -82,13 +82,13 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     expect(flat).toContain('미분류|public.loose')
   })
 
-  it('renders the 테이블정의서 form (title, header grid, body header) per table', async () => {
+  it('renders the 테이블정의서 form (header grid, body header) per table', async () => {
     const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
     const ws = wb.getWorksheet('사용자관리')!
     const firstCol: string[] = []
     ws.eachRow((r) => firstCol.push(String(r.getCell(1).value ?? '')))
-    expect(firstCol).toContain('테이블정의서') // merged title row
-    expect(firstCol).toContain('주제영역명') // header grid label
+    expect(firstCol).not.toContain('테이블정의서') // no repeating title row
+    expect(firstCol).toContain('주제영역명') // block leads with the header grid label
     expect(firstCol).toContain('테이블설명')
     expect(firstCol).toContain('No') // body column header row (first cell)
     expect(firstCol).toContain('기타') // trailing 기타 row
@@ -129,16 +129,16 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     const byLabel = new Map<string, string[]>()
     ws.eachRow((r) => byLabel.set(String(r.getCell(1).value ?? ''), r.values as unknown as string[]))
 
-    // Header grid: subjectArea = group name, tableName = technical name.
+    // Header grid: subjectArea = group name (left), DB명 = export-time default (right).
     const subj = byLabel.get('주제영역명')!
     expect(String(subj[2])).toBe('운영 관리') // B value
-    expect(String(subj[5])).toBe('테이블명') // E label
-    expect(String(subj[6])).toBe('user_manage') // F value
-    // DB명 = the export-time default; 스키마명 = the table's own schema verbatim.
-    const db = byLabel.get('DB 명')!
-    expect(String(db[2])).toBe('hawkeye')
-    expect(String(db[5])).toBe('스키마명')
-    expect(String(db[6])).toBe('hawkeye_core')
+    expect(String(subj[5])).toBe('DB 명') // E label
+    expect(String(subj[6])).toBe('hawkeye') // F value
+    // 테이블명 leads the left column; 스키마명 = the table's own schema verbatim (right).
+    const tbl = byLabel.get('테이블명')!
+    expect(String(tbl[2])).toBe('user_manage')
+    expect(String(tbl[5])).toBe('스키마명')
+    expect(String(tbl[6])).toBe('hawkeye_core')
     // 테이블설명 = table.note.
     expect(String(byLabel.get('테이블설명')![2])).toBe('사용자 관리 테이블')
 
@@ -159,9 +159,9 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     const ws = wb.getWorksheet('사용자관리')!
     const byLabel = new Map<string, string[]>()
     ws.eachRow((r) => byLabel.set(String(r.getCell(1).value ?? ''), r.values as unknown as string[]))
-    const db = byLabel.get('DB 명')!
-    expect(String(db[2] ?? '')).toBe('') // DB명: no default supplied → blank
-    expect(String(db[6] ?? '')).toBe('') // 스키마명: public (no qualifier) → blank
+    // DB명 now sits in the right column of the 주제영역명 row; 스키마명 in the 테이블명 row.
+    expect(String(byLabel.get('주제영역명')![6] ?? '')).toBe('') // DB명: no default supplied → blank
+    expect(String(byLabel.get('테이블명')![6] ?? '')).toBe('') // 스키마명: public (no qualifier) → blank
   })
 
   it('auto-fits column width to the longest cell text (설명 grows for a long note)', async () => {
@@ -190,10 +190,11 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     expect(wShort.getColumn(8).width).toBeLessThan(wLong.getColumn(8).width)
   })
 
-  it('does not widen a column to a merged multi-column cell (title/metadata)', async () => {
+  it('does not widen a column to a merged multi-column cell (metadata values)', async () => {
     const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
     const ws = wb.getWorksheet('사용자관리')!
-    // '테이블정의서' is merged across A:H; column A must stay label-sized, not title-sized.
+    // Metadata values are merged across B:D / F:H; column A must stay label-sized,
+    // not stretched to a merged value.
     expect(ws.getColumn(1).width).toBeLessThan(20)
   })
 
@@ -255,13 +256,13 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
   it('boxes each table block with a medium outer border', async () => {
     const wb = await read(await buildTableDocXlsxBlob(model, LABELS))
     const ws = wb.getWorksheet('사용자관리')!
-    // The merged 테이블정의서 title row is the top edge of the first block.
-    let titleRowNum = 0
+    // The 주제영역명 metadata row now leads each block — it is its top edge.
+    let topRowNum = 0
     ws.eachRow((r) => {
-      if (!titleRowNum && String(r.getCell(1).value) === LABELS.form.title) titleRowNum = r.number
+      if (!topRowNum && String(r.getCell(1).value) === LABELS.form.subjectArea) topRowNum = r.number
     })
-    expect(titleRowNum).toBeGreaterThan(0)
-    const topLeft = ws.getRow(titleRowNum).getCell(1)
+    expect(topRowNum).toBeGreaterThan(0)
+    const topLeft = ws.getRow(topRowNum).getCell(1)
     expect(topLeft.border?.top?.style).toBe('medium')
     expect(topLeft.border?.left?.style).toBe('medium')
   })
