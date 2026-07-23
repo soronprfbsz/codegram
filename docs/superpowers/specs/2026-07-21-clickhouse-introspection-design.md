@@ -10,7 +10,7 @@
 
 ClickHouse는 이 파이프라인을 그대로 탈 수 없다. 실측으로 확정한 사실:
 
-1. **연결/조회 가능** — `10.140.1.40:8123`(HTTP) 인증 접속 OK(ClickHouse 24.8), `system.tables`/`system.columns`로 테이블·컬럼·타입·코멘트를 깔끔히 조회(대상 DB `hawkeye`에 86개 엔티티: MergeTree 계열/View/MaterializedView/Dictionary/`.inner_id.*`).
+1. **연결/조회 가능** — `clickhouse.example.test:8123`(HTTP) 인증 접속 OK(ClickHouse 24.8), `system.tables`/`system.columns`로 테이블·컬럼·타입·코멘트를 깔끔히 조회(대상 DB `hawkeye`에 86개 엔티티: MergeTree 계열/View/MaterializedView/Dictionary/`.inner_id.*`).
 2. **FK 없음** — ClickHouse엔 외래키가 없어 관계선 원천이 없다 → 테이블+컬럼이 자연스러운 최대치.
 3. **DDL→@dbml/core 불가** — importer는 postgres/mysql/mssql만 지원. ClickHouse 타입(`LowCardinality(String)`, `Enum8('operational' = 1, ...)`, `Map(LowCardinality(String), String)`, `AggregateFunction(avgIf, Float64, UInt8)`, `Nullable(...)`)은 타입 문자열 안에 콤마·괄호·따옴표가 있어, `CREATE TABLE` DDL로 만들어 postgres 파서에 넣으면 컬럼 경계가 깨진다. 단순 타입으로 뭉개야 통과 → 타입 손실.
 4. **DBML 직접 생성은 통과** — 타입을 따옴표로 감싼 DBML(`"col" "LowCardinality(String)"`)을 `@dbml/core` 파서(`Parser().parse(dbml, 'dbmlv2')`)에 넣으면 그대로 파싱되고 타입 원문이 손실 없이 보존됨(실측 Test A).
@@ -73,11 +73,11 @@ PG/MariaDB 경로는 **그대로**(reflection→DDL→`importSqlToDbml`). ClickH
 ## 테스트 / 검증 (G3)
 
 - **선결**: `deploy/scripts/start.sh`로 codegram 스택 기동(현재 미기동). 백엔드 4000 / 프론트 4001 / pg 35432.
-- **드라이버 스모크(구현 1단계)**: 백엔드 컨테이너에서 `clickhouse-sqlalchemy`로 `clickhouse+http://hawkeye:***@10.140.1.40:8123/hawkeye` 접속 → `system.tables` 1행 조회 성공 확인. (여기서 막히면 드라이버를 `clickhouse-connect`로 대체 — ADR-0021 기각안 복귀, 재승인.)
+- **드라이버 스모크(구현 1단계)**: 백엔드 컨테이너에서 `clickhouse-sqlalchemy`로 `clickhouse+http://hawkeye:***@clickhouse.example.test:8123/hawkeye` 접속 → `system.tables` 1행 조회 성공 확인. (여기서 막히면 드라이버를 `clickhouse-connect`로 대체 — ADR-0021 기각안 복귀, 재승인.)
 - **백엔드 단위**(`backend/tests/`): `introspect_clickhouse`가 (테이블, 엔진, position 순 컬럼) 조립 정확, `.inner_id.*` 제외, 코멘트 빈문자→None. `build_connection_url` clickhouse URL·기본포트. (system 응답은 픽스처/모킹.)
 - **프론트 단위**(vitest): `buildDbmlFromTables` — 복합 타입 따옴표 보존, 이스케이프, 빈 테이블, 코멘트→note. **생성한 DBML을 `@dbml/core` `Parser`로 재파싱해 왕복 검증**(실측 Test A를 테스트로 고정).
 - **타입/린트**: `cd frontend && npm run type-check`, `npm run test:run`; `docker compose -p codegram exec -T backend pytest -q`.
-- **E2E(실측)**: 스택 기동 후, DbConnectDialog에서 ClickHouse 선택→`10.140.1.40:8123`/`hawkeye` 접속→프로젝트 생성→ERD에 테이블 카드·컬럼·타입이 렌더되고 `.inner_id.*`가 없음을 Playwright로 확인.
+- **E2E(실측)**: 스택 기동 후, DbConnectDialog에서 ClickHouse 선택→`clickhouse.example.test:8123`/`hawkeye` 접속→프로젝트 생성→ERD에 테이블 카드·컬럼·타입이 렌더되고 `.inner_id.*`가 없음을 Playwright로 확인.
 
 ## 범위 밖 (명시)
 

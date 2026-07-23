@@ -13,10 +13,13 @@ never reset on re-run).
 Fail-closed: settings.environment defaults to "development", so gating on
 that alone would seed the known-password admin if ENVIRONMENT is ever left
 unset. The seed additionally requires settings.allow_admin_seed (env var
-ALLOW_ADMIN_SEED) to be explicitly set truthy. Run it in dev with:
+ALLOW_ADMIN_SEED) to be explicitly set truthy. The bootstrap password can be
+overridden via env var ADMIN_SEED_PASSWORD (the committed default is a dev-only
+convenience). Run it in dev with:
     ALLOW_ADMIN_SEED=1 python -m app.scripts.seed_admin
 """
 import asyncio
+import os
 import uuid
 
 from fastapi_users.password import PasswordHelper
@@ -29,7 +32,7 @@ from app.repositories.rbac import RbacRepository
 from app.repositories.user import UserRepository
 
 ADMIN_EMAIL = "admin@tscorp.ai"
-ADMIN_PASSWORD = "admin!1"
+ADMIN_PASSWORD = os.environ.get("ADMIN_SEED_PASSWORD", "admin!1")
 
 _password_helper = PasswordHelper()
 

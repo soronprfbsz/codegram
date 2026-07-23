@@ -85,11 +85,11 @@ async def test_introspect_clickhouse_returns_tables(authenticated_client, monkey
         "/api/introspect",
         json={
             "dialect": "clickhouse",
-            "host": "10.140.1.40",
+            "host": "clickhouse.example.test",
             "port": 8123,
-            "username": "hawkeye",
+            "username": "ch_user",
             "password": "x",
-            "database": "hawkeye",
+            "database": "analytics",
         },
     )
     assert resp.status_code == 200
