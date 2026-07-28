@@ -9,10 +9,9 @@ Every endpoint authenticates via require_password_ok.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_password_ok
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.models.user import User
 from app.schemas.lock import LockStatus
 from app.services.lock import LockService, LockState
@@ -23,7 +22,7 @@ router = APIRouter(prefix="/projects/{project_id}/edit-lock", tags=["edit-lock"]
 
 
 def get_lock_service(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> LockService:
     """Provide a LockService bound to the request-scoped session."""
     return LockService(session)

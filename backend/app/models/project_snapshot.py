@@ -7,7 +7,9 @@ project can be fully restored to it later. Three kinds:
 - "auto_coarse": monthly snapshot of a changed project; kept far longer.
 - "manual":      user-created with an optional label; never auto-pruned.
 
-Snapshots are write-once: they have a created_at but no updated_at. layout uses
+Snapshots have a created_at but no updated_at. Auto snapshots are write-once; a
+manual snapshot is rewritten in place when it is saved again under the same
+label, and created_at then moves to the new save (ADR-0023). layout uses
 JSON().with_variant(JSONB, "postgresql") to match the project table (JSON under
 sqlite, JSONB under postgres). project_id is an FK to project.id with ON DELETE
 CASCADE, so a project's snapshots vanish with it.

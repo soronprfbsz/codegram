@@ -9,10 +9,9 @@ already a member -> 409; owner trying to leave -> 400.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_password_ok
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.models.user import User
 from app.schemas.member import MemberInvite, MemberRead, MemberRoleUpdate
 from app.services.member import (
@@ -30,7 +29,7 @@ router = APIRouter(prefix="/projects/{project_id}/members", tags=["members"])
 
 
 def get_member_service(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> MemberService:
     """Provide a MemberService bound to the request-scoped session."""
     return MemberService(session)

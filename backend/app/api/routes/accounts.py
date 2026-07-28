@@ -9,10 +9,9 @@ ORM/session directly.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_permission
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.models.user import User
 from app.schemas.account import AccountRead, AccountRoleUpdate, PasswordResetRead
 from app.services.account import (
@@ -28,7 +27,7 @@ _ACCOUNT_NOT_FOUND = "Account not found"
 
 
 def get_account_service(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> AccountService:
     """Provide an AccountService bound to the request-scoped session."""
     return AccountService(session)

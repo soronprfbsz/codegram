@@ -4,10 +4,9 @@ Unauthenticated by design: the login screen's "비밀번호 초기화" guidance 
 to show who to contact before the user has a session. Returns every admin's
 email, nothing else.
 """
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter
 
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.repositories.rbac import RbacRepository
 from app.schemas.admin_contact import AdminContact
 
@@ -16,7 +15,7 @@ router = APIRouter(tags=["admins"])
 
 @router.get("/admins", response_model=list[AdminContact])
 async def list_admins(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> list[AdminContact]:
     """List every admin's email (public; no auth dependency)."""
     repo = RbacRepository(session)

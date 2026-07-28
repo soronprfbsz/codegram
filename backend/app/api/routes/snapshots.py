@@ -11,10 +11,9 @@ from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_password_ok
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.models.user import User
 from app.schemas.project import ProjectRead
 from app.schemas.project_snapshot import (
@@ -32,6 +31,7 @@ from app.services.project import (
 from app.services.project_snapshot import (
     ProjectSnapshotNotFoundError,
     ProjectSnapshotService,
+    SnapshotLabelExistsError,
     SnapshotLimitError,
     SnapshotNotDeletableError,
 )
@@ -50,7 +50,7 @@ def _forbidden() -> HTTPException:
 
 
 def get_snapshot_service(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> ProjectSnapshotService:
     """Provide a ProjectSnapshotService bound to the request-scoped session."""
     return ProjectSnapshotService(session)
@@ -70,13 +70,22 @@ async def create_snapshot(
     """Create a manual snapshot of the project's current state."""
     try:
         snapshot = await service.create_manual(
-            project_id, user.id, label=payload.label
+            project_id,
+            user.id,
+            label=payload.label,
+            overwrite=payload.overwrite,
         )
     except ProjectForbiddenError:
         raise _forbidden() from None
     except ProjectNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=_PROJECT_NOT_FOUND
+        ) from None
+    except SnapshotLabelExistsError:
+        # The client re-sends with overwrite=true after confirming (ADR-0023).
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"reason": "label_exists"},
         ) from None
     except SnapshotLimitError as exc:
         raise HTTPException(

@@ -87,6 +87,13 @@ export interface DbmlEditorProps {
    * spot re-fire because the nonce changes. Null/omit to do nothing.
    */
   gotoLine?: { line: number; column?: number; nonce: number } | null
+  /**
+   * Block edits while keeping the document readable — scrolling, selecting and
+   * copying still work. Used when someone else holds the edit lock or a
+   * snapshot is being previewed; do NOT block pointer events instead, that also
+   * kills reading (the whole point of a read-only view).
+   */
+  readOnly?: boolean
 }
 
 /**
@@ -102,7 +109,15 @@ export interface DbmlEditorProps {
  */
 const DbmlEditorImpl = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
   function DbmlEditor(
-    { value, onChange, height = '70vh', selectedTable, errors, gotoLine },
+    {
+      value,
+      onChange,
+      height = '70vh',
+      selectedTable,
+      errors,
+      gotoLine,
+      readOnly = false,
+    },
     ref,
   ) {
     const handleChange = useCallback(
@@ -191,6 +206,7 @@ const DbmlEditorImpl = forwardRef<ReactCodeMirrorRef, DbmlEditorProps>(
           theme={theme === 'dark' ? 'dark' : 'light'}
           extensions={EDITOR_EXTENSIONS}
           basicSetup={EDITOR_BASIC_SETUP}
+          readOnly={readOnly}
         />
       </div>
     )

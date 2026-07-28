@@ -8,10 +8,9 @@ touches the ORM/session directly.
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_permission
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.models.user import User
 from app.schemas.role import RolePermissionsUpdate, RoleRead
 from app.services.rbac import (
@@ -25,7 +24,7 @@ router = APIRouter(prefix="/roles", tags=["roles"])
 
 
 def get_rbac_service(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> RbacService:
     """Provide an RbacService bound to the request-scoped session."""
     return RbacService(session)

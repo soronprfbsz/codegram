@@ -1,7 +1,10 @@
 export { useSnapshots } from './api/useSnapshots'
 export { useSnapshotCalendar } from './api/useSnapshotCalendar'
 export { useSnapshot } from './api/useSnapshot'
-export { useCreateSnapshot } from './api/useCreateSnapshot'
+export {
+  useCreateSnapshot,
+  type CreateSnapshotInput,
+} from './api/useCreateSnapshot'
 export { useDeleteSnapshot } from './api/useDeleteSnapshot'
 export { useRestoreSnapshot } from './api/useRestoreSnapshot'
 export { snapshotQueryKeys, localTzOffsetMinutes } from './api/queryKeys'

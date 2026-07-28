@@ -11,8 +11,10 @@ request scope (get_session) or the scheduler job commits the unit of work.
 Snapshot kinds and dedup: auto snapshots are skipped when the project's current
 content hash equals the latest snapshot OF THE SAME KIND (per-kind comparison,
 so a quiet month still keeps a coarse representative even after fine snapshots
-are pruned). Manual snapshots are always stored (never deduped), carry a label,
-are capped per project, and are exempt from auto-prune.
+are pruned). Manual snapshots carry a label, are capped per project, and are
+exempt from auto-prune. A manual snapshot's label identifies it within the
+project (ADR-0023): saving again under an existing label overwrites that
+snapshot in place once the caller confirms; unlabelled saves always add a row.
 """
 import hashlib
 import json
@@ -65,6 +67,10 @@ class ProjectSnapshotNotFoundError(Exception):
 
 class SnapshotLimitError(Exception):
     """The per-project manual snapshot cap has been reached."""
+
+
+class SnapshotLabelExistsError(Exception):
+    """A manual snapshot already carries this label and overwrite wasn't set."""
 
 
 class SnapshotNotDeletableError(Exception):
@@ -158,21 +164,46 @@ class ProjectSnapshotService:
         project_id: uuid.UUID,
         user_id: uuid.UUID,
         label: str | None = None,
+        overwrite: bool = False,
     ) -> ProjectSnapshot:
-        """Snapshot the current project state as a labelled manual snapshot."""
+        """Snapshot the current project state as a labelled manual snapshot.
+
+        A label identifies a manual snapshot within its project (ADR-0023): if
+        one already carries this label, saving again raises
+        SnapshotLabelExistsError unless `overwrite` confirms replacing it in
+        place. Unlabelled saves always add a row.
+        """
         project, _role = await self.projects.get_authorized(
             project_id, user_id, Capability.CREATE_SNAPSHOT
         )
+        label = label.strip() if label is not None else None
+        content_hash = compute_content_hash(project.dbml_text, project.layout)
+        if label:
+            same_label = await self.repo.get_latest_manual_by_label(
+                project_id, label, KIND_MANUAL
+            )
+            if same_label is not None:
+                if not overwrite:
+                    raise SnapshotLabelExistsError(label)
+                # In place: the id survives, so preview/restore links keep working.
+                return await self.repo.overwrite(
+                    same_label,
+                    dbml_text=project.dbml_text,
+                    layout=project.layout,
+                    content_hash=content_hash,
+                    created_by=user_id,
+                    created_at=datetime.now(timezone.utc),
+                )
         existing = await self.repo.count_for_project(project_id, KIND_MANUAL)
         if existing >= settings.snapshot_manual_max:
             raise SnapshotLimitError(settings.snapshot_manual_max)
         return await self.repo.create(
             project_id=project_id,
             kind=KIND_MANUAL,
-            label=label,
+            label=label or None,
             dbml_text=project.dbml_text,
             layout=project.layout,
-            content_hash=compute_content_hash(project.dbml_text, project.layout),
+            content_hash=content_hash,
             created_by=user_id,
         )
 

@@ -81,6 +81,63 @@ test.describe('Snapshot history', () => {
     await expect(page.getByTestId('snapshot-preview-overlay')).toBeHidden()
   })
 
+  test('delete removes the row and it stays gone after the refetch', async ({
+    page,
+  }) => {
+    await registerAndLogin(page, `snapshot-del-${Date.now()}@example.com`)
+    const createResp = await page.request.post('/api/projects', {
+      data: { name: 'Snapshot Delete E2E', dbml_text: SAMPLE_DBML },
+    })
+    const { id } = await createResp.json()
+    await page.goto(`/editor/${id}`)
+    await page.waitForSelector('[data-testid="erd-canvas"]', { timeout: 15000 })
+
+    await page.getByTestId('snapshot-history-button').click()
+    await page.getByTestId('snapshot-name-input').fill('doomed')
+    await page.getByTestId('snapshot-create-button').click()
+    const row = page.locator('[data-testid^="snapshot-row-"]')
+    await expect(row).toHaveCount(1)
+
+    await page.locator('[data-testid^="snapshot-delete-"]').click()
+    await page.getByTestId('snapshot-delete-confirm-ok').click()
+
+    // The list refetches right after the 204; the row must not come back
+    // (it did while the commit landed after the response — ADR-0022).
+    await expect(row).toHaveCount(0)
+    await expect(page.getByTestId('snapshot-panel')).toContainText(
+      '저장된 스냅샷이 없습니다.',
+    )
+  })
+
+  test('saving under an existing label overwrites it after confirming', async ({
+    page,
+  }) => {
+    await registerAndLogin(page, `snapshot-ovw-${Date.now()}@example.com`)
+    const createResp = await page.request.post('/api/projects', {
+      data: { name: 'Snapshot Overwrite E2E', dbml_text: SAMPLE_DBML },
+    })
+    const { id } = await createResp.json()
+    await page.goto(`/editor/${id}`)
+    await page.waitForSelector('[data-testid="erd-canvas"]', { timeout: 15000 })
+
+    await page.getByTestId('snapshot-history-button').click()
+    await page.getByTestId('snapshot-name-input').fill('작업중')
+    await page.getByTestId('snapshot-create-button').click()
+    const row = page.locator('[data-testid^="snapshot-row-"]')
+    await expect(row).toHaveCount(1)
+    const firstId = await row.first().getAttribute('data-testid')
+
+    // Saving the same label asks before replacing, instead of adding a twin.
+    await page.getByTestId('snapshot-name-input').fill('작업중')
+    await page.getByTestId('snapshot-create-button').click()
+    await expect(page.getByTestId('snapshot-overwrite-confirm')).toBeVisible()
+    await page.getByTestId('snapshot-overwrite-confirm-ok').click()
+
+    // Still one row, and it is the same row (id survives).
+    await expect(row).toHaveCount(1)
+    expect(await row.first().getAttribute('data-testid')).toBe(firstId)
+  })
+
   test('switch to the auto tab and see the calendar', async ({ page }) => {
     await registerAndLogin(page, `snapshot-auto-${Date.now()}@example.com`)
     const createResp = await page.request.post('/api/projects', {

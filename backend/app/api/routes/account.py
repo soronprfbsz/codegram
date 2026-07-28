@@ -6,10 +6,9 @@ so a user who must change their password can still read /me and call
 change-password to clear that state.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.users import current_active_user
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.models.user import User
 from app.repositories.rbac import RbacRepository
 from app.schemas.account import AccountMe, ChangePasswordRequest
@@ -24,8 +23,8 @@ router = APIRouter(prefix="/account", tags=["account"])
 
 @router.get("/me", response_model=AccountMe)
 async def get_me(
+    session: SessionDep,
     user: User = Depends(current_active_user),
-    session: AsyncSession = Depends(get_session),
 ) -> AccountMe:
     """Return the caller's identity, role name, permission codes, and
     must-change-password state."""
@@ -47,8 +46,8 @@ async def get_me(
 @router.post("/change-password")
 async def change_password(
     payload: ChangePasswordRequest,
+    session: SessionDep,
     user: User = Depends(current_active_user),
-    session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Change the caller's own password.
 

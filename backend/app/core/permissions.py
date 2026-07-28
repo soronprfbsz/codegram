@@ -6,10 +6,9 @@ caller's permissions are resolved fresh from their current role each request
 gates a route on the caller not being in a forced-password-change state.
 """
 from fastapi import Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.users import current_active_user
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.models.user import User
 from app.repositories.rbac import RbacRepository
 
@@ -28,8 +27,8 @@ def require_permission(code: str):
     their role grants `code`."""
 
     async def dep(
+        session: SessionDep,
         user: User = Depends(current_active_user),
-        session: AsyncSession = Depends(get_session),
     ) -> User:
         _ensure_password_ok(user)
         perms = await RbacRepository(session).permissions_for_user(user.id)

@@ -49,6 +49,24 @@ class ProjectSnapshotRepository:
         await self.session.flush()
         return snapshot
 
+    async def overwrite(
+        self,
+        snapshot: ProjectSnapshot,
+        dbml_text: str,
+        layout: dict[str, Any],
+        content_hash: str,
+        created_by: uuid.UUID | None,
+        created_at: datetime,
+    ) -> ProjectSnapshot:
+        """Replace a snapshot's body/attribution in place; return it (ADR-0023)."""
+        snapshot.dbml_text = dbml_text
+        snapshot.layout = layout
+        snapshot.content_hash = content_hash
+        snapshot.created_by = created_by
+        snapshot.created_at = created_at
+        await self.session.flush()
+        return snapshot
+
     async def get_by_id_and_project(
         self, snapshot_id: uuid.UUID, project_id: uuid.UUID
     ) -> ProjectSnapshot | None:
@@ -59,6 +77,27 @@ class ProjectSnapshotRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def get_latest_manual_by_label(
+        self, project_id: uuid.UUID, label: str, kind: str
+    ) -> ProjectSnapshot | None:
+        """Return the newest snapshot of `kind` with exactly this label, or None.
+
+        Newest-first because rows predating ADR-0023 can share a label; the most
+        recent one is the row a same-label save overwrites.
+        """
+        stmt = (
+            select(ProjectSnapshot)
+            .where(
+                ProjectSnapshot.project_id == project_id,
+                ProjectSnapshot.kind == kind,
+                ProjectSnapshot.label == label,
+            )
+            .order_by(ProjectSnapshot.created_at.desc())
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
 
     async def list_for_project(
         self,

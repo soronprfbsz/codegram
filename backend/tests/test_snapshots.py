@@ -101,6 +101,86 @@ async def test_create_manual_snapshot_returns_201(
     assert "content_hash" in body and len(body["content_hash"]) == 64
 
 
+# --- endpoint: same label overwrites (ADR-0023) ----------------------------
+async def test_same_label_conflicts_without_overwrite(
+    authenticated_client: AsyncClient,
+) -> None:
+    project_id = await _create_project(authenticated_client)
+    first = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"label": "v1"}
+    )
+    assert first.status_code == 201
+    again = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"label": "v1"}
+    )
+    assert again.status_code == 409
+    assert again.json()["detail"] == {"reason": "label_exists"}
+    # nothing was written
+    rows = await authenticated_client.get(
+        f"/api/projects/{project_id}/snapshots?group=manual"
+    )
+    assert len(rows.json()) == 1
+
+
+async def test_same_label_with_overwrite_replaces_in_place(
+    authenticated_client: AsyncClient,
+) -> None:
+    project_id = await _create_project(authenticated_client)
+    first = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"label": "v1"}
+    )
+    snap_id = first.json()["id"]
+    # move the project away from the captured state
+    await authenticated_client.patch(
+        f"/api/projects/{project_id}", json={"dbml_text": "table CHANGED {}"}
+    )
+    again = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots",
+        json={"label": "v1", "overwrite": True},
+    )
+    assert again.status_code == 201
+    # same row, new body — the id survives so preview/restore links keep working
+    assert again.json()["id"] == snap_id
+    assert again.json()["dbml_text"] == "table CHANGED {}"
+    rows = await authenticated_client.get(
+        f"/api/projects/{project_id}/snapshots?group=manual"
+    )
+    assert len(rows.json()) == 1
+
+
+async def test_labels_are_trimmed_and_case_sensitive(
+    authenticated_client: AsyncClient,
+) -> None:
+    project_id = await _create_project(authenticated_client)
+    await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"label": "v1"}
+    )
+    padded = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"label": "  v1  "}
+    )
+    assert padded.status_code == 409  # same label once trimmed
+    other_case = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"label": "V1"}
+    )
+    assert other_case.status_code == 201  # a different label
+
+
+async def test_unlabelled_saves_always_add_a_row(
+    authenticated_client: AsyncClient,
+) -> None:
+    project_id = await _create_project(authenticated_client)
+    for label in (None, "", "   "):
+        resp = await authenticated_client.post(
+            f"/api/projects/{project_id}/snapshots", json={"label": label}
+        )
+        assert resp.status_code == 201
+        assert resp.json()["label"] is None
+    rows = await authenticated_client.get(
+        f"/api/projects/{project_id}/snapshots?group=manual"
+    )
+    assert len(rows.json()) == 3
+
+
 async def test_snapshot_requires_auth(client: AsyncClient) -> None:
     resp = await client.post(
         f"/api/projects/{uuid.uuid4()}/snapshots", json={}

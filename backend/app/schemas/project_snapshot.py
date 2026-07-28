@@ -15,6 +15,10 @@ class ProjectSnapshotCreate(BaseModel):
     """Body for POST .../snapshots (manual snapshot)."""
 
     label: str | None = Field(default=None, max_length=255)
+    # A label identifies a manual snapshot within its project (ADR-0023): saving
+    # under an existing label conflicts (409) unless the caller confirms the
+    # overwrite. Ignored when label is empty — unlabelled saves always add a row.
+    overwrite: bool = False
 
 
 class ProjectSnapshotMeta(BaseModel):

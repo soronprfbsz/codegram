@@ -2,11 +2,12 @@
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.db.session import commit_unit_of_work
 from app.jobs.snapshot import run_coarse_capture, run_fine_capture, run_prune
 
 
@@ -50,6 +51,9 @@ def create_app() -> FastAPI:
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         lifespan=lifespan,
+        # Every route commits its unit of work before the response is sent
+        # (ADR-0022). App-wide so the fastapi-users routers are covered too.
+        dependencies=[Depends(commit_unit_of_work, scope="function")],
     )
 
     application.add_middleware(

@@ -9,10 +9,9 @@ request-scoped session. The router never touches the ORM/session directly
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import require_password_ok
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from app.services.access import OWNER
@@ -28,7 +27,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 def get_project_service(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> ProjectService:
     """Provide a ProjectService bound to the request-scoped session."""
     return ProjectService(session)

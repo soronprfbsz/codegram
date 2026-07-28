@@ -10,6 +10,7 @@ import {
   useSnapshotCalendar,
   useCreateSnapshot,
   useDeleteSnapshot,
+  type CreateSnapshotInput,
   type SnapshotGroup,
   type SnapshotMeta,
 } from '@/entities/snapshot'
@@ -138,21 +139,39 @@ function ManualTab({
   const [error, setError] = useState<string | null>(null)
   // 삭제는 공통 확인 모달로 재확인(브라우저 confirm 대신). 대상 id를 담아 연다.
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
+  // 같은 라벨 저장은 되돌릴 수 없는 덮어쓰기 — 서버가 409로 알려주면 그 라벨을
+  // 담아 확인 모달을 열고, 확인 시 overwrite로 재요청한다 (ADR-0023).
+  const [pendingOverwrite, setPendingOverwrite] = useState<string | null>(null)
   const create = useCreateSnapshot(projectId)
   const del = useDeleteSnapshot(projectId)
   const { data: rows = [], isLoading } = useSnapshots(projectId, {
     group: 'manual',
   })
 
-  function handleCreate() {
-    create.mutate(label.trim() || null, {
+  function save(input: CreateSnapshotInput) {
+    create.mutate(input, {
       onSuccess: () => {
         setLabel('')
         setError(null)
       },
-      onError: (e) =>
-        setError(e instanceof ApiError ? e.message : t('snapshot.saveFailed')),
+      onError: (e) => {
+        if (
+          e instanceof ApiError &&
+          e.status === 409 &&
+          e.reason === 'label_exists' &&
+          input.label
+        ) {
+          setError(null)
+          setPendingOverwrite(input.label)
+          return
+        }
+        setError(e instanceof ApiError ? e.message : t('snapshot.saveFailed'))
+      },
     })
+  }
+
+  function handleCreate() {
+    save({ label: label.trim() || null })
   }
 
   return (
@@ -220,6 +239,24 @@ function ManualTab({
         onConfirm={() => {
           if (pendingDelete) del.mutate(pendingDelete)
           setPendingDelete(null)
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingOverwrite !== null}
+        onOpenChange={(o) => { if (!o) setPendingOverwrite(null) }}
+        testId="snapshot-overwrite-confirm"
+        title={t('snapshot.overwriteConfirmTitle')}
+        description={t('snapshot.overwriteConfirmDesc', {
+          label: pendingOverwrite ?? '',
+        })}
+        confirmLabel={t('snapshot.overwrite')}
+        confirmDisabled={create.isPending}
+        onConfirm={() => {
+          if (pendingOverwrite) {
+            save({ label: pendingOverwrite, overwrite: true })
+          }
+          setPendingOverwrite(null)
         }}
       />
     </div>

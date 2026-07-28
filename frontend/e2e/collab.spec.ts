@@ -101,6 +101,76 @@ test.describe('Project collaboration', () => {
     await ownerCtx.close()
   })
 
+  test('a member without the edit lock can still read and scroll the DBML', async ({
+    browser,
+  }) => {
+    const stamp = Date.now()
+    const password = 'password123'
+    const ownerEmail = `owner-ro-${stamp}@example.com`
+    const memberEmail = `editor-ro-${stamp}@example.com`
+    // Long enough that the editor surface overflows and can be scrolled.
+    const longDbml = Array.from(
+      { length: 60 },
+      (_, i) => `Table t${i} {\n  id integer [pk]\n  name varchar\n}`,
+    ).join('\n\n')
+
+    const memberCtx = await browser.newContext()
+    const member = await memberCtx.newPage()
+    await registerAndLogin(member, memberEmail, password)
+
+    const ownerCtx = await browser.newContext()
+    const owner = await ownerCtx.newPage()
+    await registerAndLogin(owner, ownerEmail, password)
+    const created = await ownerCtx.request.post('/api/projects', {
+      data: { name: 'ReadOnly Scroll', dbml_text: longDbml },
+    })
+    const projectId = (await created.json()).id as string
+
+    // Owner holds the lock.
+    const acquired = owner.waitForResponse(
+      (r) =>
+        r.url().includes('/edit-lock') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+    )
+    await owner.goto(`/editor/${projectId}`)
+    await acquired
+
+    await inviteViaApi(ownerCtx, projectId, memberEmail, 'editor')
+
+    await member.goto(`/editor/${projectId}`)
+    await expect(member.getByTestId('lock-editing-by')).toContainText(ownerEmail)
+
+    // Read-only must not mean unreadable: the editor still takes the wheel.
+    const scroller = member.locator('[data-testid="dbml-editor"] .cm-scroller')
+    await expect(scroller).toBeVisible()
+    // The surface must actually receive pointer events (a pointer-events:none
+    // wrapper used to swallow them, killing scrolling entirely).
+    const hitsEditor = await scroller.evaluate((el) => {
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 20)
+      return el.contains(hit) || el === hit
+    })
+    expect(hitsEditor).toBe(true)
+
+    await scroller.hover()
+    await member.mouse.wheel(0, 600)
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollTop))
+      .toBeGreaterThan(0)
+
+    // ...but edits are still blocked.
+    const firstLine = member.locator('[data-testid="dbml-editor"] .cm-line').first()
+    await firstLine.click()
+    await member.keyboard.type('ZZZ')
+    await expect(
+      member.locator('[data-testid="dbml-editor"]'),
+    ).not.toContainText('ZZZ')
+
+    await memberCtx.close()
+    await ownerCtx.close()
+  })
+
   test('owner transfers ownership; the former owner becomes an editor', async ({
     browser,
   }) => {

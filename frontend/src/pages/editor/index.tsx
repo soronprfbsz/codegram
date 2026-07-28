@@ -501,10 +501,6 @@ export function EditorPage() {
             flexDirection: 'column',
             minHeight: 0,
             overflow: 'hidden',
-            // Read-only (snapshot preview, viewer role, or not holding the edit
-            // lock): block editing the live DBML.
-            pointerEvents: previewing || readOnly ? 'none' : undefined,
-            opacity: previewing || readOnly ? 0.5 : 1,
           }}
         >
           {dbmlOpen ? (
@@ -585,6 +581,9 @@ export function EditorPage() {
 
               {/* CodeMirror editor fills the rest */}
               <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                {/* Read-only (snapshot preview, viewer role, or not holding the
+                    edit lock): block edits in the editor itself so the document
+                    stays scrollable, selectable and copyable. */}
                 <DbmlEditor
                   value={dbmlText}
                   onChange={setDbmlText}
@@ -592,6 +591,7 @@ export function EditorPage() {
                   selectedTable={selected}
                   errors={parse.status === 'error' ? parse.errors : undefined}
                   gotoLine={gotoError}
+                  readOnly={previewing || readOnly}
                 />
               </div>
 

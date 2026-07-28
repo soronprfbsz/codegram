@@ -10,16 +10,15 @@ from fastapi_users.authentication import (
     JWTStrategy,
 )
 from fastapi_users.db import SQLAlchemyUserDatabase
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.db.session import get_session
+from app.db.session import SessionDep
 from app.models.user import User
 from app.repositories.rbac import RbacRepository
 
 
 async def get_user_db(
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> AsyncGenerator[SQLAlchemyUserDatabase, None]:
     """Adapt the existing request-scoped AsyncSession to fastapi-users."""
     yield SQLAlchemyUserDatabase(session, User)

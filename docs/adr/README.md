@@ -25,8 +25,8 @@
 | `parsing` | 파싱·변환 | 0002 |
 | `export` | 내보내기·상호운용 | 0005, 0013 |
 | `auth` | 인증·접근제어 | 0006, 0016 |
-| `collaboration` | 협업·버전관리 | 0014, 0015 |
-| `architecture` | 코드베이스 구조 | 0007, 0017, 0019 |
+| `collaboration` | 협업·버전관리 | 0014, 0015, 0023 |
+| `architecture` | 코드베이스 구조 | 0007, 0017, 0019, 0022 |
 | `frontend` | 프론트엔드 횡단(국제화·디자인토큰 등) | 0017, 0020 |
 | `deployment` | 배포·CI/CD·인프라 | 0019 |
 
@@ -55,3 +55,5 @@
 | [0019](0019-deployment-compose-gitlab-ci.md) | 배포 = docker compose 3-파일 + GitLab CI 경로선택 재배포 | `deployment`, `architecture` | Accepted · Related: 0006, 0007 |
 | [0020](0020-design-token-only-styling.md) | 시각 스타일은 디자인 토큰으로만 + raw 하드코딩 금지(타이포 스케일 토큰화) | `frontend`, `architecture` | Accepted · Related: 0007, 0017 |
 | [0021](0021-clickhouse-introspection-structured-columns.md) | ClickHouse 인트로스펙션 = 구조화 컬럼(JSON)→프론트 DBML 직접생성, 테이블·컬럼만 | `db-integration` | Accepted · Related: 0008, 0002, 0009 |
+| [0022](0022-request-unit-of-work-commits-before-response.md) | 요청 단위 작업의 커밋은 응답 전송 전에 끝낸다(`scope="function"`) | `architecture` | Accepted · Related: 0006, 0007 |
+| [0023](0023-manual-snapshot-label-is-its-identity.md) | 수동 스냅샷의 라벨은 식별자 — 같은 라벨 저장은 확인 후 덮어쓰기 | `collaboration` | Accepted · Related: 0014 |

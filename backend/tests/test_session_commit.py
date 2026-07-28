@@ -1,4 +1,5 @@
-"""Regression: get_session must commit so writes survive the request scope.
+"""Regression: the request scope must commit, and it must commit before the
+response is sent (ADR-0022).
 
 Uses a StaticPool in-memory sqlite (a single shared connection) so that two
 SEPARATE sessions observe the same database. This deliberately avoids the
@@ -37,7 +38,8 @@ async def commit_engine():
     await engine.dispose()
 
 
-async def test_get_session_commits_across_sessions(commit_engine) -> None:
+async def test_request_scope_commits_across_sessions(commit_engine) -> None:
+    """get_session + commit_unit_of_work persist a repo-style flush-only write."""
     maker = async_sessionmaker(
         commit_engine, class_=AsyncSession, expire_on_commit=False
     )
@@ -62,10 +64,15 @@ async def test_get_session_commits_across_sessions(commit_engine) -> None:
 
     async def run_request() -> None:
         async for session in _patched_get_session(maker):
+            # As FastAPI does: the app-wide commit dependency wraps the endpoint.
+            committer = session_module.commit_unit_of_work(session)
+            await anext(committer)
             session.add(
                 Project(id=project_id, user_id=user_id, name="Persisted")
             )
             await session.flush()  # repo-style flush only; no explicit commit
+            with pytest.raises(StopAsyncIteration):
+                await anext(committer)  # exit code: commits
 
     await run_request()
 
@@ -74,6 +81,25 @@ async def test_get_session_commits_across_sessions(commit_engine) -> None:
         found = await verify.get(Project, project_id)
         assert found is not None
         assert found.name == "Persisted"
+
+
+def test_commit_runs_before_the_response_is_sent() -> None:
+    """The commit must be an app-wide dependency with scope="function".
+
+    scope="function" is what makes FastAPI end the dependency — and therefore
+    commit — after the path operation but BEFORE the response is sent. With the
+    default scope the 2xx goes out first and the next request reads pre-commit
+    state (ADR-0022). conftest overrides get_session with a single shared
+    session, so this ordering can only be asserted on the declaration.
+    """
+    from app.main import app
+
+    registered = [
+        d for d in app.router.dependencies
+        if d.dependency is session_module.commit_unit_of_work
+    ]
+    assert len(registered) == 1, "commit_unit_of_work must be app-wide"
+    assert registered[0].scope == "function"
 
 
 async def _patched_get_session(
