@@ -989,6 +989,12 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
           onSelect?.(null)
         }
       }}
+      // 카드 더블클릭 = 그 카드로 이동/줌. 검색 결과 이동·패널 행 클릭과 같은
+      // centerOnNode를 쓴다(단일 출처). 그룹 박스는 파생 백드롭이라 제외.
+      onNodeDoubleClick={(_, node) => {
+        if (node.type === 'group') return
+        centerOnNodeImpl(node.id)
+      }}
       onEdgeClick={(_, edge) => {
         onSelect?.({ kind: 'edge', edgeId: edge.id })
       }}

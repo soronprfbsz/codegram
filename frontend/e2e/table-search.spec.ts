@@ -85,6 +85,35 @@ test.describe('Topbar table search', () => {
     await expect.poll(async () => viewport.getAttribute('style')).not.toBe(before)
   })
 
+  test('double-clicking a table centers it, the same way search does', async ({
+    page,
+  }) => {
+    await registerAndLogin(page, `dblclick-nav-${Date.now()}@example.com`)
+    await openEditor(page, 'Double Click Nav Test')
+
+    const pane = (await page.locator('.react-flow__pane').boundingBox())!
+    const paneCenter = {
+      x: pane.x + pane.width / 2,
+      y: pane.y + pane.height / 2,
+    }
+    const offsetFromCenter = async () => {
+      const b = (await page
+        .locator('.react-flow__node[data-id="public.posts"]')
+        .boundingBox())!
+      return Math.hypot(
+        b.x + b.width / 2 - paneCenter.x,
+        b.y + b.height / 2 - paneCenter.y,
+      )
+    }
+    expect(await offsetFromCenter()).toBeGreaterThan(20)
+
+    await page.locator('.react-flow__node[data-id="public.posts"]').dblclick()
+
+    // Lands dead centre, through the same centerOnNode the search box uses —
+    // React Flow's own double-click zoom does not fight it.
+    await expect.poll(offsetFromCenter, { timeout: 5000 }).toBeLessThan(5)
+  })
+
   test('column / note matches show a hint and the match-column is highlighted on the node', async ({
     page,
   }) => {
