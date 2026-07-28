@@ -32,7 +32,13 @@ test('connect to database creates a new project with ERD canvas', async ({
   await page.getByTestId('db-connect-username').fill('codegram_user')
   await page.getByTestId('db-connect-password').fill('postgres_dev')
   await page.getByTestId('db-connect-database').fill('codegram_dev')
-  await page.getByTestId('db-connect-schema').fill('public')
+  // Schemas are no longer typed in: the dialog loads the server's list and the
+  // user ticks the ones to import (mirrors db-sync.spec).
+  await page.getByTestId('db-connect-load-schemas').click()
+  await page
+    .getByTestId('db-connect-schema-option-public')
+    .waitFor({ state: 'visible', timeout: 10000 })
+  await page.getByTestId('db-connect-schema-option-public').check()
 
   // Arm the response waiter before clicking to avoid a race condition.
   const introspectResponse = page.waitForResponse(

@@ -55,30 +55,6 @@ async function openImportMenu(page: Page) {
   await page.getByRole('menuitem', { name: 'SQL 가져오기' }).waitFor()
 }
 
-/** Open a project's sidebar "⋯" menu (Table Doc / SQL export live here). */
-async function openProjectMenu(page: Page, name: string) {
-  await page.getByRole('button', { name: `${name} 메뉴` }).click()
-  await page.getByRole('menuitem', { name: 'SQL · PostgreSQL' }).waitFor()
-}
-
-/** Wait for autosave to PATCH and the project list (the sidebar source) to
- *  refetch — sidebar Export items parse the LIST copy of dbml_text. */
-async function waitForProjectSaved(page: Page, projectId: string) {
-  await Promise.all([
-    page.waitForResponse(
-      (r) =>
-        r.url().includes(`/api/projects/${projectId}`) &&
-        r.request().method() === 'PATCH' &&
-        r.ok(),
-    ),
-    page.waitForResponse(
-      (r) =>
-        r.url().endsWith('/api/projects') &&
-        r.request().method() === 'GET' &&
-        r.ok(),
-    ),
-  ])
-}
 
 /** Wait for the canvas to render both nodes. */
 async function waitForTwoNodes(page: Page) {
@@ -162,23 +138,22 @@ test.describe('SQL import/export', () => {
     page,
   }) => {
     await registerAndLogin(page, `sql-export-${Date.now()}@example.com`)
-    const projectId = await createProjectAndOpen(page, 'SQL Export')
-    const saved = waitForProjectSaved(page, projectId)
+    await createProjectAndOpen(page, 'SQL Export')
     await typeDbml(
       page,
       ['Table users {', '  id int [pk]', '  email varchar', '}'].join('\n'),
     )
-    // Wait for the node so the schema parsed, then for autosave + list refetch:
-    // SQL export now lives in the sidebar "⋯" menu, which reads the list copy.
+    // Wait for the node so the schema parsed. No autosave wait is needed: every
+    // export lives in the editor's 내보내기 hub (ExportMenu) and dumps the live
+    // editor text — the sidebar row menu carries no export items.
     await expect
       .poll(async () => page.locator('.react-flow__node').count(), {
         timeout: 5000,
       })
       .toBeGreaterThanOrEqual(1)
-    await saved
 
-    // Open the project's sidebar menu, then ARM the download BEFORE the click.
-    await openProjectMenu(page, 'SQL Export')
+    // ARM the download BEFORE the click.
+    await page.getByRole('button', { name: '내보내기', exact: true }).click()
     const sqlDownload = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'SQL · PostgreSQL' }).click()
     expect((await sqlDownload).suggestedFilename()).toBe('schema.postgres.sql')

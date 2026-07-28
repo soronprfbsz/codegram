@@ -140,7 +140,14 @@ test('db-sync: introspect merges schema, preserves positions, removes dropped ta
     timeout: 10000,
   })
 
-  // 4. Canvas nodes reflect the same result (react-flow data-id selector)
+  // 4. Canvas nodes reflect the same result (react-flow data-id selector).
+  // Fit first: the canvas renders only what is inside the viewport
+  // (onlyRenderVisibleElements), so a table placed off-screen by the sync is
+  // absent from the DOM even though it is in the schema. Fitting is what a user
+  // does after a sync, and it makes the assertion about the model rather than
+  // about which nodes happen to be scrolled into view.
+  await page.getByTitle('Fit to screen').click()
+  await page.waitForTimeout(500)
   await expect(
     page.locator('.react-flow__node[data-id="public.project"]'),
   ).toBeVisible()

@@ -76,12 +76,21 @@ test('Table Doc Excel/PDF download non-empty files via the worker', async ({ pag
   await registerAndLogin(page, `export-tabledoc-${Date.now()}@example.com`)
   await openEditorWithProject(page)
 
-  const xlsx = await downloadFromMenu(page, '테이블 정의서 Excel')
-  expect(xlsx.suggestedFilename()).toBe('table-definition.xlsx')
+  // Excel asks for a default DB name first (ExportDbNameDialog) — DBML has no
+  // DB-name concept, so that value fills the form's blank "DB 명" cells. The
+  // download only starts once the prompt is confirmed.
+  await page.getByRole('button', { name: '내보내기', exact: true }).click()
+  await page.getByRole('menuitem', { name: '테이블 정의서 Excel' }).click()
+  await expect(page.getByTestId('export-dbname-dialog')).toBeVisible()
+  await page.getByTestId('export-dbname-input').fill('codegram_dev')
+  const xlsxDownload = page.waitForEvent('download', { timeout: 30000 })
+  await page.getByTestId('export-dbname-confirm').click()
+  const xlsx = await xlsxDownload
+  expect(xlsx.suggestedFilename()).toBe('Export E2E-table-definition.xlsx')
   expect(await streamSize(await xlsx.createReadStream())).toBeGreaterThan(0)
 
   const pdf = await downloadFromMenu(page, '테이블 정의서 PDF')
-  expect(pdf.suggestedFilename()).toBe('table-definition.pdf')
+  expect(pdf.suggestedFilename()).toBe('Export E2E-table-definition.pdf')
   expect(await streamSize(await pdf.createReadStream())).toBeGreaterThan(0)
 })
 
