@@ -90,7 +90,9 @@ test('Table Doc Word downloads a non-empty .docx via the worker', async ({ page 
   await openEditorWithProject(page)
 
   const docx = await downloadFromMenu(page, '테이블 정의서 Word')
-  expect(docx.suggestedFilename()).toBe('table-definition.docx')
+  // Table-doc downloads are prefixed with the project name (see ExportMenu);
+  // this expectation predated that and still wanted the bare filename.
+  expect(docx.suggestedFilename()).toBe('Export E2E-table-definition.docx')
   expect(await streamSize(await docx.createReadStream())).toBeGreaterThan(0)
 })
 

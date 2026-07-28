@@ -582,6 +582,10 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   // 최종 뷰로 fit하고 onCanvasReady를 1회 발화한다. 이 인스턴스 생명주기 동안 1회만
   // (firedRef). 프로젝트 전환은 pages/editor가 key로 리마운트하므로 자연히 재발화된다.
   const cardsMeasured = useStore((s) => allCardsMeasured([...s.nodeLookup.values()]))
+  // Pane size in screen px — needed to tell whether a card sits inside the view.
+  const paneSize = useStore((s) => ({ width: s.width, height: s.height }), (a, b) =>
+    a.width === b.width && a.height === b.height,
+  )
   const canvasReadyFiredRef = useRef(false)
   useEffect(() => {
     if (canvasReadyFiredRef.current || !cardsMeasured) return
@@ -615,6 +619,27 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     )
     setNodes(next)
     onLayoutChange?.(nodesToLayout(next))
+    // Typing a coordinate can land the card outside the viewport, and
+    // onlyRenderVisibleElements then unmounts it — from the user's side the
+    // table simply vanished (it is still there, just off-screen). Follow it
+    // only when it would leave the view, so an in-view nudge doesn't yank the
+    // canvas around.
+    const w = node.measured?.width ?? node.width ?? 0
+    const h = node.measured?.height ?? node.height ?? 0
+    const vp = rf.getViewport()
+    const viewLeft = -vp.x / vp.zoom
+    const viewTop = -vp.y / vp.zoom
+    const fullyVisible =
+      pos.x >= viewLeft &&
+      pos.y >= viewTop &&
+      pos.x + w <= viewLeft + paneSize.width / vp.zoom &&
+      pos.y + h <= viewTop + paneSize.height / vp.zoom
+    if (!fullyVisible) {
+      rf.setCenter(pos.x + w / 2, pos.y + h / 2, {
+        zoom: vp.zoom,
+        duration: 400,
+      })
+    }
   }
   function setEdgeWaypointImpl(
     edgeId: string,
