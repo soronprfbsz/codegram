@@ -21,6 +21,7 @@ export const schema: DbmlSchema = {
           isFk: false,
         },
       ],
+      checks: [],
     },
     {
       id: 'public.posts',
@@ -38,6 +39,7 @@ export const schema: DbmlSchema = {
           isFk: true,
         },
       ],
+      checks: [],
     },
   ],
   refs: [

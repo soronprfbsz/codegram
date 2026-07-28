@@ -49,11 +49,13 @@ test.describe('Project collaboration', () => {
 
     await inviteViaApi(ownerCtx, projectId, memberEmail, 'viewer')
 
-    // Member refreshes → the shared project shows a "뷰어" badge.
+    // Member refreshes → the shared project shows the "공유" badge. The badge
+    // is role-agnostic (the role lives in the row's context menu); it is the
+    // editor that shows what the viewer may do.
     await member.goto('/')
     await expect(
       member.getByTestId(`sidebar-project-shared-${projectId}`),
-    ).toHaveText('뷰어')
+    ).toHaveText('공유')
 
     // Opening it lands the member in a read-only editor.
     await member.getByTestId(`sidebar-project-${projectId}`).click()

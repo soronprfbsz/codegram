@@ -16,6 +16,9 @@ const project: Project = {
   glyph: null,
   color: null,
   bg_color: null,
+  version: 1,
+  role: 'owner',
+  owner_email: null,
   created_at: '2026-06-19T00:00:00Z',
   updated_at: '2026-06-19T00:00:00Z',
 }

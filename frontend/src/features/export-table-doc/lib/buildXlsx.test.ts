@@ -2,22 +2,8 @@ import { describe, it, expect } from 'vitest'
 import ExcelJS from 'exceljs'
 import type { TableDocModel } from '@/entities/table-doc'
 import { buildTableDocXlsxBlob } from './buildXlsx'
-import type { TableDocLabels } from './labels'
+import { TABLE_DOC_LABELS as LABELS } from './labels.fixture'
 import { HEADER_FILL } from './tableDocStyle'
-
-const LABELS: TableDocLabels = {
-  columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
-  enumColEnum: 'Enum', enumColValue: '값', enumColNote: '설명', enumsSheet: 'Enums',
-  checks: 'CHECK 제약', checkName: '이름', checkValues: '허용값', checkExpression: '표현식',
-  fks: 'FK 제약', fkName: 'FK명', fkColumns: '컬럼', fkRefTable: '참조 테이블', fkRefColumns: '참조 컬럼',
-  overviewSheet: '테이블 목록', overviewNo: 'No', overviewGroup: '그룹',
-  overviewTable: '테이블', overviewDesc: '설명', ungroupedSheet: '미분류',
-  form: {
-    title: '테이블정의서', subjectArea: '주제영역명', dbName: 'DB 명', schemaName: '스키마명',
-    tableName: '테이블명', tableDesc: '테이블설명', no: 'No', colId: '컬럼ID', type: '타입',
-    length: '길이', nullable: 'NULL', key: 'KEY', defaultVal: 'DEFAULT', desc: '설명', etc: '기타',
-  },
-}
 
 function tbl(schema: string, name: string, note = ''): TableDocModel['tables'][number] {
   return {
@@ -187,7 +173,7 @@ describe('buildTableDocXlsxBlob (grouped)', () => {
     // 설명 is column 8 — it must fit the long note (CJK counted ~2/char) …
     expect(wLong.getColumn(8).width).toBeGreaterThan(40)
     // … and shrink when the content is short (auto-fit, not a fixed width).
-    expect(wShort.getColumn(8).width).toBeLessThan(wLong.getColumn(8).width)
+    expect(wShort.getColumn(8).width).toBeLessThan(wLong.getColumn(8).width!)
   })
 
   it('does not widen a column to a merged multi-column cell (metadata values)', async () => {

@@ -9,6 +9,7 @@ function makeTable(id: string, name: string, schema = 'public') {
     name,
     schema,
     columns: [],
+    checks: [],
   } as import('@/entities/dbml').DbmlTable
 }
 

@@ -147,7 +147,12 @@ export function mergeDbml(
       rawNew.project = rawOld.project
     }
 
-    const db = Parser.parseJSONToDatabase(rawNew)
+    // RawDb is our narrow structural view of the parser JSON (only the fields
+    // this merge touches), so cast back for the round trip — the value itself
+    // came straight out of parseDBMLToJSONv2 and carries the rest untouched.
+    const db = Parser.parseJSONToDatabase(
+      rawNew as unknown as Parameters<typeof Parser.parseJSONToDatabase>[0],
+    )
     return ModelExporter.export(db.normalize(), 'dbml')
   } catch {
     return incoming

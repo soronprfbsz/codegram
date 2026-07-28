@@ -12,7 +12,7 @@ import { ExportProgressDialog } from '@/shared/ui/export-progress-dialog'
 import { TableDocView } from './TableDocView'
 import { useTableDocViewStore } from '../model/store'
 
-const EMPTY = { tables: [], enums: [] }
+const EMPTY = { tables: [], enums: [], groups: [] }
 
 /**
  * Mounts the 테이블 정의서 HTML overlay once at the app shell, driven by

@@ -63,7 +63,7 @@ describe('GroupNode', () => {
   it('라벨 크롬은 드래그 핸들 클래스를 갖고, 배경 필은 pointer-events:none', () => {
     const { container } = render(
       <ReactFlowProvider>
-        <GroupNode {...({ id: 'group:G', data: { groupName: 'G', color: '#0E9384' } } as never)} />
+        <GroupNode {...({ id: 'group:G', data: { groupName: 'G', color: '#0E9384' } } as unknown as GroupNodeProps)} />
       </ReactFlowProvider>,
     )
     const fill = container.querySelector('[data-testid="group-region-group:G"]') as HTMLElement
@@ -78,7 +78,7 @@ describe('GroupNode', () => {
     const { getByTestId } = render(
       <ReactFlowProvider>
         <GroupActionContext.Provider value={{ onArrangeGroup }}>
-          <GroupNode {...({ id: 'group:G', data: { groupName: 'G' } } as never)} />
+          <GroupNode {...({ id: 'group:G', data: { groupName: 'G' } } as unknown as GroupNodeProps)} />
         </GroupActionContext.Provider>
       </ReactFlowProvider>,
     )

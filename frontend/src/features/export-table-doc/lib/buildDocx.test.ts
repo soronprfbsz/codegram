@@ -1,14 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { TableDocModel } from '@/entities/table-doc'
 import { buildTableDocDocxBlob } from './buildDocx'
-import type { TableDocLabels } from './labels'
-
-const LABELS: TableDocLabels = {
-  columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
-  enumColEnum: 'Enum', enumColValue: '값', enumColNote: '설명', enumsSheet: 'Enums',
-  checks: 'CHECK 제약', checkName: '이름', checkValues: '허용값', checkExpression: '표현식',
-  fks: 'FK 제약', fkName: 'FK명', fkColumns: '컬럼', fkRefTable: '참조 테이블', fkRefColumns: '참조 컬럼',
-}
+import { TABLE_DOC_LABELS as LABELS } from './labels.fixture'
 
 const full: TableDocModel = {
   tables: [
@@ -20,9 +13,10 @@ const full: TableDocModel = {
     },
   ],
   enums: [{ id: 'public.role', schema: 'public', name: 'role', note: '', values: [{ name: 'admin', note: '' }] }],
+  groups: [],
 }
 
-const empty: TableDocModel = { tables: [], enums: [] }
+const empty: TableDocModel = { tables: [], enums: [], groups: [] }
 
 describe('buildTableDocDocxBlob', () => {
   it('produces a non-empty .docx Blob for a full model (tables, checks, enums)', async () => {

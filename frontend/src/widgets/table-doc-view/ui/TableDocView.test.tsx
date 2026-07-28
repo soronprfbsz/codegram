@@ -67,6 +67,7 @@ const model: TableDocModel = {
       values: [{ name: 'admin', note: 'super user' }],
     },
   ],
+  groups: [],
 }
 
 describe('TableDocView', () => {
@@ -140,6 +141,7 @@ describe('TableDocView', () => {
         },
       ],
       enums: [],
+      groups: [],
     }
     const { container } = render(
       <TableDocView model={emptyColsModel} open onClose={() => {}} />,

@@ -470,7 +470,7 @@ export function EditorPage() {
         exportMenu={
           <ExportMenu
             diagram={diagramCtx}
-            schema={schema}
+            schema={schema ?? null}
             dbmlText={dbmlText}
             projectName={project.name}
             disabled={exportDisabled}

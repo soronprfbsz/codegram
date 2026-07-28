@@ -7,6 +7,7 @@ import type { DisplayGroup } from '@/entities/erd'
 const usersTable = {
   id: 'public.users', name: 'users', schema: 'public',
   columns: [{ id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false }],
+  checks: [],
 }
 const group: DisplayGroup = {
   key: 'auth', label: 'auth', color: '#1570EF', tables: [usersTable],
@@ -14,6 +15,7 @@ const group: DisplayGroup = {
 const handlers = {
   onCreateGroup: vi.fn(), onRenameGroup: vi.fn(), onDeleteGroup: vi.fn(),
   onSetGroupColor: vi.fn(), onMoveTable: vi.fn(),
+  onMoveTables: vi.fn(), onMoveTablesToNewGroup: vi.fn(),
 }
 const base = {
   group, groupNames: ['auth', 'content'], selected: null,

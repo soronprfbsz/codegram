@@ -32,27 +32,10 @@ vi.mock('jspdf-autotable', () => ({
 }))
 
 import { buildTableDocPdfBlob } from './buildPdf'
-import type { TableDocLabels } from './labels'
+import { TABLE_DOC_LABELS as LABELS } from './labels.fixture'
 
 // Korean labels (mirrors the previous hardcoded strings) so existing assertions
 // hold AND we verify the builder emits exactly the labels it is given.
-const LABELS: TableDocLabels = {
-  columnHeaders: ['컬럼명', '데이터타입', 'PK', 'FK', 'NN', 'UNIQUE', '기본값', '설명'],
-  enumColEnum: 'Enum',
-  enumColValue: '값',
-  enumColNote: '설명',
-  enumsSheet: 'Enums',
-  checks: 'CHECK 제약',
-  checkName: '이름',
-  checkValues: '허용값',
-  checkExpression: '표현식',
-  fks: 'FK 제약',
-  fkName: 'FK명',
-  fkColumns: '컬럼',
-  fkRefTable: '참조 테이블',
-  fkRefColumns: '참조 컬럼',
-}
-
 const model: TableDocModel = {
   tables: [
     {
@@ -91,6 +74,7 @@ const model: TableDocModel = {
           targetColumns: ['id'],
         },
       ],
+      checks: [],
     },
     {
       id: 'public.orgs',
@@ -110,6 +94,7 @@ const model: TableDocModel = {
         },
       ],
       fkTargets: [],
+      checks: [],
     },
   ],
   enums: [
@@ -121,6 +106,7 @@ const model: TableDocModel = {
       values: [{ name: 'admin', note: 'super user' }],
     },
   ],
+  groups: [],
 }
 
 describe('buildTableDocPdfBlob', () => {
@@ -215,6 +201,7 @@ describe('buildTableDocPdfBlob', () => {
         },
       ],
       enums: [],
+      groups: [],
     }
     await buildTableDocPdfBlob(withChecks, LABELS)
     // calls: column autoTable, CHECK autoTable, enum autoTable
@@ -234,9 +221,11 @@ describe('buildTableDocPdfBlob', () => {
           note: '',
           columns: [],
           fkTargets: [],
+          checks: [],
         },
       ],
       enums: [],
+      groups: [],
     }
     await buildTableDocPdfBlob(emptyColsModel, LABELS)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,6 +245,7 @@ describe('buildTableDocPdfBlob', () => {
           values: [{ name: 'admin', note: '' }],
         },
       ],
+      groups: [],
     }
     await buildTableDocPdfBlob(enumOnlyModel, LABELS)
     expect(autoTable).toHaveBeenCalledTimes(1)

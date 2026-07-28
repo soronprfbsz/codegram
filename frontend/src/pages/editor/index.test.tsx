@@ -142,6 +142,7 @@ describe('EditorPage', () => {
             columns: [
               { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
             ],
+            checks: [],
           },
         ],
         refs: [],
@@ -317,6 +318,7 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
         columns: [
           { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
         ],
+        checks: [],
       },
     ],
     refs: [],
@@ -424,6 +426,7 @@ describe('EditorPage — Phase 5 selection wiring', () => {
         columns: [
           { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
         ],
+        checks: [],
       },
     ],
     refs: [],
@@ -518,6 +521,7 @@ describe('EditorPage — SQL import wiring (topbar)', () => {
         columns: [
           { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
         ],
+        checks: [],
       },
     ],
     refs: [],

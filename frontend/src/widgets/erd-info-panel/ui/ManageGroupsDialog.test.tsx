@@ -7,9 +7,9 @@ import type { GroupOpHandlers } from '../model/types'
 
 const SCHEMA: DbmlSchema = {
   tables: [
-    { id: 'public.users', name: 'users', schema: 'public', columns: [] },
-    { id: 'public.posts', name: 'posts', schema: 'public', columns: [] },
-    { id: 'public.logs', name: 'logs', schema: 'public', columns: [] },
+    { id: 'public.users', name: 'users', schema: 'public', columns: [], checks: []  },
+    { id: 'public.posts', name: 'posts', schema: 'public', columns: [], checks: []  },
+    { id: 'public.logs', name: 'logs', schema: 'public', columns: [], checks: []  },
   ],
   refs: [],
   enums: [],

@@ -119,7 +119,10 @@ describe('useLayoutPersistence — edge paths', () => {
     const { result, rerender } = renderHook(
       (props: Parameters<typeof useLayoutPersistence>[0]) =>
         useLayoutPersistence(props),
-      { initialProps: { projectId: undefined, projectLayout: undefined } },
+      {
+        initialProps: { projectId: undefined, projectLayout: undefined } as
+          Parameters<typeof useLayoutPersistence>[0],
+      },
     )
     expect(result.current.edgePaths).toEqual({})
 

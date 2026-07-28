@@ -13,6 +13,7 @@ const baseSchema: DbmlSchema = {
         { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
         { id: 'public.users.email', name: 'email', type: 'varchar', pk: false, notNull: true, unique: true, increment: false, isFk: false },
       ],
+      checks: [],
     },
     {
       id: 'public.posts',
@@ -21,6 +22,7 @@ const baseSchema: DbmlSchema = {
       columns: [
         { id: 'public.posts.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
       ],
+      checks: [],
     },
   ],
   refs: [
@@ -216,6 +218,7 @@ describe('ErdInfoPanel — create group', () => {
   const handlers = {
     onCreateGroup: vi.fn(), onRenameGroup: vi.fn(), onDeleteGroup: vi.fn(),
     onSetGroupColor: vi.fn(), onMoveTable: vi.fn(),
+    onMoveTables: vi.fn(), onMoveTablesToNewGroup: vi.fn(),
   }
 
   beforeEach(() => {

@@ -7,6 +7,7 @@ import {
   useReactFlow,
   useStore,
   useViewport,
+  type Edge,
   type NodeTypes,
   type EdgeTypes,
   type ReactFlowInstance,
@@ -37,7 +38,6 @@ import {
   type ErdColumn,
   type CanvasSelection,
   type SelectionInfo,
-  type RelationEdgeData,
 } from '@/entities/erd'
 import {
   reconcileLayout,
@@ -814,14 +814,14 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   const edgeCacheRef = useRef<
     Map<
       string,
-      { e: unknown; act: boolean; sel: boolean; stored: unknown; sax: number; tax: number; out: object }
+      { e: unknown; act: boolean; sel: boolean; stored: unknown; sax: number; tax: number; out: Edge }
     >
   >(new Map())
   const displayEdges = useMemo(() => {
     const prevCache = edgeCacheRef.current
     const nextCache = new Map<
       string,
-      { e: unknown; act: boolean; sel: boolean; stored: unknown; sax: number; tax: number; out: object }
+      { e: unknown; act: boolean; sel: boolean; stored: unknown; sax: number; tax: number; out: Edge }
     >()
     const out = edges.map((e) => {
       const stored = edgePaths?.[e.id]

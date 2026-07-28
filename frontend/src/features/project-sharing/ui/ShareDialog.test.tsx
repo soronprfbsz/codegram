@@ -36,7 +36,7 @@ describe('ShareDialog', () => {
   it('invites by email via POST and clears the field', async () => {
     const fetchSpy = vi
       .spyOn(client, 'apiFetch')
-      .mockImplementation((path: string, init?: RequestInit) => {
+      .mockImplementation((_path: string, init?: RequestInit) => {
         if (init?.method === 'POST') {
           return Promise.resolve({
             user_id: 'u-carol',
