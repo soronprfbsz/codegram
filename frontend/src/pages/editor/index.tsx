@@ -42,6 +42,8 @@ import type { CanvasSelection, SelectionInfo } from '@/entities/erd'
 import { useLayoutPersistence } from '@/features/layout-persistence'
 import { type DiagramExportContext } from '@/features/export-diagram'
 import { SqlImportDialog } from '@/features/sql-import'
+import { AlertDialog } from '@/shared/ui/alert-dialog'
+import { ApiError } from '@/shared/api/client'
 import { ErdTopBar } from '@/widgets/erd-topbar'
 import { ExportMenu } from '@/widgets/export-menu'
 import { useEditLease, LockStatusControl, BumpedDialog } from '@/features/edit-lock'
@@ -129,6 +131,8 @@ export function EditorPage() {
   // 두 패널은 상호배타이며, 둘 다 탑바 버튼으로 토글한다(기본 모두 hide).
   const [activePanel, setActivePanel] = useState<'info' | 'history' | null>(null)
   const [previewId, setPreviewId] = useState<string | null>(null)
+  // Restore failures are announced, not swallowed (403 viewer / 409 lock).
+  const [restoreError, setRestoreError] = useState<string | null>(null)
   const previewing = previewId !== null
   // Role-based access (ADR-0015): editors/owners can edit; viewers are read-only.
   const canEdit = project?.role === 'owner' || project?.role === 'editor'
@@ -168,6 +172,24 @@ export function EditorPage() {
   }, [previewSnapshot])
   const previewLayout = previewSnapshot?.layout as Partial<StoredLayout> | undefined
 
+  /**
+   * Why a restore was refused, in the user's words. The server answers 403 for
+   * a viewer and 409 for a live edit lock / stale version; without this the
+   * request just failed silently and the overlay sat there looking fine.
+   */
+  function restoreErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+      if (error.status === 403) return t('snapshot.restoreForbidden')
+      if (error.status === 404) return t('snapshot.restoreNotFound')
+      if (error.status === 409) {
+        return error.reason === 'stale_version'
+          ? t('snapshot.restoreStale')
+          : t('snapshot.restoreLocked')
+      }
+    }
+    return t('snapshot.restoreFailed')
+  }
+
   function handleRestore() {
     if (!previewId) return
     restore.mutate(previewId, {
@@ -179,6 +201,7 @@ export function EditorPage() {
         reseed(proj.layout)
         setPreviewId(null)
       },
+      onError: (e) => setRestoreError(restoreErrorMessage(e)),
     })
   }
   // Live, debounced parse of the editor text into the normalized model.
@@ -447,6 +470,7 @@ export function EditorPage() {
           </TopbarIconButton>
         }
         importMenu={
+          readOnly ? null : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <TopbarButton data-testid="import-menu-button" aria-label={t('topbar.import')}>
@@ -466,6 +490,7 @@ export function EditorPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          )
         }
         exportMenu={
           <ExportMenu
@@ -702,6 +727,7 @@ export function EditorPage() {
             onSelect={handleCanvasSelect}
             onSelectionInfo={setSelectionInfo}
             searchHighlightColIds={searchHighlightColIds}
+            readOnly={previewing || readOnly}
           />
 
           {/* 프로젝트 전환 로딩 오버레이 — 현재 프로젝트 파싱이 settle될 때까지
@@ -845,7 +871,7 @@ export function EditorPage() {
                   selected={selected}
                   onSelect={focusTable}
                   groupOps={groupOps}
-                  mutationsEnabled={mutationsEnabled}
+                  mutationsEnabled={mutationsEnabled && !readOnly}
                   onCollapse={() => setActivePanel(null)}
                 />
               </div>
@@ -856,6 +882,13 @@ export function EditorPage() {
 
       {/* Dialogs / overlays — the 테이블 정의서 HTML overlay is now mounted
           once in AppLayout (opened from the sidebar's "⋯" menu). */}
+      <AlertDialog
+        open={restoreError !== null}
+        onOpenChange={(o) => { if (!o) setRestoreError(null) }}
+        testId="snapshot-restore-error"
+        title={t('snapshot.restoreFailedTitle')}
+        description={restoreError ?? ''}
+      />
       <BumpedDialog
         open={lease.bumped}
         onOpenChange={(o) => {

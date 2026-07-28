@@ -68,6 +68,7 @@ describe('EditorPage', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text: 'Table users {\n  id int [pk]\n}',
         layout: {},
@@ -94,6 +95,7 @@ describe('EditorPage', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text: 'Table users {\n  id int [pk]\n}',
         layout: {},
@@ -121,6 +123,7 @@ describe('EditorPage', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text: 'Table users {\n  id int [pk]\n}',
         layout: {},
@@ -183,6 +186,7 @@ describe('EditorPage', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text: 'Table T {\n  Checks {\n    x\n  }\n}',
         layout: {},
@@ -213,6 +217,7 @@ describe('EditorPage', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text: 'Table users {\n  id int [pk]\n}',
         layout: {},
@@ -247,6 +252,7 @@ describe('EditorPage', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text: 'Table users {\n  id int [pk]\n}',
         layout: {
@@ -287,6 +293,7 @@ describe('EditorPage', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text: 'Table users {\n  id int [pk]\n}',
         layout: { version: 1, positions: { 'public.users': { x: 1, y: 2 } } } as Record<string, unknown>,
@@ -332,6 +339,7 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text: 'Table users {\n  id integer [pk]\n}',
         layout: {},
@@ -442,6 +450,7 @@ describe('EditorPage — Phase 5 selection wiring', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text: 'Table users {\n  id integer [pk]\n}',
         layout: {},
@@ -535,6 +544,7 @@ describe('EditorPage — SQL import wiring (topbar)', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text,
         layout: {},
@@ -633,6 +643,7 @@ describe('EditorPage — DB Sync wiring', () => {
       data: {
         id: 'p-1',
         user_id: 'u-1',
+        role: 'owner',
         name: 'My Project',
         dbml_text,
         layout: {},

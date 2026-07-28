@@ -228,6 +228,81 @@ test.describe('Project collaboration', () => {
     await ownerCtx.close()
   })
 
+  test('a viewer can read everything but change nothing', async ({ browser }) => {
+    const stamp = Date.now()
+    const password = 'password123'
+    const viewerEmail = `viewer-ro-${stamp}@example.com`
+    // Just enough tables to overflow the editor surface; a bigger fixture only
+    // adds canvas work and slows the whole suite down.
+    const longDbml = Array.from(
+      { length: 20 },
+      (_, i) => `Table t${i} {\n  id integer [pk]\n  name varchar\n}`,
+    ).join('\n\n')
+
+    const viewerCtx = await browser.newContext()
+    const viewer = await viewerCtx.newPage()
+    await registerAndLogin(viewer, viewerEmail, password)
+
+    const ownerCtx = await browser.newContext()
+    const owner = await ownerCtx.newPage()
+    await registerAndLogin(owner, `owner-ro2-${stamp}@example.com`, password)
+    const created = await ownerCtx.request.post('/api/projects', {
+      data: { name: 'Viewer Read Only', dbml_text: longDbml },
+    })
+    const projectId = (await created.json()).id as string
+    await inviteViaApi(ownerCtx, projectId, viewerEmail, 'viewer')
+    const snap = await ownerCtx.request.post(
+      `/api/projects/${projectId}/snapshots`,
+      { data: { label: 'v1' } },
+    )
+    expect(snap.status()).toBe(201)
+
+    await viewer.goto(`/editor/${projectId}`)
+    await viewer.waitForSelector('[data-testid="erd-canvas"]', { timeout: 20000 })
+
+    // Reading is not restricted: the DBML still scrolls.
+    const scroller = viewer.locator('[data-testid="dbml-editor"] .cm-scroller')
+    await scroller.hover()
+    await viewer.mouse.wheel(0, 600)
+    await expect
+      .poll(() => scroller.evaluate((el) => el.scrollTop))
+      .toBeGreaterThan(0)
+
+    // Writing is: dragging a table used to move it on screen and then quietly
+    // fail to save, because readOnly never reached the live canvas.
+    const node = viewer.locator('.react-flow__node').first()
+    const before = await node.boundingBox()
+    if (before) {
+      await viewer.mouse.move(before.x + before.width / 2, before.y + 10)
+      await viewer.mouse.down()
+      await viewer.mouse.move(
+        before.x + before.width / 2 + 160,
+        before.y + 130,
+        { steps: 12 },
+      )
+      await viewer.mouse.up()
+    }
+    await viewer.waitForTimeout(1000)
+    const after = await node.boundingBox()
+    expect(Math.abs((after?.x ?? 0) - (before?.x ?? 0))).toBeLessThan(20)
+
+    // Entry points that rewrite content are gone rather than dead.
+    await expect(viewer.getByTestId('auto-arrange-button')).toBeHidden()
+    await expect(viewer.getByTestId('import-menu-button')).toBeHidden()
+
+    // And a refused restore says why instead of failing silently.
+    await viewer.getByTestId('snapshot-history-button').click()
+    await viewer.locator('[data-testid^="snapshot-row-"]').first().click()
+    await expect(viewer.getByTestId('snapshot-preview-overlay')).toBeVisible()
+    await viewer.getByTestId('snapshot-preview-restore').click()
+    await expect(viewer.getByTestId('snapshot-restore-error')).toContainText(
+      '편집 권한이 없어 원복할 수 없습니다',
+    )
+
+    await viewerCtx.close()
+    await ownerCtx.close()
+  })
+
   test('owner transfers ownership; the former owner becomes an editor', async ({
     browser,
   }) => {
