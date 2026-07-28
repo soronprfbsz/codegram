@@ -9,7 +9,7 @@ import {
   lockQueryKeys,
   releaseLock,
 } from './editLock'
-import type { LockStatus } from '../model/types'
+import type { EditConflictReason, LockStatus } from '../model/types'
 
 const HEARTBEAT_MS = 20_000
 const POLL_MS = 15_000
@@ -23,13 +23,15 @@ export interface EditLease {
   holderEmail: string | null
   /** Owner may force-take a live lock held by someone else. */
   canForce: boolean
-  /** The caller was editing and lost the lock (force/expiry takeover). */
+  /** A content write was rejected 409 — the conflict dialog is open. */
   bumped: boolean
+  /** Which kind of 409 it was, so the dialog can say the right thing. */
+  conflictReason: EditConflictReason | null
   takeover: () => void
   force: () => void
   clearBumped: () => void
   /** Called by autosave on a 409 — the caller's write was rejected. */
-  reportConflict: () => void
+  reportConflict: (reason?: string) => void
 }
 
 /**
@@ -43,7 +45,8 @@ export function useEditLease(
   { canEdit, isOwner }: { canEdit: boolean; isOwner: boolean },
 ): EditLease {
   const qc = useQueryClient()
-  const [bumped, setBumped] = useState(false)
+  const [conflict, setConflict] = useState<EditConflictReason | null>(null)
+  const bumped = conflict !== null
 
   const statusQuery = useQuery({
     queryKey: lockQueryKeys.status(projectId),
@@ -69,14 +72,14 @@ export function useEditLease(
     mutationFn: () => acquireLock(projectId),
     onSuccess: (s) => {
       writeStatus(s)
-      setBumped(false)
+      setConflict(null)
     },
   })
   const forceMut = useMutation({
     mutationFn: () => forceLock(projectId),
     onSuccess: (s) => {
       writeStatus(s)
-      setBumped(false)
+      setConflict(null)
     },
   })
 
@@ -104,7 +107,8 @@ export function useEditLease(
       if (document.visibilityState !== 'visible' || !holderRef.current) return
       acquireRef.current.mutate(undefined, {
         onError: (e) => {
-          if (e instanceof ApiError && e.status === 409) setBumped(true)
+          // An acquire only ever 409s because someone else holds the lease.
+          if (e instanceof ApiError && e.status === 409) setConflict('edit_locked')
         },
       })
     }, HEARTBEAT_MS)
@@ -112,7 +116,7 @@ export function useEditLease(
   }, [projectId, canEdit])
 
   const clearBumped = useCallback(() => {
-    setBumped(false)
+    setConflict(null)
     qc.invalidateQueries({ queryKey: projectQueryKeys.detail(projectId) })
     void statusQuery.refetch()
   }, [qc, projectId, statusQuery])
@@ -125,9 +129,11 @@ export function useEditLease(
     holderEmail: status?.locked_by_email ?? null,
     canForce: isOwner && lockedByOther,
     bumped,
+    conflictReason: conflict,
     takeover: () => acquire.mutate(),
     force: () => forceMut.mutate(),
     clearBumped,
-    reportConflict: () => setBumped(true),
+    reportConflict: (reason?: string) =>
+      setConflict(reason === 'stale_version' ? 'stale_version' : 'edit_locked'),
   }
 }

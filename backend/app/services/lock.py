@@ -81,7 +81,7 @@ class LockService:
         await self.projects.get_authorized(
             project_id, user_id, Capability.FORCE_LOCK
         )
-        await self.locks.upsert(
+        await self.locks.force_take(
             project_id, user_id, now_utc() + timedelta(seconds=LOCK_TTL_SECONDS)
         )
         return await self._state(await self.locks.get(project_id), user_id)

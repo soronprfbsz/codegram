@@ -862,6 +862,7 @@ export function EditorPage() {
           if (!o) lease.clearBumped()
         }}
         dbmlText={dbmlText}
+        reason={lease.conflictReason}
       />
       <SqlImportDialog
         open={importOpen}

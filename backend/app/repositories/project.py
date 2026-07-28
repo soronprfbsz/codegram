@@ -10,7 +10,7 @@ import uuid
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
@@ -108,6 +108,30 @@ class ProjectRepository:
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def bump_version_if(self, project: Project, expected: int) -> bool:
+        """Increment version iff it still equals `expected`; return whether it did.
+
+        The compare and the increment are one statement so two concurrent
+        content writes cannot both pass: the second blocks on the row, then
+        re-reads the winner's committed version and matches nothing. Doing the
+        compare in Python first let both writers see the same version and both
+        proceed, silently losing one edit (ADR-0015's optimistic backstop).
+        """
+        stmt = (
+            update(Project)
+            .where(Project.id == project.id, Project.version == expected)
+            .values(version=Project.version + 1)
+            .returning(Project.version)
+            .execution_options(synchronize_session=False)
+        )
+        fresh = (await self.session.execute(stmt)).scalar_one_or_none()
+        if fresh is None:
+            return False
+        # Keep the ORM copy in step with the row we just wrote, so the flush at
+        # the end of this request doesn't push the pre-increment value back.
+        project.version = fresh
+        return True
 
     async def update(
         self,

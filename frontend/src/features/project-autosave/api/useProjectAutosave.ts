@@ -36,10 +36,12 @@ interface UseProjectAutosaveOptions {
    */
   version?: number
   /**
-   * Called when a save is rejected 409 (the edit lock was taken over, or the
-   * version was stale) — the editor surfaces the "bumped" dialog.
+   * Called when a save is rejected 409 — the editor surfaces the conflict
+   * dialog. Receives the server's `reason` ("edit_locked" when someone else
+   * took the lease, "stale_version" when a newer save landed first) so the
+   * dialog can say which one happened instead of always blaming a takeover.
    */
-  onConflict?: () => void
+  onConflict?: (reason?: string) => void
 }
 
 interface UseProjectAutosaveResult {
@@ -112,7 +114,7 @@ export function useProjectAutosave({
           }
           // 409 = edit lock taken over or stale version → let the editor react.
           if (error instanceof ApiError && error.status === 409) {
-            onConflictRef.current?.()
+            onConflictRef.current?.(error.reason)
           }
         },
       },

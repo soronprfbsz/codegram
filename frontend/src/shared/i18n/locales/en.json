@@ -163,6 +163,8 @@
     "forceTakeover": "Force takeover",
     "bumpedTitle": "Editing was taken over",
     "bumpedDesc": "Another user took over editing, so changes in this window were not saved. To keep your work, copy the current DBML, then reload.",
+    "staleTitle": "This window is out of date",
+    "staleDesc": "A newer save landed first, so this window's changes were not saved. You still hold the edit lease. Copy the current DBML if you want to keep it, then reload.",
     "copyDbml": "Copy current DBML",
     "reload": "Reload"
   },

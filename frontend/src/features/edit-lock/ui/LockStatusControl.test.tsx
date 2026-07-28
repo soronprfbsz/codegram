@@ -12,6 +12,7 @@ function lease(over: Partial<EditLease> = {}): EditLease {
     holderEmail: null,
     canForce: false,
     bumped: false,
+    conflictReason: null,
     takeover: vi.fn(),
     force: vi.fn(),
     clearBumped: vi.fn(),

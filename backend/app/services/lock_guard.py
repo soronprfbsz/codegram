@@ -46,19 +46,35 @@ async def take_or_conflict(
     user_id: uuid.UUID,
 ) -> None:
     """Auto-acquire a free/own/expired lock for user_id; raise
-    EditLockConflictError when another user holds it live."""
+    EditLockConflictError when another user holds it live.
+
+    The take is a single conditional statement (LockRepository.try_take), so
+    two concurrent callers cannot both win. Only the loser re-reads the row, to
+    name the holder in the error.
+    """
+    now = now_utc()
+    took = await locks.try_take(
+        project_id, user_id, now + timedelta(seconds=LOCK_TTL_SECONDS), now
+    )
+    if took:
+        return
     lock = await locks.get(project_id)
-    if (
-        lock is not None
-        and lock.locked_by != user_id
-        and aware(lock.expires_at) > now_utc()
-    ):
-        holder = await users.get_by_id(lock.locked_by)
-        raise EditLockConflictError(
-            lock.locked_by,
-            holder.email if holder is not None else None,
-            aware(lock.expires_at),
-        )
-    await locks.upsert(
-        project_id, user_id, now_utc() + timedelta(seconds=LOCK_TTL_SECONDS)
+    if lock is None:
+        # The holder released between our take and this read — the lease is
+        # free again, so retry once rather than reporting a phantom conflict.
+        if await locks.try_take(
+            project_id,
+            user_id,
+            now_utc() + timedelta(seconds=LOCK_TTL_SECONDS),
+            now_utc(),
+        ):
+            return
+        lock = await locks.get(project_id)
+        if lock is None:  # pragma: no cover - would need a third racer
+            raise EditLockConflictError(user_id, None, now_utc())
+    holder = await users.get_by_id(lock.locked_by)
+    raise EditLockConflictError(
+        lock.locked_by,
+        holder.email if holder is not None else None,
+        aware(lock.expires_at),
     )

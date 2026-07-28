@@ -175,9 +175,12 @@ class ProjectService:
         is_content_write = dbml_text is not None or layout is not None
         if is_content_write:
             await take_or_conflict(self.locks, self.users, project_id, user_id)
-            if version is not None and version != project.version:
+            # Compare-and-increment in one statement. When the caller sent no
+            # version, guard against the version we just read anyway — that is
+            # what stops two concurrent writes from losing one of the edits.
+            expected = version if version is not None else project.version
+            if not await self.repo.bump_version_if(project, expected):
                 raise StaleVersionError(project_id)
-            project.version += 1
             # Record the author of this content edit (auto snapshots attribute to
             # the project's last editor). Metadata-only writes don't count.
             project.last_edited_by = user_id

@@ -67,7 +67,9 @@ async def test_expired_lock_can_be_taken_over(
 ) -> None:
     locks, project, owner, editor = await _setup(test_session)
     # Owner held it but it expired a minute ago.
-    await locks.locks.upsert(project.id, owner, now_utc() - timedelta(minutes=1))
+    await locks.locks.force_take(
+        project.id, owner, now_utc() - timedelta(minutes=1)
+    )
 
     state = await locks.acquire(project.id, editor)
     assert state.is_me and state.locked_by == editor
@@ -162,3 +164,64 @@ async def test_version_backstop_rejects_stale_and_bumps(
         project.id, owner, dbml_text="x", version=0
     )
     assert updated.version == 1
+
+
+# --- the take is one conditional statement, not check-then-write --------------
+# These pin the semantics of LockRepository.try_take. The races they guard
+# against (two concurrent acquires both winning, or colliding on the primary
+# key) need two real connections, which this single-session sqlite suite cannot
+# stage — the conditional statement is what makes the database enforce it.
+async def test_try_take_succeeds_when_free_or_own(
+    test_session: AsyncSession,
+) -> None:
+    locks, project, owner, _editor = await _setup(test_session)
+    now = now_utc()
+    later = now + timedelta(seconds=60)
+
+    assert await locks.locks.try_take(project.id, owner, later, now) is True
+    # Renewing one's own live lease is still allowed.
+    assert await locks.locks.try_take(project.id, owner, later, now) is True
+
+
+async def test_try_take_refuses_a_live_lease_of_another_user(
+    test_session: AsyncSession,
+) -> None:
+    locks, project, owner, editor = await _setup(test_session)
+    now = now_utc()
+    later = now + timedelta(seconds=60)
+    assert await locks.locks.try_take(project.id, owner, later, now) is True
+
+    assert await locks.locks.try_take(project.id, editor, later, now) is False
+    lock = await locks.locks.get(project.id)
+    assert lock is not None and lock.locked_by == owner
+
+
+async def test_try_take_wins_an_expired_lease(test_session: AsyncSession) -> None:
+    locks, project, owner, editor = await _setup(test_session)
+    now = now_utc()
+    await locks.locks.force_take(project.id, owner, now - timedelta(seconds=1))
+
+    assert (
+        await locks.locks.try_take(
+            project.id, editor, now + timedelta(seconds=60), now
+        )
+        is True
+    )
+    lock = await locks.locks.get(project.id)
+    assert lock is not None and lock.locked_by == editor
+
+
+async def test_bump_version_if_is_a_compare_and_increment(
+    test_session: AsyncSession,
+) -> None:
+    _locks, project, _owner, _editor = await _setup(test_session)
+    projects = ProjectService(test_session)
+    assert project.version == 0
+
+    # Wrong expectation → no write at all.
+    assert await projects.repo.bump_version_if(project, 7) is False
+    assert project.version == 0
+
+    # Right expectation → increments, and the ORM copy follows the row.
+    assert await projects.repo.bump_version_if(project, 0) is True
+    assert project.version == 1
