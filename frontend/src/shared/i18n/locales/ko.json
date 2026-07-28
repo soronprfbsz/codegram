@@ -161,6 +161,8 @@
     "editing": "{{email}} 님이 편집 중",
     "takeover": "편집 이어받기",
     "forceTakeover": "강제 이어받기",
+    "leaseLost": "편집 권한을 잃었습니다",
+    "tookOver": "{{email}} 님이 편집을 이어받았습니다",
     "bumpedTitle": "편집 권한이 넘어갔습니다",
     "bumpedDesc": "다른 사용자가 편집을 이어받아 이 창의 변경사항은 저장되지 않았습니다. 작업 내용을 보존하려면 현재 DBML을 복사한 뒤 새로고침하세요.",
     "staleTitle": "이 창의 내용이 최신이 아닙니다",

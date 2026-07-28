@@ -173,6 +173,61 @@ test.describe('Project collaboration', () => {
     await ownerCtx.close()
   })
 
+  test('closing the editor tab hands the edit lease back at once', async ({
+    browser,
+  }) => {
+    const stamp = Date.now()
+    const password = 'password123'
+    const ownerEmail = `owner-rel-${stamp}@example.com`
+    const memberEmail = `editor-rel-${stamp}@example.com`
+
+    const memberCtx = await browser.newContext()
+    const member = await memberCtx.newPage()
+    await registerAndLogin(member, memberEmail, password)
+
+    const ownerCtx = await browser.newContext()
+    const owner = await ownerCtx.newPage()
+    await registerAndLogin(owner, ownerEmail, password)
+    const created = await ownerCtx.request.post('/api/projects', {
+      data: { name: 'Release On Close', dbml_text: 'Table t { id integer [pk] }' },
+    })
+    const projectId = (await created.json()).id as string
+    await inviteViaApi(ownerCtx, projectId, memberEmail, 'editor')
+
+    // The member must really be a participant: a non-participant gets 404 from
+    // the status endpoint, whose body has no `locked` — which would read as
+    // "free" and make this test pass without the release ever happening.
+    const lockStatus = async () => {
+      const r = await memberCtx.request.get(
+        `/api/projects/${projectId}/edit-lock`,
+      )
+      expect(r.status()).toBe(200)
+      return (await r.json()).locked as boolean
+    }
+
+    const editorTab = await ownerCtx.newPage()
+    const acquired = editorTab.waitForResponse(
+      (r) =>
+        r.url().includes('/edit-lock') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+    )
+    await editorTab.goto(`/editor/${projectId}`)
+    await acquired
+    await editorTab.waitForSelector('[data-testid="erd-canvas"]', {
+      timeout: 15000,
+    })
+    expect(await lockStatus()).toBe(true)
+
+    // Closing the tab used to leave the lease held for the full 60s TTL: only
+    // React unmount released it, and that never runs on a close (ADR-0024).
+    await editorTab.close()
+    await expect.poll(lockStatus, { timeout: 10_000 }).toBe(false)
+
+    await memberCtx.close()
+    await ownerCtx.close()
+  })
+
   test('owner transfers ownership; the former owner becomes an editor', async ({
     browser,
   }) => {

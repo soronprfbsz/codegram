@@ -27,6 +27,12 @@ export interface EditLease {
   bumped: boolean
   /** Which kind of 409 it was, so the dialog can say the right thing. */
   conflictReason: EditConflictReason | null
+  /**
+   * The caller held the lease and no longer does. Surfaced the moment the
+   * status poll notices, so they hear it from the topbar instead of from a
+   * rejected save (ADR-0024). Cleared once they hold it again.
+   */
+  lostLease: boolean
   takeover: () => void
   force: () => void
   clearBumped: () => void
@@ -36,9 +42,13 @@ export interface EditLease {
 
 /**
  * Drive the single-editor edit lease for a project (ADR-0015): acquire on
- * mount, renew on a visibility-gated heartbeat, release on unmount, and poll
+ * mount, renew on a heartbeat, release on unmount AND on tab close, and poll
  * status so read-only users see who is editing. `canEdit` (owner/editor) gates
  * acquisition; `isOwner` gates force-takeover.
+ *
+ * Handing the lease over is explicit at both ends (ADR-0024): closing the tab
+ * gives it back at once, and losing it raises `lostLease` immediately instead
+ * of letting the user find out from a rejected save.
  */
 export function useEditLease(
   projectId: string,
@@ -46,6 +56,7 @@ export function useEditLease(
 ): EditLease {
   const qc = useQueryClient()
   const [conflict, setConflict] = useState<EditConflictReason | null>(null)
+  const [lostLease, setLostLease] = useState(false)
   const bumped = conflict !== null
 
   const statusQuery = useQuery({
@@ -100,11 +111,37 @@ export function useEditLease(
     return () => releaseLock(projectId)
   }, [projectId, canEdit])
 
-  // Visibility-gated heartbeat: renew only while holding and the tab is visible.
+  // Closing the tab/browser hands the lease back immediately (ADR-0024).
+  // Unmount alone never fires on a close, so without this the next editor waits
+  // out the full TTL. releaseLock uses keepalive, so the DELETE still goes out.
+  // NOT wired to visibilitychange: switching tabs is part of an edit session.
+  useEffect(() => {
+    if (!projectId || !canEdit) return
+    // Unconditional on purpose: gating this on locally-known holder state
+    // leaks the lease when the tab closes before the first status lands, which
+    // is the very hole this exists to close. The server only deletes the row
+    // when the caller holds it, so a release from a non-holder is a no-op.
+    const onPageHide = () => releaseLock(projectId)
+    // Restored from the back/forward cache: the lease was released on the way
+    // out, so take it again rather than editing without one.
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) acquireRef.current.mutate()
+    }
+    window.addEventListener('pagehide', onPageHide)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      window.removeEventListener('pageshow', onPageShow)
+    }
+  }, [projectId, canEdit])
+
+  // Heartbeat: renew while holding, hidden tab included (ADR-0024). Gating this
+  // on visibility meant reading another tab for a minute silently expired the
+  // lease; abandoned tabs are now reclaimed by the pagehide release above.
   useEffect(() => {
     if (!projectId || !canEdit) return
     const id = setInterval(() => {
-      if (document.visibilityState !== 'visible' || !holderRef.current) return
+      if (!holderRef.current) return
       acquireRef.current.mutate(undefined, {
         onError: (e) => {
           // An acquire only ever 409s because someone else holds the lease.
@@ -114,6 +151,26 @@ export function useEditLease(
     }, HEARTBEAT_MS)
     return () => clearInterval(id)
   }, [projectId, canEdit])
+
+  // Losing the lease is announced, not discovered by a failing save (ADR-0024):
+  // the moment the polled status stops naming us, raise a flag the topbar turns
+  // into "you lost it / resume editing".
+  const heldRef = useRef(false)
+  useEffect(() => {
+    if (isHolder) {
+      heldRef.current = true
+      setLostLease(false)
+      return
+    }
+    if (heldRef.current && canEdit) setLostLease(true)
+    heldRef.current = false
+  }, [isHolder, canEdit])
+
+  // A project switch is not a loss — start the next project with a clean slate.
+  useEffect(() => {
+    heldRef.current = false
+    setLostLease(false)
+  }, [projectId])
 
   const clearBumped = useCallback(() => {
     setConflict(null)
@@ -130,6 +187,7 @@ export function useEditLease(
     canForce: isOwner && lockedByOther,
     bumped,
     conflictReason: conflict,
+    lostLease,
     takeover: () => acquire.mutate(),
     force: () => forceMut.mutate(),
     clearBumped,

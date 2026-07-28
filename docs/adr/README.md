@@ -57,4 +57,4 @@
 | [0021](0021-clickhouse-introspection-structured-columns.md) | ClickHouse 인트로스펙션 = 구조화 컬럼(JSON)→프론트 DBML 직접생성, 테이블·컬럼만 | `db-integration` | Accepted · Related: 0008, 0002, 0009 |
 | [0022](0022-request-unit-of-work-commits-before-response.md) | 요청 단위 작업의 커밋은 응답 전송 전에 끝낸다(`scope="function"`) | `architecture` | Accepted · Related: 0006, 0007 |
 | [0023](0023-manual-snapshot-label-is-its-identity.md) | 수동 스냅샷의 라벨은 식별자 — 같은 라벨 저장은 확인 후 덮어쓰기 | `collaboration` | Accepted · Related: 0014 |
-| [0024](0024-edit-lease-handover-is-announced-not-discovered.md) | 편집 리스는 닫을 때 즉시 반납, 뺏김은 저장 실패가 아니라 알림으로 | `collaboration` | **Proposed** · Related: 0015 |
+| [0024](0024-edit-lease-handover-is-announced-not-discovered.md) | 편집 리스는 닫을 때 즉시 반납, 뺏김은 저장 실패가 아니라 알림으로 | `collaboration` | Accepted · Related: 0015 |

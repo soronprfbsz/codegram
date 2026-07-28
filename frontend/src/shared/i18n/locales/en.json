@@ -161,6 +161,8 @@
     "editing": "{{email}} is editing",
     "takeover": "Take over editing",
     "forceTakeover": "Force takeover",
+    "leaseLost": "You no longer hold the edit lease",
+    "tookOver": "{{email}} took over editing",
     "bumpedTitle": "Editing was taken over",
     "bumpedDesc": "Another user took over editing, so changes in this window were not saved. To keep your work, copy the current DBML, then reload.",
     "staleTitle": "This window is out of date",
