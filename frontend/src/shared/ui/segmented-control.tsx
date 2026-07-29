@@ -33,11 +33,12 @@ export interface SegmentedControlProps<T extends string> {
  * A switch shows the state you are NOT in as well as the one you are, which a
  * badge plus a button cannot: those say one thing twice and leave the reader to
  * work out which is the label and which is the action. All colour, height and
- * radius come from the --erd-* tokens via .erd-segmented in index.css, so it
- * sits at exactly the same height as every other top-bar control (F1/F2).
+ * radius come from tokens via .erd-segmented in index.css, so it sits at
+ * exactly the same height as every other top-bar control (F1/F2).
  *
  * The selected thumb is a real sliding element rather than a background swap:
- * with a mode switch, seeing WHICH WAY you moved is the feedback.
+ * with a mode switch, seeing WHICH WAY you moved is the feedback. It is filled
+ * with --primary, the same colour a pressed toggle uses.
  */
 export function SegmentedControl<T extends string>({
   value,
