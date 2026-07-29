@@ -95,7 +95,10 @@ describe('EditorPage', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
 
     renderEditor()
 
@@ -122,7 +125,10 @@ describe('EditorPage', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
 
     renderEditor()
 
@@ -150,7 +156,10 @@ describe('EditorPage', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
 
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
       status: 'success',
@@ -213,7 +222,10 @@ describe('EditorPage', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
 
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
       status: 'error',
@@ -244,7 +256,10 @@ describe('EditorPage', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
 
     renderEditor()
 
@@ -282,7 +297,10 @@ describe('EditorPage', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
 
     renderEditor()
 
@@ -320,7 +338,10 @@ describe('EditorPage', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
 
     renderEditor()
 
@@ -366,7 +387,10 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
   }
 
   const setup = () =>
@@ -477,7 +501,10 @@ describe('EditorPage — Phase 5 selection wiring', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
       status: 'success',
       schema: selectionSchema,
@@ -571,7 +598,10 @@ describe('EditorPage — SQL import wiring (topbar)', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
   }
 
   const setup = () =>
@@ -673,7 +703,10 @@ describe('EditorPage — DB Sync wiring', () => {
       },
       isLoading: false,
       isError: false,
-    } as ReturnType<typeof project.useProject>)
+      // Entering edit mode resyncs through refetch (ADR-0025). These fixtures
+      // are already the current state, so hand back nothing and keep the seed.
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
   }
 
   const setup = () =>

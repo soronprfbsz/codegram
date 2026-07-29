@@ -115,13 +115,49 @@ describe('useEditLease', () => {
     vi.mocked(api.acquireLock).mockRejectedValue(new ApiError('conflict', 409))
     const { result } = renderLease()
     await waitFor(() => expect(result.current.lockedByOther).toBe(true))
-    expect(result.current.canEnterEditMode).toBe(false)
 
     await act(async () => {
       result.current.enterEditMode()
     })
-    await waitFor(() => expect(result.current.conflictReason).toBe('edit_locked'))
+    await waitFor(() => expect(result.current.enterBlocked).toBe(true))
     expect(result.current.editMode).toBe(false)
+    // A refused entry is not a bump: nothing was being edited, so the "your
+    // changes were not saved / copy your DBML" dialog must stay shut.
+    expect(result.current.bumped).toBe(false)
+    expect(result.current.conflictReason).toBe(null)
+  })
+
+  it('resyncs the project before unlocking the surfaces', async () => {
+    const order: string[] = []
+    vi.mocked(api.acquireLock).mockImplementation(async () => {
+      order.push('acquire')
+      return heldByMe()
+    })
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { result } = renderHook(
+      () =>
+        useEditLease(PROJECT, {
+          canEdit: true,
+          isOwner: false,
+          onEntered: async () => {
+            order.push('resync')
+            // Reading is still locked at this point — that is the whole point.
+            expect(result.current.readOnly).toBe(true)
+          },
+        }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+        ),
+      },
+    )
+    await act(async () => {
+      result.current.enterEditMode()
+    })
+    await waitFor(() => expect(result.current.editMode).toBe(true))
+    expect(order).toEqual(['acquire', 'resync'])
   })
 
   // --- closing the tab hands the lease back at once (ADR-0024) --------------

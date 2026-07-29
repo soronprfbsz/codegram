@@ -162,6 +162,8 @@
     "enterEdit": "Edit mode",
     "editingNow": "Editing",
     "exitEdit": "Done editing",
+    "enterBlockedTitle": "Cannot switch to edit mode",
+    "enterBlockedDesc": "Someone else started editing first. Try again once they are done.",
     "editing": "{{email}} is editing",
     "takeover": "Take over editing",
     "forceTakeover": "Force takeover",

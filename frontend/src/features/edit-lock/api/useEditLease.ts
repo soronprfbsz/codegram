@@ -41,10 +41,15 @@ export interface EditLease {
   enterEditMode: () => void
   /** Hand the lease back and return to reading. */
   exitEditMode: () => void
-  /** Entering is possible right now (may edit, and nobody else holds it). */
-  canEnterEditMode: boolean
   /** An enter attempt is in flight. */
   entering: boolean
+  /**
+   * The last attempt to enter edit mode was refused because someone else got
+   * the lease first. Distinct from `bumped`: nothing was being edited and
+   * nothing was lost — the door was just locked.
+   */
+  enterBlocked: boolean
+  clearEnterBlocked: () => void
   /** A content write was rejected 409 — the conflict dialog is open. */
   bumped: boolean
   /** Which kind of 409 it was, so the dialog can say the right thing. */
@@ -76,7 +81,21 @@ export interface EditLease {
  */
 export function useEditLease(
   projectId: string,
-  { canEdit, isOwner }: { canEdit: boolean; isOwner: boolean },
+  {
+    canEdit,
+    isOwner,
+    onEntered,
+  }: {
+    canEdit: boolean
+    isOwner: boolean
+    /**
+     * Awaited right after the lease is taken and BEFORE the surfaces unlock —
+     * the caller resyncs the project here. Reading may have gone stale while
+     * the user watched, and starting to type on top of someone else's finished
+     * edit would either be rejected as a stale version or quietly fight it.
+     */
+    onEntered?: () => Promise<void> | void
+  },
 ): EditLease {
   const qc = useQueryClient()
   const [conflict, setConflict] = useState<EditConflictReason | null>(null)
@@ -84,6 +103,7 @@ export function useEditLease(
   // Editing is opt-in per visit and never remembered: every entry starts read
   // only, so "opening a project reads it" holds without exception (ADR-0025).
   const [editMode, setEditMode] = useState(false)
+  const [enterBlocked, setEnterBlocked] = useState(false)
   const bumped = conflict !== null
 
   const statusQuery = useQuery({
@@ -208,19 +228,32 @@ export function useEditLease(
     setEditMode(false)
   }, [projectId])
 
+  const onEnteredRef = useRef(onEntered)
+  onEnteredRef.current = onEntered
+
   const enterEditMode = useCallback(() => {
+    setEnterBlocked(false)
     acquire.mutate(undefined, {
-      onSuccess: () => {
+      onSuccess: async () => {
+        // Resync BEFORE unlocking, so the first keystroke lands on the current
+        // document rather than the copy this window has been reading.
+        await onEnteredRef.current?.()
         setEditMode(true)
         setLostLease(false)
       },
       onError: (e) => {
-        // Someone took it between the poll and the click — say so instead of
-        // dropping the user into a mode that cannot write.
-        if (e instanceof ApiError && e.status === 409) setConflict('edit_locked')
+        // Someone took it between the poll and the click. This is NOT the
+        // "you were bumped" case — nothing was being edited and nothing was
+        // lost, so don't offer to rescue a DBML the user never changed.
+        if (e instanceof ApiError && e.status === 409) {
+          setEnterBlocked(true)
+          // Pull the truth forward so the topbar names the holder now instead
+          // of at the next poll, up to POLL_MS later.
+          void statusQuery.refetch()
+        }
       },
     })
-  }, [acquire])
+  }, [acquire, statusQuery])
 
   const exitEditMode = useCallback(() => {
     setEditMode(false)
@@ -254,8 +287,9 @@ export function useEditLease(
     editMode,
     enterEditMode,
     exitEditMode,
-    canEnterEditMode: canEdit && !lockedByOther && !editMode,
     entering: acquire.isPending,
+    enterBlocked,
+    clearEnterBlocked: () => setEnterBlocked(false),
     takeover: enterEditMode,
     force: () => {
       forceMut.mutate(undefined, {

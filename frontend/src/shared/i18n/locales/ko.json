@@ -162,6 +162,8 @@
     "enterEdit": "편집 모드",
     "editingNow": "편집 중",
     "exitEdit": "편집 종료",
+    "enterBlockedTitle": "편집 모드로 전환할 수 없습니다",
+    "enterBlockedDesc": "다른 사용자가 먼저 편집을 시작했습니다. 편집이 끝난 뒤 다시 시도하세요.",
     "editing": "{{email}} 님이 편집 중",
     "takeover": "편집 이어받기",
     "forceTakeover": "강제 이어받기",

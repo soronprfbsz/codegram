@@ -360,6 +360,106 @@ test.describe('Project collaboration', () => {
     await ownerCtx.close()
   })
 
+  test('a refused entry says so, and does not cry about lost changes', async ({
+    browser,
+  }) => {
+    const stamp = Date.now()
+    const password = 'password123'
+    const mateEmail = `mate-blocked-${stamp}@example.com`
+    const mateCtx = await browser.newContext()
+    const mate = await mateCtx.newPage()
+    await registerAndLogin(mate, mateEmail, password)
+
+    const ownerCtx = await browser.newContext()
+    const owner = await ownerCtx.newPage()
+    await registerAndLogin(owner, `owner-blocked-${stamp}@example.com`, password)
+    const created = await ownerCtx.request.post('/api/projects', {
+      data: {
+        name: 'Enter Blocked',
+        dbml_text: 'Table users {\n  id integer [pk]\n}',
+        layout: { version: 1, positions: {} },
+      },
+    })
+    const projectId = (await created.json()).id as string
+    await inviteViaApi(ownerCtx, projectId, mateEmail, 'editor')
+
+    await owner.goto(`/editor/${projectId}`)
+    await owner.waitForSelector('[data-testid="erd-canvas"]', { timeout: 20000 })
+    await expect(owner.getByTestId('lock-enter-edit')).toBeVisible()
+
+    // Mate grabs the lease in the gap between the owner's poll and their click.
+    const took = await mateCtx.request.post(
+      `/api/projects/${projectId}/edit-lock`,
+    )
+    expect(took.status()).toBe(200)
+
+    await owner.getByTestId('lock-enter-edit').click()
+
+    // A locked door, not a robbery: nothing was being edited, so the "your
+    // changes were not saved / copy your DBML" dialog must stay shut.
+    await expect(owner.getByTestId('edit-mode-blocked')).toBeVisible()
+    await expect(owner.getByTestId('edit-lock-bumped')).toBeHidden()
+
+    // ...and the topbar names the holder at once rather than at the next poll.
+    await owner.getByTestId('edit-mode-blocked-ok').click()
+    await expect(owner.getByTestId('lock-editing-by')).toContainText(mateEmail)
+
+    await mateCtx.close()
+    await ownerCtx.close()
+  })
+
+  test('entering edit mode resyncs a document that moved on while reading', async ({
+    browser,
+  }) => {
+    const stamp = Date.now()
+    const password = 'password123'
+    const mateEmail = `mate-sync-${stamp}@example.com`
+    const mateCtx = await browser.newContext()
+    const mate = await mateCtx.newPage()
+    await registerAndLogin(mate, mateEmail, password)
+
+    const ownerCtx = await browser.newContext()
+    const owner = await ownerCtx.newPage()
+    await registerAndLogin(owner, `owner-sync-${stamp}@example.com`, password)
+    const created = await ownerCtx.request.post('/api/projects', {
+      data: {
+        name: 'Resync On Enter',
+        dbml_text: 'Table users {\n  id integer [pk]\n}',
+        layout: { version: 1, positions: {} },
+      },
+    })
+    const projectId = (await created.json()).id as string
+    await inviteViaApi(ownerCtx, projectId, mateEmail, 'editor')
+
+    await owner.goto(`/editor/${projectId}`)
+    await owner.waitForSelector('[data-testid="erd-canvas"]', { timeout: 20000 })
+
+    // Mate edits and leaves while the owner is just reading.
+    await mateCtx.request.post(`/api/projects/${projectId}/edit-lock`)
+    const proj = await (
+      await mateCtx.request.get(`/api/projects/${projectId}`)
+    ).json()
+    await mateCtx.request.patch(`/api/projects/${projectId}`, {
+      data: {
+        dbml_text:
+          'Table users {\n  id integer [pk]\n}\n\nTable added_by_mate {\n  id integer [pk]\n}',
+        version: proj.version,
+      },
+    })
+    await mateCtx.request.delete(`/api/projects/${projectId}/edit-lock`)
+
+    const editorText = owner.locator('[data-testid="dbml-editor"]')
+    await expect(editorText).not.toContainText('added_by_mate')
+
+    // Entering pulls the current document in, so the first keystroke does not
+    // land on a stale copy (which the version guard would then reject).
+    await enterEditMode(owner)
+    await expect(editorText).toContainText('added_by_mate')
+
+    await mateCtx.close()
+    await ownerCtx.close()
+  })
+
   test('owner transfers ownership; the former owner becomes an editor', async ({
     browser,
   }) => {

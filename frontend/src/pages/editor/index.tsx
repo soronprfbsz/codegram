@@ -120,7 +120,7 @@ export function EditorPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const { data: project, isLoading, isError } = useProject(id)
+  const { data: project, isLoading, isError, refetch: refetchProject } = useProject(id)
   const [dbmlText, setDbmlText] = useState('')
   // The last server-seeded value; autosave skips while dbmlText still equals it.
   const [baseline, setBaseline] = useState('')
@@ -136,7 +136,22 @@ export function EditorPage() {
   const previewing = previewId !== null
   // Role-based access (ADR-0015): editors/owners can edit; viewers are read-only.
   const canEdit = project?.role === 'owner' || project?.role === 'editor'
-  const lease = useEditLease(id, { canEdit, isOwner: project?.role === 'owner' })
+  const lease = useEditLease(id, {
+    canEdit,
+    isOwner: project?.role === 'owner',
+    // Reading can go stale: someone else may have edited and released while
+    // this window watched. Pull the current document in before the surfaces
+    // unlock, otherwise the first keystroke lands on an old copy and the save
+    // comes back as a stale version. Nothing local is lost — reading cannot
+    // have produced unsaved changes.
+    onEntered: async () => {
+      const { data: fresh } = await refetchProject()
+      if (!fresh) return
+      setDbmlText(fresh.dbml_text)
+      setBaseline(fresh.dbml_text)
+      reseed(fresh.layout)
+    },
+  })
   // Read-only when the role can't edit OR the caller doesn't hold the live lock.
   const readOnly = !canEdit || lease.readOnly
   // 정보 토글: 열면 버전 기록이 자동으로 닫히고(상호배타), 재클릭하면 hide.
@@ -882,6 +897,13 @@ export function EditorPage() {
 
       {/* Dialogs / overlays — the 테이블 정의서 HTML overlay is now mounted
           once in AppLayout (opened from the sidebar's "⋯" menu). */}
+      <AlertDialog
+        open={lease.enterBlocked}
+        onOpenChange={(o) => { if (!o) lease.clearEnterBlocked() }}
+        testId="edit-mode-blocked"
+        title={t('editLock.enterBlockedTitle')}
+        description={t('editLock.enterBlockedDesc')}
+      />
       <AlertDialog
         open={restoreError !== null}
         onOpenChange={(o) => { if (!o) setRestoreError(null) }}
