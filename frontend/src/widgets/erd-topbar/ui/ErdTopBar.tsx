@@ -41,43 +41,70 @@ function formatLastModified(iso: string, locale: string): string | null {
   return d.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })
 }
 
-/** Dot + label for the save pill. When idle/saved and a last-modified time is
- *  known, show that time (more useful than a bare "저장됨"); otherwise fall back
- *  to the plain saved/saving/error label. */
-function SavePill({ status, lastModified }: { status: AutosaveStatus; lastModified?: string }) {
+/**
+ * Save state as a timestamp, not a sentence.
+ *
+ * "최종 수정 26. 7. 28. 오전 9:34" spelled the label out next to the mode
+ * switch and read as a competing control. The dot already says "saved", so the
+ * visible text is the bare time and the full sentence moves to the tooltip;
+ * saving / failed still speak, because those are events rather than status.
+ */
+function SaveStamp({ status, lastModified }: { status: AutosaveStatus; lastModified?: string }) {
   const { t, i18n } = useTranslation()
   const settled = status === 'idle' || status === 'saved'
-  const dot = settled ? (
-    <span
-      style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--erd-success)', flexShrink: 0 }}
-    />
-  ) : null
-
   const when = lastModified ? formatLastModified(lastModified, i18n.language) : null
-  const label =
+
+  const text =
     status === 'saving'
       ? t('topbar.saving')
       : status === 'error'
         ? t('topbar.saveFailed')
-        : when
-          ? t('topbar.lastSaved', { time: when })
-          : t('topbar.saved')
+        : (when ?? t('topbar.saved'))
+  const title =
+    settled && when ? t('topbar.lastSaved', { time: when }) : undefined
 
   return (
     <span
+      title={title}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 6,
         fontSize: 'var(--erd-fs-sm)',
-        color: 'var(--erd-text-2)',
-        padding: '4px 10px',
-        borderRadius: 9999,
+        fontVariantNumeric: 'tabular-nums',
+        color: status === 'error' ? 'var(--erd-error)' : 'var(--erd-text-3)',
+        whiteSpace: 'nowrap',
       }}
     >
-      {dot}
-      {label}
+      {settled && (
+        <span
+          aria-hidden
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: 'var(--erd-success)',
+            flexShrink: 0,
+          }}
+        />
+      )}
+      {text}
     </span>
+  )
+}
+
+/** Hairline between the session-state group and the action group. */
+function BarDivider() {
+  return (
+    <span
+      aria-hidden
+      style={{
+        width: 1,
+        height: 18,
+        flexShrink: 0,
+        background: 'var(--erd-border-2)',
+      }}
+    />
   )
 }
 
@@ -151,15 +178,20 @@ export function ErdTopBar({
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Right group: 검색 + Save pill + 정보 + 버전 기록 + Import + Export */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {searchBox}
+      {/* Right side, in two groups: what this session IS (mode switch + save
+          state), then what it can DO (search, panels, import/export). The
+          hairline keeps the mode switch from reading as one more button. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         {lockStatus}
-        <SavePill status={autosaveStatus} lastModified={lastModified} />
-        {infoButton}
-        {historyButton}
-        {importMenu}
-        {exportMenu}
+        <SaveStamp status={autosaveStatus} lastModified={lastModified} />
+        <BarDivider />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {searchBox}
+          {infoButton}
+          {historyButton}
+          {importMenu}
+          {exportMenu}
+        </div>
       </div>
     </header>
   )

@@ -41,7 +41,7 @@ describe('LockStatusControl', () => {
         lease={lease({ lockedByOther: true, holderEmail: 'bob@example.com' })}
       />,
     )
-    expect(screen.getByTestId('lock-editing-by')).toHaveTextContent('bob@example.com')
+    expect(screen.getByTestId('lock-editing-by')).toHaveTextContent('bob 님이 편집 중')
     expect(screen.queryByTestId('lock-force')).toBeNull()
   })
 
@@ -57,17 +57,19 @@ describe('LockStatusControl', () => {
     expect(force).toHaveBeenCalledOnce()
   })
 
-  // ADR-0025: editing is a mode, so the topbar is where you step in and out.
-  it('offers the way into edit mode while the project is only being read', () => {
+  // ADR-0025: editing is a mode, so the topbar carries a two-way switch. It
+  // shows the state you are in AND the one you can move to.
+  it('sits on 읽기 and moves to 편집', () => {
     const enterEditMode = vi.fn()
     render(<LockStatusControl canEdit lease={lease({ enterEditMode })} />)
 
-    expect(screen.getByTestId('lock-readonly-editor')).toHaveTextContent('읽기 전용')
-    fireEvent.click(screen.getByTestId('lock-enter-edit'))
+    expect(screen.getByTestId('mode-switch-read')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('mode-switch-edit')).toBeEnabled()
+    fireEvent.click(screen.getByTestId('mode-switch-edit'))
     expect(enterEditMode).toHaveBeenCalled()
   })
 
-  it('offers the way out once in edit mode', () => {
+  it('sits on 편집 once editing, and moves back', () => {
     const exitEditMode = vi.fn()
     render(
       <LockStatusControl
@@ -76,43 +78,47 @@ describe('LockStatusControl', () => {
       />,
     )
 
-    expect(screen.getByTestId('lock-editing-mode')).toHaveTextContent('편집 중')
-    expect(screen.queryByTestId('lock-enter-edit')).toBeNull()
-    fireEvent.click(screen.getByTestId('lock-exit-edit'))
+    expect(screen.getByTestId('mode-switch-edit')).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByTestId('mode-switch-read'))
     expect(exitEditMode).toHaveBeenCalled()
   })
 
-  it('does not offer entry while someone else holds the lease', () => {
+  it('closes the 편집 side, with the reason, while someone else holds the lease', () => {
     render(
       <LockStatusControl
         canEdit
         lease={lease({ lockedByOther: true, holderEmail: 'bob@example.com' })}
       />,
     )
-    expect(screen.getByTestId('lock-editing-by')).toHaveTextContent('bob@example.com')
-    expect(screen.queryByTestId('lock-enter-edit')).toBeNull()
+    const edit = screen.getByTestId('mode-switch-edit')
+    expect(edit).toBeDisabled()
+    // The reason travels with the disabled control, not just beside it.
+    expect(edit).toHaveAttribute('title', expect.stringContaining('bob@example.com'))
+    expect(screen.getByTestId('lock-editing-by')).toHaveTextContent('bob 님이 편집 중')
   })
 
   // ADR-0024: losing the lease is news the topbar delivers at once, with a way
   // back — the old build said nothing until a save was rejected.
-  it('tells an editor they lost the lease and offers to resume when it is free', () => {
-    const takeover = vi.fn()
+  it('tells an editor they lost the lease; the switch is the way back', () => {
+    const enterEditMode = vi.fn()
     render(
       <LockStatusControl
         canEdit
-        lease={lease({ lostLease: true, lockedByOther: false, takeover })}
+        lease={lease({ lostLease: true, lockedByOther: false, enterEditMode })}
       />,
     )
     expect(screen.getByTestId('lock-lost')).toHaveTextContent(
       '편집 권한을 잃었습니다',
     )
-    const resume = screen.getByTestId('lock-resume')
-    expect(resume).not.toBeDisabled()
-    fireEvent.click(resume)
-    expect(takeover).toHaveBeenCalled()
+    // No separate "resume" button: the lease is free, so 편집 is simply open
+    // again. One control for one decision.
+    const edit = screen.getByTestId('mode-switch-edit')
+    expect(edit).toBeEnabled()
+    fireEvent.click(edit)
+    expect(enterEditMode).toHaveBeenCalled()
   })
 
-  it('names who took over, and cannot resume while they still hold it', () => {
+  it('names who took over, and keeps 편집 closed while they hold it', () => {
     render(
       <LockStatusControl
         canEdit
@@ -124,9 +130,9 @@ describe('LockStatusControl', () => {
       />,
     )
     expect(screen.getByTestId('lock-lost')).toHaveTextContent(
-      'bob@example.com 님이 편집을 이어받았습니다',
+      'bob 님이 편집을 이어받았습니다',
     )
-    expect(screen.getByTestId('lock-resume')).toBeDisabled()
+    expect(screen.getByTestId('mode-switch-edit')).toBeDisabled()
   })
 
   it('gives the owner force-takeover instead of a disabled resume', () => {

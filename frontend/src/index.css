@@ -386,6 +386,75 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
+/* TopBar 모드 스위치(SegmentedControl) — 트랙은 눌린 홈, 선택된 세그먼트만
+   표면색을 갖는다. 탑바에서 유일하게 채워진 면이라 "지금 어느 모드인가"가
+   한 눈에 읽힌다. 색·높이·radius는 전부 --erd-* 토큰에서 온다(F2/F5). */
+.erd-segmented {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 2px;
+  gap: 0;
+  border: 1px solid var(--erd-border-2);
+  border-radius: 6px;
+  background: var(--erd-hover);
+}
+.erd-segmented-thumb {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  border-radius: 4px;
+  background: var(--erd-surface);
+  box-shadow: var(--erd-shadow-sm);
+  transition: transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+.erd-segmented-item {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  padding: 0 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--erd-fs-sm);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--erd-text-3);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.erd-segmented-item:hover:not(:disabled):not([aria-checked='true']) {
+  color: var(--erd-text-2);
+}
+.erd-segmented-item[aria-checked='true'] {
+  color: var(--erd-text);
+  font-weight: 600;
+}
+.erd-segmented-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.erd-segmented-item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .erd-segmented-thumb {
+    transition: none;
+  }
+}
+
 /* TopBar 검색 박스: 옆 버튼들과 동일한 표면/하이라인 테두리(탑바 배경과
    구분되게). 포커스 시 메인(골드) 테두리 + 톤 링. */
 .erd-search-frame {

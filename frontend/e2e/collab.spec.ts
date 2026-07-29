@@ -32,10 +32,10 @@ async function inviteViaApi(
 async function enterEditMode(page: Page) {
   // Wait on the switch itself, not the canvas — an empty project renders no
   // canvas but still opens read-only with a way in.
-  const enter = page.getByTestId('lock-enter-edit')
-  await expect(enter).toBeVisible({ timeout: 20000 })
-  await enter.click()
-  await expect(page.getByTestId('lock-editing-mode')).toBeVisible()
+  const edit = page.getByTestId('mode-switch-edit')
+  await expect(edit).toBeEnabled({ timeout: 20000 })
+  await edit.click()
+  await expect(edit).toHaveAttribute('aria-checked', 'true')
 }
 
 test.describe('Project collaboration', () => {
@@ -101,7 +101,7 @@ test.describe('Project collaboration', () => {
 
     // The editor member opens the same project → read-only, owner is shown.
     await member.goto(`/editor/${projectId}`)
-    await expect(member.getByTestId('lock-editing-by')).toContainText(ownerEmail)
+    await expect(member.getByTestId('lock-editing-by')).toHaveAttribute('title', new RegExp(ownerEmail))
 
     await memberCtx.close()
     await ownerCtx.close()
@@ -139,7 +139,7 @@ test.describe('Project collaboration', () => {
     await inviteViaApi(ownerCtx, projectId, memberEmail, 'editor')
 
     await member.goto(`/editor/${projectId}`)
-    await expect(member.getByTestId('lock-editing-by')).toContainText(ownerEmail)
+    await expect(member.getByTestId('lock-editing-by')).toHaveAttribute('title', new RegExp(ownerEmail))
 
     // Read-only must not mean unreadable: the editor still takes the wheel.
     const scroller = member.locator('[data-testid="dbml-editor"] .cm-scroller')
@@ -320,7 +320,7 @@ test.describe('Project collaboration', () => {
 
     // Even the OWNER opens read-only: coming to look must not block whoever
     // came to edit (ADR-0025).
-    await expect(owner.getByTestId('lock-readonly-editor')).toBeVisible()
+    await expect(owner.getByTestId('mode-switch-read')).toHaveAttribute('aria-checked', 'true')
     await expect(owner.getByTestId('import-menu-button')).toBeHidden()
     expect(await leaseTaken()).toBe(false)
 
@@ -338,23 +338,23 @@ test.describe('Project collaboration', () => {
     expect(Math.abs((await drag()).x - before.x)).toBeLessThan(20)
 
     // Entering takes the lease and unlocks the write surfaces.
-    await owner.getByTestId('lock-enter-edit').click()
-    await expect(owner.getByTestId('lock-editing-mode')).toBeVisible()
+    await owner.getByTestId('mode-switch-edit').click()
+    await expect(owner.getByTestId('mode-switch-edit')).toHaveAttribute('aria-checked', 'true')
     await expect.poll(leaseTaken, { timeout: 5000 }).toBe(true)
     await expect(owner.getByTestId('import-menu-button')).toBeVisible()
     const moved = (await drag()).x
     expect(Math.abs(moved - before.x)).toBeGreaterThan(20)
 
     // Leaving hands it straight back, with no "you were bumped" alarm.
-    await owner.getByTestId('lock-exit-edit').click()
-    await expect(owner.getByTestId('lock-readonly-editor')).toBeVisible()
+    await owner.getByTestId('mode-switch-read').click()
+    await expect(owner.getByTestId('mode-switch-read')).toHaveAttribute('aria-checked', 'true')
     await expect.poll(leaseTaken, { timeout: 5000 }).toBe(false)
     await expect(owner.getByTestId('lock-lost')).toHaveCount(0)
 
     // The mode is never remembered — a reload comes back reading.
     await owner.reload()
     await owner.waitForSelector('[data-testid="erd-canvas"]', { timeout: 20000 })
-    await expect(owner.getByTestId('lock-readonly-editor')).toBeVisible()
+    await expect(owner.getByTestId('mode-switch-read')).toHaveAttribute('aria-checked', 'true')
     expect(await leaseTaken()).toBe(false)
 
     await ownerCtx.close()
@@ -385,7 +385,7 @@ test.describe('Project collaboration', () => {
 
     await owner.goto(`/editor/${projectId}`)
     await owner.waitForSelector('[data-testid="erd-canvas"]', { timeout: 20000 })
-    await expect(owner.getByTestId('lock-enter-edit')).toBeVisible()
+    await expect(owner.getByTestId('mode-switch-edit')).toBeEnabled()
 
     // Mate grabs the lease in the gap between the owner's poll and their click.
     const took = await mateCtx.request.post(
@@ -393,7 +393,7 @@ test.describe('Project collaboration', () => {
     )
     expect(took.status()).toBe(200)
 
-    await owner.getByTestId('lock-enter-edit').click()
+    await owner.getByTestId('mode-switch-edit').click()
 
     // A locked door, not a robbery: nothing was being edited, so the "your
     // changes were not saved / copy your DBML" dialog must stay shut.
@@ -402,7 +402,7 @@ test.describe('Project collaboration', () => {
 
     // ...and the topbar names the holder at once rather than at the next poll.
     await owner.getByTestId('edit-mode-blocked-ok').click()
-    await expect(owner.getByTestId('lock-editing-by')).toContainText(mateEmail)
+    await expect(owner.getByTestId('lock-editing-by')).toHaveAttribute('title', new RegExp(mateEmail))
 
     await mateCtx.close()
     await ownerCtx.close()

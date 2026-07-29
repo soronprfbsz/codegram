@@ -158,6 +158,9 @@
   },
   "editLock": {
     "viewerReadOnly": "Read-only (viewer)",
+    "modeSwitch": "Switch edit mode",
+    "modeRead": "Read",
+    "modeEdit": "Edit",
     "readingNow": "Read-only",
     "enterEdit": "Edit mode",
     "editingNow": "Editing",

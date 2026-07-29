@@ -158,6 +158,9 @@
   },
   "editLock": {
     "viewerReadOnly": "읽기 전용 (뷰어)",
+    "modeSwitch": "편집 모드 전환",
+    "modeRead": "읽기",
+    "modeEdit": "편집",
     "readingNow": "읽기 전용",
     "enterEdit": "편집 모드",
     "editingNow": "편집 중",

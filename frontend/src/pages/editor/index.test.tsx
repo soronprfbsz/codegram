@@ -54,8 +54,10 @@ async function enterEditMode(user: User) {
     expires_at: new Date(Date.now() + 60_000).toISOString(),
     is_me: true,
   })
-  await user.click(await screen.findByTestId('lock-enter-edit'))
-  await screen.findByTestId('lock-editing-mode')
+  await user.click(await screen.findByTestId('mode-switch-edit'))
+  await waitFor(() =>
+    expect(screen.getByTestId('mode-switch-edit')).toHaveAttribute('aria-checked', 'true'),
+  )
 }
 
 /** Open the topbar's "Import" dropdown. */

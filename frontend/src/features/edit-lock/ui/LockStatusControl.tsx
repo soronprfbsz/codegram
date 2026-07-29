@@ -1,146 +1,133 @@
 import { useTranslation } from 'react-i18next'
-import { Lock, Pencil } from 'lucide-react'
+import { Eye, Pencil } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
+import { SegmentedControl } from '@/shared/ui/segmented-control'
+import { TOPBAR_ICON_SIZE, TOPBAR_ICON_STROKE } from '@/shared/ui/topbar-control'
 import type { EditLease } from '../api/useEditLease'
 
 export interface LockStatusControlProps {
-  /** False for viewers — shows a plain read-only badge (no takeover). */
+  /** False for viewers — the 편집 side of the switch is never reachable. */
   canEdit: boolean
   lease: EditLease
 }
 
-const badgeStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 5,
-  fontSize: 'var(--erd-fs-sm)',
-  color: 'var(--erd-text-2)',
-  padding: '4px 10px',
-  borderRadius: 9999,
-}
+type Mode = 'read' | 'edit'
 
-// Same badge, accent-toned: being IN edit mode is a state worth noticing.
-const editingStyle: React.CSSProperties = {
-  ...badgeStyle,
-  color: 'var(--erd-accent)',
-  background: 'color-mix(in srgb, var(--erd-accent) 12%, transparent)',
-}
-
-// Same badge, alert-toned: losing the lease is news, not ambient status.
-const lostStyle: React.CSSProperties = {
-  ...badgeStyle,
-  color: 'var(--erd-error)',
-  background: 'color-mix(in srgb, var(--erd-error) 12%, transparent)',
+/**
+ * Show the local part of an address in the bar. A long work address swallowed
+ * the sentence around it ("…@example.com 님이 편…"), which loses the only part
+ * that carries meaning. The full address stays in the tooltip.
+ */
+function shortEmail(email: string): string {
+  const at = email.indexOf('@')
+  return at > 0 ? email.slice(0, at) : email
 }
 
 /**
- * Topbar edit-mode switch and lock indicator.
+ * Quiet one-line note beside the switch. No pill, no fill: the switch is the
+ * only filled thing in the bar and this must not compete with it. It is the
+ * only shrinking item in the row, so a long name eats into the sentence and
+ * never into the button next to it.
+ */
+const noteStyle: React.CSSProperties = {
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  fontSize: 'var(--erd-fs-sm)',
+  color: 'var(--erd-text-3)',
+}
+
+const alertNoteStyle: React.CSSProperties = {
+  ...noteStyle,
+  color: 'var(--erd-error)',
+}
+
+/**
+ * Topbar mode switch: 읽기 ⇄ 편집.
  *
- * Opening a project reads it; editing is a mode you step into (ADR-0025), so
- * this is where that step happens: "편집 모드" to take the lease, "편집 종료" to
- * hand it back. It also carries the states that block entering — a viewer's
- * read-only badge, someone else holding the lease (owner may force), and losing
- * a lease you held, which is announced here rather than by a failing save
- * (ADR-0024).
+ * Opening a project reads it; editing is a mode you step into (ADR-0025). One
+ * two-way switch carries that — it shows the state you are in AND the one you
+ * can move to, which the previous badge-plus-button pair could not: those said
+ * one thing twice and left the reader to work out which was label and which was
+ * action. Everything that blocks or interrupts the move rides alongside as a
+ * plain sentence: a viewer's lack of access, another user holding the lease
+ * (the owner may force it), and losing a lease you held, which is announced
+ * here rather than by a failing save (ADR-0024).
  */
 export function LockStatusControl({ canEdit, lease }: LockStatusControlProps) {
   const { t } = useTranslation()
 
-  if (!canEdit) {
-    return (
-      <span style={badgeStyle} data-testid="lock-readonly-viewer">
-        <Lock size={13} /> {t('editLock.viewerReadOnly')}
-      </span>
-    )
-  }
-  // The caller lost a lease they were holding — say it plainly, and offer the
-  // way back: resume when it is free again, force when they own the project.
-  if (lease.lostLease) {
-    return (
-      <span style={lostStyle} data-testid="lock-lost">
-        <Lock size={13} />
-        {lease.lockedByOther
-          ? t('editLock.tookOver', { email: lease.holderEmail ?? '' })
-          : t('editLock.leaseLost')}
-        {lease.canForce ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            data-testid="lock-force"
-            onClick={lease.force}
-          >
-            {t('editLock.forceTakeover')}
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            data-testid="lock-resume"
-            disabled={lease.lockedByOther}
-            onClick={lease.takeover}
-          >
-            {t('editLock.takeover')}
-          </Button>
-        )}
-      </span>
-    )
-  }
-  // In edit mode → say so, and offer the way back out. Handing the lease back
-  // is a deliberate act, same as taking it.
-  if (lease.editMode) {
-    return (
-      <span style={editingStyle} data-testid="lock-editing-mode">
-        <Pencil size={13} />
-        {t('editLock.editingNow')}
-        <Button
-          type="button"
-          variant="outline"
-          size="xs"
-          data-testid="lock-exit-edit"
-          onClick={lease.exitEditMode}
-        >
-          {t('editLock.exitEdit')}
-        </Button>
-      </span>
-    )
-  }
-  // Another user holds the live lock → read-only banner; the owner may force.
-  if (lease.lockedByOther) {
-    return (
-      <span style={badgeStyle} data-testid="lock-editing-by">
-        <Lock size={13} />
-        {t('editLock.editing', { email: lease.holderEmail ?? '' })}
-        {lease.canForce ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            data-testid="lock-force"
-            onClick={lease.force}
-          >
-            {t('editLock.forceTakeover')}
-          </Button>
-        ) : null}
-      </span>
-    )
-  }
+  const mode: Mode = lease.editMode ? 'edit' : 'read'
+  const holder = lease.holderEmail ?? ''
+  // Why the 편집 side is closed, in one sentence. The tooltip spells the whole
+  // address out; the bar shows only as much as it can without truncating.
+  const blockedReason = !canEdit
+    ? t('editLock.viewerReadOnly')
+    : lease.lockedByOther
+      ? t('editLock.editing', { email: shortEmail(holder) })
+      : null
+  const blockedTitle =
+    canEdit && lease.lockedByOther ? t('editLock.editing', { email: holder }) : blockedReason
 
-  // Free, and the caller may edit → the entry point into edit mode.
+  const forceButton = lease.canForce ? (
+    <Button
+      type="button"
+      variant="outline"
+      size="xs"
+      data-testid="lock-force"
+      onClick={lease.force}
+    >
+      {t('editLock.forceTakeover')}
+    </Button>
+  ) : null
+
   return (
-    <span style={badgeStyle} data-testid="lock-readonly-editor">
-      {t('editLock.readingNow')}
-      <Button
-        type="button"
-        size="xs"
-        data-testid="lock-enter-edit"
-        disabled={lease.entering}
-        onClick={lease.enterEditMode}
-      >
-        <Pencil size={13} />
-        {t('editLock.enterEdit')}
-      </Button>
-    </span>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+      <SegmentedControl<Mode>
+        testId="mode-switch"
+        ariaLabel={t('editLock.modeSwitch')}
+        value={mode}
+        onChange={(next) =>
+          next === 'edit' ? lease.enterEditMode() : lease.exitEditMode()
+        }
+        options={[
+          {
+            value: 'read',
+            label: t('editLock.modeRead'),
+            icon: <Eye size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />,
+          },
+          {
+            value: 'edit',
+            label: t('editLock.modeEdit'),
+            icon: <Pencil size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />,
+            disabled: Boolean(blockedReason) || lease.entering,
+            title: blockedTitle ?? undefined,
+          },
+        ]}
+      />
+
+      {/* Losing a lease you held is the one state that earns a colour. */}
+      {lease.lostLease ? (
+        <span
+          style={alertNoteStyle}
+          data-testid="lock-lost"
+          title={lease.lockedByOther ? t('editLock.tookOver', { email: holder }) : undefined}
+        >
+          {lease.lockedByOther
+            ? t('editLock.tookOver', { email: shortEmail(holder) })
+            : t('editLock.leaseLost')}
+        </span>
+      ) : blockedReason ? (
+        <span
+          style={noteStyle}
+          title={blockedTitle ?? undefined}
+          data-testid={canEdit ? 'lock-editing-by' : 'lock-readonly-viewer'}
+        >
+          {blockedReason}
+        </span>
+      ) : null}
+      {forceButton}
+    </div>
   )
 }

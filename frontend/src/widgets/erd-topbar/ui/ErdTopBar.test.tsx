@@ -32,9 +32,13 @@ describe('ErdTopBar', () => {
     expect(screen.getByText('저장됨')).toBeInTheDocument()
   })
 
-  it('shows the last-modified time instead of "저장됨" when provided and saved', () => {
+  it('stamps the last-modified time, with the sentence in the tooltip', () => {
     renderTopBar({ autosaveStatus: 'saved', lastModified: '2026-07-08T05:32:00Z' })
-    expect(screen.getByText(/최종 수정/)).toBeInTheDocument()
+    // The bar shows the bare time — spelling "최종 수정 …" out beside the mode
+    // switch read as a competing control. The dot already says "saved".
+    const stamp = screen.getByTitle(/최종 수정/)
+    expect(stamp).toBeInTheDocument()
+    expect(stamp).not.toHaveTextContent('최종 수정')
     expect(screen.queryByText('저장됨')).toBeNull()
   })
 

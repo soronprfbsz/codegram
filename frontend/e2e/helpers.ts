@@ -20,8 +20,8 @@ export async function registerAndLogin(page: Page, email: string, password: stri
  * project renders no canvas but still offers the way in.
  */
 export async function enterEditMode(page: Page) {
-  const enter = page.getByTestId('lock-enter-edit')
-  await expect(enter).toBeVisible({ timeout: 20000 })
-  await enter.click()
-  await expect(page.getByTestId('lock-editing-mode')).toBeVisible()
+  const edit = page.getByTestId('mode-switch-edit')
+  await expect(edit).toBeEnabled({ timeout: 20000 })
+  await edit.click()
+  await expect(edit).toHaveAttribute('aria-checked', 'true')
 }
