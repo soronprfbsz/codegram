@@ -186,7 +186,7 @@
   },
   "topbar": {
     "saved": "저장됨",
-    "lastSaved": "최종 수정 {{time}}",
+    "lastSaved": "마지막 저장 {{time}}",
     "saving": "저장 중…",
     "saveFailed": "저장 실패",
     "info": "정보",
@@ -277,10 +277,11 @@
     "arrange": "이 그룹 정렬"
   },
   "tableSearch": {
-    "placeholder": "테이블 · 컬럼 · 주석 검색  (/)",
+    "placeholder": "테이블 · 컬럼 · 주석 검색",
     "searchAria": "테이블 검색",
     "clear": "검색 지우기",
-    "noResults": "검색 결과 없음"
+    "noResults": "검색 결과 없음",
+    "shortcutHint": "/ 키를 눌러 검색"
   },
   "exportMenu": {
     "export": "내보내기",

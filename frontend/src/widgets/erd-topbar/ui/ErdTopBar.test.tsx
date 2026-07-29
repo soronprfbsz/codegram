@@ -27,18 +27,17 @@ describe('ErdTopBar', () => {
     expect(screen.queryByText(/· public/)).toBeNull()
   })
 
-  it('shows "저장됨" with green dot when idle and no last-modified time', () => {
+  it('shows "저장됨" with the dot when idle and no last-modified time', () => {
     renderTopBar({ autosaveStatus: 'idle' })
     expect(screen.getByText('저장됨')).toBeInTheDocument()
+    expect(screen.getByTestId('save-dot')).toBeInTheDocument()
   })
 
-  it('stamps the last-modified time, with the sentence in the tooltip', () => {
+  it('spells the last save out under the title', () => {
     renderTopBar({ autosaveStatus: 'saved', lastModified: '2026-07-08T05:32:00Z' })
-    // The bar shows the bare time — spelling "최종 수정 …" out beside the mode
-    // switch read as a competing control. The dot already says "saved".
-    const stamp = screen.getByTitle(/최종 수정/)
-    expect(stamp).toBeInTheDocument()
-    expect(stamp).not.toHaveTextContent('최종 수정')
+    // Under the title the stamp reads as a property of the project, so it can
+    // say what it is rather than hiding the sentence in a tooltip.
+    expect(screen.getByText(/^마지막 저장 /)).toBeInTheDocument()
     expect(screen.queryByText('저장됨')).toBeNull()
   })
 

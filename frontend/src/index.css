@@ -467,6 +467,23 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
+/* 키 힌트(key cap) 단일 출처 — 검색창의 "/" 처럼 "이 키를 누르면 된다"를
+   말하는 배지. 색·크기는 전부 토큰에서 온다(F5). */
+.erd-kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 1px solid var(--erd-border-2);
+  border-radius: 4px;
+  background: var(--erd-hover);
+  color: var(--erd-text-3);
+  font-family: inherit;
+  font-size: var(--erd-fs-2xs);
+  line-height: 1;
+}
+
 /* ERD node styles */
 /* PK badge color flips in dark mode (light: #DC6803 / dark: #FEC84B) */
 .dark .erd-badge-pk {

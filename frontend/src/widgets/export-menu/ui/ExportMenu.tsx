@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, Image, Eye, Shapes, FileText, FileSpreadsheet, FileType, Database } from 'lucide-react'
+import { Upload, Image, Eye, Shapes, FileText, FileSpreadsheet, FileType, Database } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   DropdownMenu,
@@ -9,16 +9,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/shared/ui/dropdown-menu'
-import { TopbarButton, TOPBAR_ICON_SIZE, TOPBAR_ICON_STROKE } from '@/shared/ui/topbar-control'
+import { TopbarIconButton, TOPBAR_ICON_SIZE, TOPBAR_ICON_STROKE } from '@/shared/ui/topbar-control'
 import { ExportProgressDialog } from '@/shared/ui/export-progress-dialog'
 import * as diagramExport from '@/features/export-diagram'
 import type { DiagramExportContext } from '@/features/export-diagram'
 import { SQL_DIALECTS, SQL_DIALECT_VALUES, type DbmlSchema } from '@/entities/dbml'
 import { deriveTableDoc } from '@/entities/table-doc'
+import { useTableDocViewStore } from '@/widgets/table-doc-view'
 import { buildTableDocBlob, tableDocFilename, tableDocLabels, ExportDbNameDialog } from '@/features/export-table-doc'
 import { downloadSql } from '@/features/sql-export'
 import { downloadBlob } from '@/shared/lib/download'
-import { useTableDocViewStore } from '@/widgets/table-doc-view'
 
 export interface ExportMenuProps {
   /** Live-canvas capture context for the diagram exporters. */
@@ -98,11 +98,13 @@ export function ExportMenu({ diagram, schema, dbmlText, projectName, disabled = 
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <TopbarButton disabled={disabled} aria-label={t('exportMenu.export')}>
-            <Image size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
-            {t('exportMenu.export')}
-            <ChevronDown size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
-          </TopbarButton>
+          <TopbarIconButton
+            disabled={disabled}
+            aria-label={t('exportMenu.export')}
+            title={t('exportMenu.export')}
+          >
+            <Upload size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
+          </TopbarIconButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           <DropdownMenuItem onSelect={preview}>

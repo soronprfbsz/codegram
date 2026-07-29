@@ -96,7 +96,9 @@ export function TableSearch({ schema, onNavigate }: TableSearchProps) {
   const open = active && results.length >= 0
 
   return (
-    <div style={{ position: 'relative', width: 240, flexShrink: 0 }}>
+    // Takes the bar's spare width rather than a fixed 240: the bar's whole right
+    // half is search, so it should look like the field it is.
+    <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 200, maxWidth: 420 }}>
       <div
         className="erd-search-frame"
         style={{
@@ -132,6 +134,13 @@ export function TableSearch({ schema, onNavigate }: TableSearchProps) {
             color: 'inherit',
           }}
         />
+        {/* The "/" shortcut as a key cap at the field's end, not glued to the
+            placeholder — a hint about the keyboard is not part of the prompt. */}
+        {!active && (
+          <kbd className="erd-kbd" title={t('tableSearch.shortcutHint')} style={{ flexShrink: 0 }}>
+            /
+          </kbd>
+        )}
         {active && (
           <button
             type="button"

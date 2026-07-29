@@ -277,10 +277,11 @@
     "arrange": "Arrange this group"
   },
   "tableSearch": {
-    "placeholder": "Search tables · columns · notes  (/)",
+    "placeholder": "Search tables · columns · notes",
     "searchAria": "Search tables",
     "clear": "Clear search",
-    "noResults": "No results"
+    "noResults": "No results",
+    "shortcutHint": "Press / to search"
   },
   "exportMenu": {
     "export": "Export",

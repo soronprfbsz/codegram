@@ -8,14 +8,14 @@ export interface ErdTopBarProps {
   /** The project's display name — shown as the main title. */
   projectName: string
   /**
-   * The parsed DBML `Project` block name (used as subtitle: "<name> · public").
+   * The parsed DBML `Project` block name (leads the subline: "<name> · public").
    * Omitted when no Project block is present in the schema.
    */
   projectMeta?: string
-  /** Autosave lifecycle state (drives the Save pill). */
+  /** Autosave lifecycle state (colours the dot beside the title). */
   autosaveStatus: AutosaveStatus
   /** ISO timestamp of the project's last save (updated_at). When present and
-   *  not mid-save, the pill shows this instead of a bare "saved" label. */
+   *  not mid-save, the subline stamps this instead of a bare "saved" label. */
   lastModified?: string
   /**
    * The Export control (an `<ExportMenu/>`) rendered on the right — the single
@@ -41,55 +41,77 @@ function formatLastModified(iso: string, locale: string): string | null {
   return d.toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' })
 }
 
+/** Save state as a colour, beside the title. */
+function SaveDot({ status }: { status: AutosaveStatus }) {
+  const background =
+    status === 'error'
+      ? 'var(--erd-error)'
+      : status === 'saving'
+        ? 'var(--erd-text-3)'
+        : 'var(--erd-success)'
+  return (
+    <span
+      aria-hidden
+      data-testid="save-dot"
+      style={{ width: 6, height: 6, borderRadius: '50%', background, flexShrink: 0 }}
+    />
+  )
+}
+
 /**
- * Save state as a timestamp, not a sentence.
+ * Save state as the title's second line, not a control on the right.
  *
- * "최종 수정 26. 7. 28. 오전 9:34" spelled the label out next to the mode
- * switch and read as a competing control. The dot already says "saved", so the
- * visible text is the bare time and the full sentence moves to the tooltip;
- * saving / failed still speak, because those are events rather than status.
+ * Beside the mode switch the stamp read as one more control competing for the
+ * same corner. Under the title it is plainly a property OF this project: the
+ * dot next to the name carries the state, the line under it carries when. The
+ * DBML `Project` block name rides in front of it — same line, one `·` — so the
+ * identity block still says everything it used to.
  */
-function SaveStamp({ status, lastModified }: { status: AutosaveStatus; lastModified?: string }) {
+function ProjectSubline({
+  status,
+  lastModified,
+  projectMeta,
+}: {
+  status: AutosaveStatus
+  lastModified?: string
+  projectMeta?: string
+}) {
   const { t, i18n } = useTranslation()
   const settled = status === 'idle' || status === 'saved'
   const when = lastModified ? formatLastModified(lastModified, i18n.language) : null
 
-  const text =
+  const save =
     status === 'saving'
       ? t('topbar.saving')
       : status === 'error'
         ? t('topbar.saveFailed')
-        : (when ?? t('topbar.saved'))
-  const title =
-    settled && when ? t('topbar.lastSaved', { time: when }) : undefined
+        : settled && when
+          ? t('topbar.lastSaved', { time: when })
+          : t('topbar.saved')
 
   return (
-    <span
-      title={title}
+    <div
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
+        display: 'flex',
+        alignItems: 'baseline',
         gap: 6,
         fontSize: 'var(--erd-fs-sm)',
-        fontVariantNumeric: 'tabular-nums',
         color: status === 'error' ? 'var(--erd-error)' : 'var(--erd-text-3)',
         whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
       }}
     >
-      {settled && (
-        <span
-          aria-hidden
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: 'var(--erd-success)',
-            flexShrink: 0,
-          }}
-        />
+      {projectMeta && (
+        <>
+          <span style={{ fontFamily: 'var(--font-mono, ui-monospace)' }}>
+            {projectMeta} · public
+          </span>
+          <span aria-hidden>·</span>
+        </>
       )}
-      {text}
-    </span>
+      <span style={{ fontVariantNumeric: 'tabular-nums' }}>{save}</span>
+    </div>
   )
 }
 
@@ -111,9 +133,9 @@ function BarDivider() {
 /**
  * TopBar widget for the ERD editor.
  *
- * Presentational: receives all data + slots from the page. Renders the 56px
+ * Presentational: receives all data + slots from the page. Renders the 64px
  * bar. The global sidebar owns brand / navigation / account / theme. The bar
- * carries project identity, the Save pill, and the right-side controls: table
+ * carries project identity over its save state, and the right-side controls: table
  * search, 정보 / 버전 기록 toggles (mutually exclusive panels), Import (SQL /
  * DB sync), and the Export menu.
  */
@@ -135,8 +157,8 @@ export function ErdTopBar({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 12,
-        height: 56,
+        gap: 16,
+        height: 64,
         padding: '0 18px',
         flexShrink: 0,
         background: 'var(--erd-surface)',
@@ -144,49 +166,58 @@ export function ErdTopBar({
         zIndex: 6,
       }}
     >
-      {/* Title block — project glyph + identity (sidebar toggle lives in the
-          sidebar; DBML toggle in the DBML pane). */}
+      {/* Title block — project glyph + identity over save state (sidebar toggle
+          lives in the sidebar; DBML toggle in the DBML pane). */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
         {glyph}
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 'var(--erd-fs-lg)',
-              fontWeight: 700,
-              letterSpacing: '-0.01em',
-              color: 'var(--erd-text)',
-            }}
-            role="heading"
-            aria-level={1}
-          >
-            {projectName}
-          </div>
-          {projectMeta && (
+        <div style={{ minWidth: 0, display: 'grid', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             <div
               style={{
-                fontSize: 'var(--erd-fs-sm)',
-                fontFamily: 'var(--font-mono, ui-monospace)',
-                color: 'var(--erd-text-3)',
+                fontSize: 'var(--erd-fs-lg)',
+                fontWeight: 700,
+                letterSpacing: '-0.01em',
+                color: 'var(--erd-text)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
+              role="heading"
+              aria-level={1}
             >
-              {projectMeta} · public
+              {projectName}
             </div>
-          )}
+            <SaveDot status={autosaveStatus} />
+          </div>
+          <ProjectSubline
+            status={autosaveStatus}
+            lastModified={lastModified}
+            projectMeta={projectMeta}
+          />
         </div>
       </div>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-
-      {/* Right side, in two groups: what this session IS (mode switch + save
-          state), then what it can DO (search, panels, import/export). The
-          hairline keeps the mode switch from reading as one more button. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      {/* Right side, in two groups: what this session IS (the mode switch),
+          then what it can DO (search, panels, import/export). The hairline keeps
+          the mode switch from reading as one more button. Search takes whatever
+          width the bar has spare. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flex: 1,
+          minWidth: 0,
+          justifyContent: 'flex-end',
+        }}
+      >
         {lockStatus}
-        <SaveStamp status={autosaveStatus} lastModified={lastModified} />
         <BarDivider />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {searchBox}
+        {/* Direct child, so its `flex` competes here rather than inside a
+            wrapper — otherwise the spare width pools in front of the field
+            and tears the hairline away from it. */}
+        {searchBox}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {infoButton}
           {historyButton}
           {importMenu}

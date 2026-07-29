@@ -6,7 +6,6 @@ import {
   PanelLeftOpen,
   Download,
   RefreshCw,
-  ChevronDown,
   History,
   Settings,
 } from 'lucide-react'
@@ -14,7 +13,6 @@ import { Button } from '@/shared/ui/button'
 import { Spinner } from '@/shared/ui/spinner'
 import {
   TopbarIconButton,
-  TopbarButton,
   TOPBAR_ICON_SIZE,
   TOPBAR_ICON_STROKE,
 } from '@/shared/ui/topbar-control'
@@ -98,7 +96,7 @@ function extractProjectMeta(dbml: string): string | undefined {
  * editor to dbml_text with debounced autosave (Plan 2 contract preserved),
  * plus live debounced parsing into the normalized model.
  *
- * Layout: 56px ErdTopBar + fixed 3-zone CSS grid (340px / 1fr / 316px).
+ * Layout: 64px ErdTopBar + fixed 3-zone CSS grid (340px / 1fr / 316px).
  *   Left (340px): DbmlEditor with panel header
  *   Center (1fr):  ErdCanvas
  *   Right (316px): SchemaSummary stopgap (Phase 3 rebuilds this)
@@ -453,9 +451,9 @@ export function EditorPage() {
       className="flex h-full flex-col overflow-hidden"
       style={{ background: 'var(--erd-bg)', color: 'var(--erd-text)' }}
     >
-      {/* 56px TopBar */}
+      {/* 64px TopBar */}
       <ErdTopBar
-        glyph={<ProjectGlyph glyph={project.glyph} color={project.color} bgColor={project.bg_color} size={30} />}
+        glyph={<ProjectGlyph glyph={project.glyph} color={project.color} bgColor={project.bg_color} size={34} />}
         projectName={project.name}
         projectMeta={projectMeta}
         autosaveStatus={status}
@@ -488,11 +486,13 @@ export function EditorPage() {
           readOnly ? null : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <TopbarButton data-testid="import-menu-button" aria-label={t('topbar.import')}>
+              <TopbarIconButton
+                data-testid="import-menu-button"
+                aria-label={t('topbar.import')}
+                title={t('topbar.import')}
+              >
                 <Download size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
-                {t('topbar.import')}
-                <ChevronDown size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
-              </TopbarButton>
+              </TopbarIconButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => setImportOpen(true)}>
