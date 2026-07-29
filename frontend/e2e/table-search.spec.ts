@@ -4,6 +4,7 @@
 // pieces jsdom unit tests can't (real React Flow viewport geometry, CodeMirror
 // scroll).
 import { test, expect, type Page } from '@playwright/test'
+import { enterEditMode } from './helpers'
 
 const PASSWORD = 'password123'
 
@@ -48,6 +49,7 @@ async function openEditor(page: Page, name: string) {
   const { id } = await resp.json()
   await page.goto(`/editor/${id}`)
   await page.waitForSelector('[data-testid="erd-canvas"]')
+  await enterEditMode(page)
   await expect
     .poll(async () => page.locator('.react-flow__node').count(), { timeout: 8000 })
     .toBeGreaterThanOrEqual(3)

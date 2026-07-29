@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { enterEditMode } from './helpers'
 
 async function registerAndLogin(page: Page, email: string, password: string) {
   await page.goto('/register')
@@ -115,6 +116,7 @@ async function createProjectWithRef(page: Page): Promise<string> {
   const created = await (await createResponse).json()
   const projectId = created.id as string
   await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
+  await enterEditMode(page)
 
   // 초기 DBML 입력이 600ms 디바운스 PATCH를 하나 만든다. 여기서 arm해서
   // 소진해 두지 않으면 이후 테스트가 기다리는 PATCH가 이 저장에 먼저 낚여
@@ -203,6 +205,7 @@ test.describe('Manual edge paths', () => {
     await expect
       .poll(async () => page.locator('.react-flow__edge').count(), { timeout: 5000 })
       .toBeGreaterThanOrEqual(1)
+    await enterEditMode(page)
     await clickEdgeMidpoint(page)
     await expect(page.getByTestId('edge-reset')).toBeVisible()
 
@@ -271,6 +274,7 @@ test.describe('Manual edge paths', () => {
     await expect
       .poll(async () => page.locator('.react-flow__edge').count(), { timeout: 5000 })
       .toBeGreaterThanOrEqual(1)
+    await enterEditMode(page)
     await expect
       .poll(async () =>
         page.locator('.react-flow__edge-path').first().getAttribute('d'),
@@ -353,6 +357,7 @@ test('edges leaving the same PK share ONE trunk, forking near the targets', asyn
   const resp = await page.request.post('/api/projects', { data: { name: 'Bus', dbml_text: dbml, layout } })
   const { id } = await resp.json()
   await page.goto(`/editor/${id}`)
+  await enterEditMode(page)
   await expect
     .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })
     .toBeGreaterThanOrEqual(3)
@@ -420,6 +425,7 @@ test('edges leaving the same source handle fan onto distinct vertical trunks', a
   })
   const { id } = await resp.json()
   await page.goto(`/editor/${id}`)
+  await enterEditMode(page)
   await expect
     .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })
     .toBeGreaterThanOrEqual(3)
@@ -484,6 +490,7 @@ test('independent edges do not share an identical vertical corridor', async ({ p
   const resp = await page.request.post('/api/projects', { data: { name: 'Spread', dbml_text: dbml, layout } })
   const { id } = await resp.json()
   await page.goto(`/editor/${id}`)
+  await enterEditMode(page)
   await expect.poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 }).toBeGreaterThanOrEqual(2)
   await page.waitForTimeout(1000) // allow the spread pass (rAF) to settle
 
@@ -563,6 +570,7 @@ test('no edge path crosses any table card interior (corridor routing)', async ({
   })
   const { id } = await resp.json()
   await page.goto(`/editor/${id}`)
+  await enterEditMode(page)
 
   // Wait for at least 3 edges (order_items.order_id, order_items.product_id,
   // categories.product_id) plus routing settle (rAF merge + spread passes).
@@ -669,6 +677,7 @@ test('dense grouped schema: a same-PK bus never tunnels through an intervening c
   const resp = await page.request.post('/api/projects', { data: { name: 'Dense', dbml_text: dbml } })
   const { id } = await resp.json()
   await page.goto(`/editor/${id}`)
+  await enterEditMode(page)
   await expect
     .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })
     .toBeGreaterThanOrEqual(6)
@@ -737,6 +746,7 @@ test('same-PK FKs of one table share a trunk; a different-PK FK stays separate',
   const resp = await page.request.post('/api/projects', { data: { name: 'Bundle', dbml_text: dbml, layout } })
   const { id } = await resp.json()
   await page.goto(`/editor/${id}`)
+  await enterEditMode(page)
   await expect.poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 }).toBeGreaterThanOrEqual(3)
   await page.waitForTimeout(1000) // allow the merge + spread passes (rAF) to settle
 
@@ -843,6 +853,7 @@ test('cross-group same-PK members converge on one approach trunk per destination
   })
   const { id } = await resp.json()
   await page.goto(`/editor/${id}`)
+  await enterEditMode(page)
 
   await expect
     .poll(async () => page.locator('.react-flow__edge-path').count(), { timeout: 8000 })

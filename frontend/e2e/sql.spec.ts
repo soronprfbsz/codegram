@@ -1,5 +1,6 @@
 // frontend/e2e/sql.spec.ts
 import { test, expect, type Page } from '@playwright/test'
+import { enterEditMode } from './helpers'
 
 const PASSWORD = 'password123'
 
@@ -35,6 +36,7 @@ async function createProjectAndOpen(
   const created = await (await createResponse).json()
   const projectId = created.id as string
   await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
+  await enterEditMode(page)
   return projectId
 }
 

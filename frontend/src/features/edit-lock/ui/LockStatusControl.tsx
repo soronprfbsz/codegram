@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Lock } from 'lucide-react'
+import { Lock, Pencil } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import type { EditLease } from '../api/useEditLease'
 
@@ -19,6 +19,13 @@ const badgeStyle: React.CSSProperties = {
   borderRadius: 9999,
 }
 
+// Same badge, accent-toned: being IN edit mode is a state worth noticing.
+const editingStyle: React.CSSProperties = {
+  ...badgeStyle,
+  color: 'var(--erd-accent)',
+  background: 'color-mix(in srgb, var(--erd-accent) 12%, transparent)',
+}
+
 // Same badge, alert-toned: losing the lease is news, not ambient status.
 const lostStyle: React.CSSProperties = {
   ...badgeStyle,
@@ -27,12 +34,14 @@ const lostStyle: React.CSSProperties = {
 }
 
 /**
- * Topbar edit-lock indicator (ADR-0015): read-only badge for viewers, "○○ is
- * editing" + force for the owner, or a "take over" button when the lock is free
- * but the caller isn't holding it. Renders nothing while the caller holds it.
+ * Topbar edit-mode switch and lock indicator.
  *
- * When the caller HAD the lease and lost it, this says so at once and offers a
- * way back (ADR-0024) — previously the only signal was a save failing later.
+ * Opening a project reads it; editing is a mode you step into (ADR-0025), so
+ * this is where that step happens: "편집 모드" to take the lease, "편집 종료" to
+ * hand it back. It also carries the states that block entering — a viewer's
+ * read-only badge, someone else holding the lease (owner may force), and losing
+ * a lease you held, which is announced here rather than by a failing save
+ * (ADR-0024).
  */
 export function LockStatusControl({ canEdit, lease }: LockStatusControlProps) {
   const { t } = useTranslation()
@@ -78,6 +87,25 @@ export function LockStatusControl({ canEdit, lease }: LockStatusControlProps) {
       </span>
     )
   }
+  // In edit mode → say so, and offer the way back out. Handing the lease back
+  // is a deliberate act, same as taking it.
+  if (lease.editMode) {
+    return (
+      <span style={editingStyle} data-testid="lock-editing-mode">
+        <Pencil size={13} />
+        {t('editLock.editingNow')}
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          data-testid="lock-exit-edit"
+          onClick={lease.exitEditMode}
+        >
+          {t('editLock.exitEdit')}
+        </Button>
+      </span>
+    )
+  }
   // Another user holds the live lock → read-only banner; the owner may force.
   if (lease.lockedByOther) {
     return (
@@ -99,7 +127,20 @@ export function LockStatusControl({ canEdit, lease }: LockStatusControlProps) {
     )
   }
 
-  // The caller holds it (or it's free and they may edit) → no indicator needed;
-  // a first save auto-acquires the lease.
-  return null
+  // Free, and the caller may edit → the entry point into edit mode.
+  return (
+    <span style={badgeStyle} data-testid="lock-readonly-editor">
+      {t('editLock.readingNow')}
+      <Button
+        type="button"
+        size="xs"
+        data-testid="lock-enter-edit"
+        disabled={lease.entering}
+        onClick={lease.enterEditMode}
+      >
+        <Pencil size={13} />
+        {t('editLock.enterEdit')}
+      </Button>
+    </span>
+  )
 }

@@ -12,6 +12,7 @@ import * as exportDiagramLib from '@/features/export-diagram/lib/exportDiagram'
 import type { DbmlSchema } from '@/entities/dbml'
 import * as sqlImport from '@/features/sql-import'
 import * as dbImport from '@/features/db-import'
+import * as editLockApi from '@/features/edit-lock/api/editLock'
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -38,6 +39,23 @@ function expandAllGroups() {
 /** Open the TopBar "Diagram ▾" export dropdown. */
 async function openDiagramMenu(user: User) {
   await user.click(screen.getByRole('button', { name: '내보내기' }))
+}
+
+/**
+ * Step into edit mode (ADR-0025). The editor opens read-only, so anything that
+ * writes — SQL import, DB sync, group ops — is hidden until the user says they
+ * are editing. Stubs the acquire so no network is needed.
+ */
+async function enterEditMode(user: User) {
+  vi.spyOn(editLockApi, 'acquireLock').mockResolvedValue({
+    locked: true,
+    locked_by: 'u-1',
+    locked_by_email: 'me@example.com',
+    expires_at: new Date(Date.now() + 60_000).toISOString(),
+    is_me: true,
+  })
+  await user.click(await screen.findByTestId('lock-enter-edit'))
+  await screen.findByTestId('lock-editing-mode')
 }
 
 /** Open the topbar's "Import" dropdown. */
@@ -605,6 +623,7 @@ describe('EditorPage — SQL import wiring (topbar)', () => {
     renderEditor()
 
     expect(screen.queryByTestId('sql-import-dialog-stub')).toBeNull()
+    await enterEditMode(user)
     await openImportMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: 'SQL 가져오기' }))
     expect(screen.getByTestId('sql-import-dialog-stub')).toBeInTheDocument()
@@ -615,6 +634,7 @@ describe('EditorPage — SQL import wiring (topbar)', () => {
     const user = setup()
     renderEditor()
 
+    await enterEditMode(user)
     await openImportMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: 'SQL 가져오기' }))
     expect(screen.getByTestId('has-existing')).toHaveTextContent('true')
@@ -625,6 +645,7 @@ describe('EditorPage — SQL import wiring (topbar)', () => {
     const user = setup()
     renderEditor()
 
+    await enterEditMode(user)
     await openImportMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: 'SQL 가져오기' }))
     await user.click(screen.getByRole('button', { name: 'fire-import' }))
@@ -700,6 +721,7 @@ describe('EditorPage — DB Sync wiring', () => {
     // tablelist를 검증하려면 정보 패널을 연다(기본 hidden).
     await user.click(screen.getByTestId('info-panel-button'))
 
+    await enterEditMode(user)
     await openImportMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: 'DB에서 동기화' }))
     await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
@@ -727,6 +749,7 @@ describe('EditorPage — DB Sync wiring', () => {
 
     await user.click(screen.getByTestId('info-panel-button'))
 
+    await enterEditMode(user)
     await openImportMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: 'DB에서 동기화' }))
     await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))
@@ -756,6 +779,7 @@ describe('EditorPage — DB Sync wiring', () => {
     // tablelist를 검증하려면 정보 패널을 연다(기본 hidden).
     await user.click(screen.getByTestId('info-panel-button'))
 
+    await enterEditMode(user)
     await openImportMenu(user)
     await user.click(await screen.findByRole('menuitem', { name: 'DB에서 동기화' }))
     await user.click(screen.getByRole('button', { name: 'fire-sync-introspected' }))

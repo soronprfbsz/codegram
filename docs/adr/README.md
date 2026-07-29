@@ -25,7 +25,7 @@
 | `parsing` | 파싱·변환 | 0002 |
 | `export` | 내보내기·상호운용 | 0005, 0013 |
 | `auth` | 인증·접근제어 | 0006, 0016 |
-| `collaboration` | 협업·버전관리 | 0014, 0015, 0023, 0024 |
+| `collaboration` | 협업·버전관리 | 0014, 0015, 0023, 0024, 0025 |
 | `architecture` | 코드베이스 구조 | 0007, 0017, 0019, 0022 |
 | `frontend` | 프론트엔드 횡단(국제화·디자인토큰 등) | 0017, 0020 |
 | `deployment` | 배포·CI/CD·인프라 | 0019 |
@@ -58,3 +58,4 @@
 | [0022](0022-request-unit-of-work-commits-before-response.md) | 요청 단위 작업의 커밋은 응답 전송 전에 끝낸다(`scope="function"`) | `architecture` | Accepted · Related: 0006, 0007 |
 | [0023](0023-manual-snapshot-label-is-its-identity.md) | 수동 스냅샷의 라벨은 식별자 — 같은 라벨 저장은 확인 후 덮어쓰기 | `collaboration` | Accepted · Related: 0014 |
 | [0024](0024-edit-lease-handover-is-announced-not-discovered.md) | 편집 리스는 닫을 때 즉시 반납, 뺏김은 저장 실패가 아니라 알림으로 | `collaboration` | Accepted · Related: 0015 |
+| [0025](0025-editing-is-a-mode-you-enter.md) | 편집은 들어가는 모드 — 열면 언제나 읽기 전용, 명시적 진입 시에만 리스 획득 | `collaboration` | Accepted · Related: 0015, 0024 |

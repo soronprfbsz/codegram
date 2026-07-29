@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { enterEditMode } from './helpers'
 
 async function registerAndLogin(page: Page, email: string, password: string) {
   await page.goto('/register')
@@ -39,6 +40,7 @@ test.describe('Editor ERD canvas', () => {
     const created = await (await createResponse).json()
     const projectId = created.id as string
     await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
+    await enterEditMode(page)
 
     // Type a two-table schema with a foreign-key relationship.
     const dbml = [

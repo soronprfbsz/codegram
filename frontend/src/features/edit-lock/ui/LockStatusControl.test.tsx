@@ -12,6 +12,11 @@ function lease(over: Partial<EditLease> = {}): EditLease {
     holderEmail: null,
     canForce: false,
     bumped: false,
+    editMode: false,
+    enterEditMode: vi.fn(),
+    exitEditMode: vi.fn(),
+    canEnterEditMode: true,
+    entering: false,
     lostLease: false,
     conflictReason: null,
     takeover: vi.fn(),
@@ -51,11 +56,40 @@ describe('LockStatusControl', () => {
     expect(force).toHaveBeenCalledOnce()
   })
 
-  it('renders nothing when the caller holds the lock', () => {
-    const { container } = render(
-      <LockStatusControl canEdit lease={lease({ isHolder: true })} />,
+  // ADR-0025: editing is a mode, so the topbar is where you step in and out.
+  it('offers the way into edit mode while the project is only being read', () => {
+    const enterEditMode = vi.fn()
+    render(<LockStatusControl canEdit lease={lease({ enterEditMode })} />)
+
+    expect(screen.getByTestId('lock-readonly-editor')).toHaveTextContent('읽기 전용')
+    fireEvent.click(screen.getByTestId('lock-enter-edit'))
+    expect(enterEditMode).toHaveBeenCalled()
+  })
+
+  it('offers the way out once in edit mode', () => {
+    const exitEditMode = vi.fn()
+    render(
+      <LockStatusControl
+        canEdit
+        lease={lease({ editMode: true, isHolder: true, exitEditMode })}
+      />,
     )
-    expect(container).toBeEmptyDOMElement()
+
+    expect(screen.getByTestId('lock-editing-mode')).toHaveTextContent('편집 중')
+    expect(screen.queryByTestId('lock-enter-edit')).toBeNull()
+    fireEvent.click(screen.getByTestId('lock-exit-edit'))
+    expect(exitEditMode).toHaveBeenCalled()
+  })
+
+  it('does not offer entry while someone else holds the lease', () => {
+    render(
+      <LockStatusControl
+        canEdit
+        lease={lease({ lockedByOther: true, holderEmail: 'bob@example.com' })}
+      />,
+    )
+    expect(screen.getByTestId('lock-editing-by')).toHaveTextContent('bob@example.com')
+    expect(screen.queryByTestId('lock-enter-edit')).toBeNull()
   })
 
   // ADR-0024: losing the lease is news the topbar delivers at once, with a way

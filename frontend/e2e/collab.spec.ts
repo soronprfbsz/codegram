@@ -28,6 +28,16 @@ async function inviteViaApi(
   expect(res.status()).toBe(201)
 }
 
+/** Take the edit lease: the editor opens read-only now (ADR-0025). */
+async function enterEditMode(page: Page) {
+  // Wait on the switch itself, not the canvas — an empty project renders no
+  // canvas but still opens read-only with a way in.
+  const enter = page.getByTestId('lock-enter-edit')
+  await expect(enter).toBeVisible({ timeout: 20000 })
+  await enter.click()
+  await expect(page.getByTestId('lock-editing-mode')).toBeVisible()
+}
+
 test.describe('Project collaboration', () => {
   test('owner shares a project; the viewer sees it read-only', async ({
     browser,
@@ -82,16 +92,10 @@ test.describe('Project collaboration', () => {
     const owner = await ownerCtx.newPage()
     await registerAndLogin(owner, ownerEmail, password)
 
-    // Owner enters the editor and acquires the lock on mount.
-    const acquired = owner.waitForResponse(
-      (r) =>
-        r.url().includes('/edit-lock') &&
-        r.request().method() === 'POST' &&
-        r.status() === 200,
-    )
+    // The owner has to say they are editing before they hold the lease.
     const projectId = await createProject(owner, 'Locked')
     await owner.waitForURL((u) => u.pathname === `/editor/${projectId}`)
-    await acquired
+    await enterEditMode(owner)
 
     await inviteViaApi(ownerCtx, projectId, memberEmail, 'editor')
 
@@ -129,14 +133,8 @@ test.describe('Project collaboration', () => {
     const projectId = (await created.json()).id as string
 
     // Owner holds the lock.
-    const acquired = owner.waitForResponse(
-      (r) =>
-        r.url().includes('/edit-lock') &&
-        r.request().method() === 'POST' &&
-        r.status() === 200,
-    )
     await owner.goto(`/editor/${projectId}`)
-    await acquired
+    await enterEditMode(owner)
 
     await inviteViaApi(ownerCtx, projectId, memberEmail, 'editor')
 
@@ -206,18 +204,9 @@ test.describe('Project collaboration', () => {
     }
 
     const editorTab = await ownerCtx.newPage()
-    const acquired = editorTab.waitForResponse(
-      (r) =>
-        r.url().includes('/edit-lock') &&
-        r.request().method() === 'POST' &&
-        r.status() === 200,
-    )
     await editorTab.goto(`/editor/${projectId}`)
-    await acquired
-    await editorTab.waitForSelector('[data-testid="erd-canvas"]', {
-      timeout: 15000,
-    })
-    expect(await lockStatus()).toBe(true)
+    await enterEditMode(editorTab)
+    await expect.poll(lockStatus, { timeout: 5000 }).toBe(true)
 
     // Closing the tab used to leave the lease held for the full 60s TTL: only
     // React unmount released it, and that never runs on a close (ADR-0024).
@@ -300,6 +289,74 @@ test.describe('Project collaboration', () => {
     )
 
     await viewerCtx.close()
+    await ownerCtx.close()
+  })
+
+  test('opening a project reads it; editing is a mode you enter', async ({
+    browser,
+  }) => {
+    const stamp = Date.now()
+    const password = 'password123'
+    const ownerCtx = await browser.newContext()
+    const owner = await ownerCtx.newPage()
+    await registerAndLogin(owner, `owner-mode-${stamp}@example.com`, password)
+    const created = await ownerCtx.request.post('/api/projects', {
+      data: {
+        name: 'Edit Mode',
+        dbml_text: 'Table users {\n  id integer [pk]\n  name varchar\n}',
+        layout: { version: 1, positions: {} },
+      },
+    })
+    const projectId = (await created.json()).id as string
+    const leaseTaken = async () => {
+      const r = await ownerCtx.request.get(
+        `/api/projects/${projectId}/edit-lock`,
+      )
+      return (await r.json()).locked as boolean
+    }
+
+    await owner.goto(`/editor/${projectId}`)
+    await owner.waitForSelector('[data-testid="erd-canvas"]', { timeout: 20000 })
+
+    // Even the OWNER opens read-only: coming to look must not block whoever
+    // came to edit (ADR-0025).
+    await expect(owner.getByTestId('lock-readonly-editor')).toBeVisible()
+    await expect(owner.getByTestId('import-menu-button')).toBeHidden()
+    expect(await leaseTaken()).toBe(false)
+
+    const node = owner.locator('.react-flow__node').first()
+    const before = (await node.boundingBox())!
+    const drag = async () => {
+      const b = (await node.boundingBox())!
+      await owner.mouse.move(b.x + b.width / 2, b.y + 10)
+      await owner.mouse.down()
+      await owner.mouse.move(b.x + 200, b.y + 120, { steps: 10 })
+      await owner.mouse.up()
+      await owner.waitForTimeout(600)
+      return (await node.boundingBox())!
+    }
+    expect(Math.abs((await drag()).x - before.x)).toBeLessThan(20)
+
+    // Entering takes the lease and unlocks the write surfaces.
+    await owner.getByTestId('lock-enter-edit').click()
+    await expect(owner.getByTestId('lock-editing-mode')).toBeVisible()
+    await expect.poll(leaseTaken, { timeout: 5000 }).toBe(true)
+    await expect(owner.getByTestId('import-menu-button')).toBeVisible()
+    const moved = (await drag()).x
+    expect(Math.abs(moved - before.x)).toBeGreaterThan(20)
+
+    // Leaving hands it straight back, with no "you were bumped" alarm.
+    await owner.getByTestId('lock-exit-edit').click()
+    await expect(owner.getByTestId('lock-readonly-editor')).toBeVisible()
+    await expect.poll(leaseTaken, { timeout: 5000 }).toBe(false)
+    await expect(owner.getByTestId('lock-lost')).toHaveCount(0)
+
+    // The mode is never remembered — a reload comes back reading.
+    await owner.reload()
+    await owner.waitForSelector('[data-testid="erd-canvas"]', { timeout: 20000 })
+    await expect(owner.getByTestId('lock-readonly-editor')).toBeVisible()
+    expect(await leaseTaken()).toBe(false)
+
     await ownerCtx.close()
   })
 

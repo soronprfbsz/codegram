@@ -12,6 +12,15 @@ import {
 import type { EditConflictReason, LockStatus } from '../model/types'
 
 const HEARTBEAT_MS = 20_000
+
+/** The status of a project nobody is editing — written on a deliberate exit. */
+const FREE_LOCK: LockStatus = {
+  locked: false,
+  locked_by: null,
+  locked_by_email: null,
+  expires_at: null,
+  is_me: false,
+}
 const POLL_MS = 15_000
 
 export interface EditLease {
@@ -23,6 +32,19 @@ export interface EditLease {
   holderEmail: string | null
   /** Owner may force-take a live lock held by someone else. */
   canForce: boolean
+  /**
+   * The caller has explicitly entered edit mode and holds the lease (ADR-0025).
+   * Opening a project never does this — editing is a mode you step into.
+   */
+  editMode: boolean
+  /** Take the lease and start editing. No-op for viewers / when held by another. */
+  enterEditMode: () => void
+  /** Hand the lease back and return to reading. */
+  exitEditMode: () => void
+  /** Entering is possible right now (may edit, and nobody else holds it). */
+  canEnterEditMode: boolean
+  /** An enter attempt is in flight. */
+  entering: boolean
   /** A content write was rejected 409 — the conflict dialog is open. */
   bumped: boolean
   /** Which kind of 409 it was, so the dialog can say the right thing. */
@@ -41,14 +63,16 @@ export interface EditLease {
 }
 
 /**
- * Drive the single-editor edit lease for a project (ADR-0015): acquire on
- * mount, renew on a heartbeat, release on unmount AND on tab close, and poll
- * status so read-only users see who is editing. `canEdit` (owner/editor) gates
- * acquisition; `isOwner` gates force-takeover.
+ * Drive the single-editor edit lease for a project (ADR-0015): poll status so
+ * everyone sees who is editing, renew on a heartbeat while editing, and release
+ * on unmount AND on tab close. `canEdit` (owner/editor) gates acquisition;
+ * `isOwner` gates force-takeover.
  *
- * Handing the lease over is explicit at both ends (ADR-0024): closing the tab
- * gives it back at once, and losing it raises `lostLease` immediately instead
- * of letting the user find out from a rejected save.
+ * Opening a project does NOT take the lease (ADR-0025) — editing is a mode the
+ * user enters, so someone who only came to look never blocks the person who
+ * came to edit. Handing the lease over is explicit at both ends (ADR-0024):
+ * closing the tab gives it back at once, and losing it raises `lostLease`
+ * immediately instead of letting the user find out from a rejected save.
  */
 export function useEditLease(
   projectId: string,
@@ -57,6 +81,9 @@ export function useEditLease(
   const qc = useQueryClient()
   const [conflict, setConflict] = useState<EditConflictReason | null>(null)
   const [lostLease, setLostLease] = useState(false)
+  // Editing is opt-in per visit and never remembered: every entry starts read
+  // only, so "opening a project reads it" holds without exception (ADR-0025).
+  const [editMode, setEditMode] = useState(false)
   const bumped = conflict !== null
 
   const statusQuery = useQuery({
@@ -68,11 +95,9 @@ export function useEditLease(
   const status = statusQuery.data
   const isHolder = Boolean(status?.locked && status.is_me)
   const lockedByOther = Boolean(status?.locked && !status.is_me)
-  // Optimistic: an editor is read-only only when ANOTHER user holds the live
-  // lock or they were just bumped — not merely "hasn't acquired yet" (avoids a
-  // load flash). A first save auto-acquires server-side; the backstop rejects a
-  // genuinely concurrent write with 409 (→ bumped). Viewers are always read-only.
-  const readOnly = canEdit ? bumped || lockedByOther : true
+  // Read-only unless the caller may edit AND has stepped into edit mode AND
+  // still holds the lease. Viewers are always read-only.
+  const readOnly = !canEdit || !editMode || bumped || lockedByOther
 
   const writeStatus = useCallback(
     (s: LockStatus) => qc.setQueryData(lockQueryKeys.status(projectId), s),
@@ -104,10 +129,10 @@ export function useEditLease(
     acquireRef.current = acquire
   }, [acquire])
 
-  // Acquire on mount / project switch; release on leave. Editors/owners only.
+  // Leaving the project hands the lease back. Nothing is acquired here — that
+  // now takes an explicit enterEditMode() (ADR-0025).
   useEffect(() => {
     if (!projectId || !canEdit) return
-    acquireRef.current.mutate() // a 409 just leaves the caller read-only
     return () => releaseLock(projectId)
   }, [projectId, canEdit])
 
@@ -122,10 +147,11 @@ export function useEditLease(
     // is the very hole this exists to close. The server only deletes the row
     // when the caller holds it, so a release from a non-holder is a no-op.
     const onPageHide = () => releaseLock(projectId)
-    // Restored from the back/forward cache: the lease was released on the way
-    // out, so take it again rather than editing without one.
+    // Restored from the back/forward cache: the lease went back on the way out,
+    // so the restored page is no longer editing. Drop the mode rather than
+    // silently re-taking a lease the user never asked for again (ADR-0025).
     const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) acquireRef.current.mutate()
+      if (e.persisted) setEditMode(false)
     }
     window.addEventListener('pagehide', onPageHide)
     window.addEventListener('pageshow', onPageShow)
@@ -135,13 +161,15 @@ export function useEditLease(
     }
   }, [projectId, canEdit])
 
-  // Heartbeat: renew while holding, hidden tab included (ADR-0024). Gating this
+  // Heartbeat: renew while editing, hidden tab included (ADR-0024). Gating this
   // on visibility meant reading another tab for a minute silently expired the
   // lease; abandoned tabs are now reclaimed by the pagehide release above.
+  const editModeRef = useRef(editMode)
+  editModeRef.current = editMode
   useEffect(() => {
     if (!projectId || !canEdit) return
     const id = setInterval(() => {
-      if (!holderRef.current) return
+      if (!editModeRef.current || !holderRef.current) return
       acquireRef.current.mutate(undefined, {
         onError: (e) => {
           // An acquire only ever 409s because someone else holds the lease.
@@ -166,11 +194,46 @@ export function useEditLease(
     heldRef.current = false
   }, [isHolder, canEdit])
 
-  // A project switch is not a loss — start the next project with a clean slate.
+  // Losing the lease ends edit mode: staying "in edit mode" while unable to
+  // write would be a lie, and the topbar would offer a stop button for
+  // something already stopped.
+  useEffect(() => {
+    if (lostLease) setEditMode(false)
+  }, [lostLease])
+
+  // A project switch is not a loss — start the next project reading, as always.
   useEffect(() => {
     heldRef.current = false
     setLostLease(false)
+    setEditMode(false)
   }, [projectId])
+
+  const enterEditMode = useCallback(() => {
+    acquire.mutate(undefined, {
+      onSuccess: () => {
+        setEditMode(true)
+        setLostLease(false)
+      },
+      onError: (e) => {
+        // Someone took it between the poll and the click — say so instead of
+        // dropping the user into a mode that cannot write.
+        if (e instanceof ApiError && e.status === 409) setConflict('edit_locked')
+      },
+    })
+  }, [acquire])
+
+  const exitEditMode = useCallback(() => {
+    setEditMode(false)
+    setLostLease(false)
+    // Giving it up on purpose is not losing it: clear the "was holding" mark so
+    // the next poll doesn't read the vanishing lease as a takeover.
+    heldRef.current = false
+    releaseLock(projectId)
+    // releaseLock is fire-and-forget (keepalive), so a refetch here would race
+    // the DELETE and read back the lease we just gave up. We know the outcome —
+    // write it, and let the poll confirm (or correct it if someone else got in).
+    writeStatus(FREE_LOCK)
+  }, [projectId, writeStatus])
 
   const clearBumped = useCallback(() => {
     setConflict(null)
@@ -188,8 +251,21 @@ export function useEditLease(
     bumped,
     conflictReason: conflict,
     lostLease,
-    takeover: () => acquire.mutate(),
-    force: () => forceMut.mutate(),
+    editMode,
+    enterEditMode,
+    exitEditMode,
+    canEnterEditMode: canEdit && !lockedByOther && !editMode,
+    entering: acquire.isPending,
+    takeover: enterEditMode,
+    force: () => {
+      forceMut.mutate(undefined, {
+        onSuccess: () => {
+          // Forcing is how an owner takes over — it puts them in edit mode.
+          setEditMode(true)
+          setLostLease(false)
+        },
+      })
+    },
     clearBumped,
     reportConflict: (reason?: string) =>
       setConflict(reason === 'stale_version' ? 'stale_version' : 'edit_locked'),

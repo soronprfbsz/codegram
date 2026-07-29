@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { enterEditMode } from './helpers'
 
 /**
  * 엣지의 '경로 위' 한 점을 클릭한다. `.react-flow__edge` bbox 중심 클릭은 ㄱ자
@@ -63,6 +64,7 @@ test('table groups: full CRUD scenario', async ({ page }) => {
   const created = await (await createResponse).json()
   const projectId = created.id as string
   await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
+  await enterEditMode(page)
 
   // Type a two-table DBML schema.
   const dbml = [
@@ -220,6 +222,7 @@ test('그룹 라벨 드래그로 멤버 이동, 내부 엣지는 그룹을 통�
   const created = await createResp.json()
   const projectId = created.id as string
   await page.goto(`/editor/${projectId}`)
+  await enterEditMode(page)
 
   // 그룹 리전과 엣지가 모두 렌더될 때까지 대기.
   await page.waitForSelector('[data-testid^="group-region-"]')
@@ -284,6 +287,7 @@ test('그룹 라벨 hover → 정렬 버튼으로 그룹 내부 콤팩트 정렬
   const created = await createResp.json()
   const projectId = created.id as string
   await page.goto(`/editor/${projectId}`)
+  await enterEditMode(page)
 
   await page.waitForSelector('[data-testid^="group-region-"]')
   await expect
@@ -340,6 +344,7 @@ test('그룹 본체(빈 공간) 클릭 → 캔버스 클릭처럼 선택 해제'
   })
   const projectId = (await createResp.json()).id as string
   await page.goto(`/editor/${projectId}`)
+  await enterEditMode(page)
   await page.waitForSelector('[data-testid^="group-region-"]')
   await expect
     .poll(async () => page.locator('.react-flow__edge').count(), { timeout: 8000 })

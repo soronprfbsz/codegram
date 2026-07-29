@@ -8,6 +8,7 @@
 // The test won't reach the DB locally without the docker stack at 4001, which
 // is the same pre-existing constraint for all specs in this project.
 import { test, expect, type Page } from '@playwright/test'
+import { enterEditMode } from './helpers'
 
 const PASSWORD = 'password123'
 
@@ -65,6 +66,7 @@ test('db-sync: introspect merges schema, preserves positions, removes dropped ta
   // Open the editor and wait for the canvas
   await page.goto(`/editor/${id}`)
   await page.waitForSelector('[data-testid="erd-canvas"]', { timeout: 15000 })
+  await enterEditMode(page)
 
   // Wait for react-flow to render the initial nodes
   await expect
@@ -197,6 +199,7 @@ test('db-sync: partial re-sync (public only) preserves non-synced sales schema t
   // Open the editor and wait for the canvas
   await page.goto(`/editor/${id}`)
   await page.waitForSelector('[data-testid="erd-canvas"]', { timeout: 15000 })
+  await enterEditMode(page)
 
   // Wait for both nodes to render
   await expect

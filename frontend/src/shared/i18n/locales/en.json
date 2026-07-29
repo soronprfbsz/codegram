@@ -158,6 +158,10 @@
   },
   "editLock": {
     "viewerReadOnly": "Read-only (viewer)",
+    "readingNow": "Read-only",
+    "enterEdit": "Edit mode",
+    "editingNow": "Editing",
+    "exitEdit": "Done editing",
     "editing": "{{email}} is editing",
     "takeover": "Take over editing",
     "forceTakeover": "Force takeover",

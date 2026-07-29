@@ -1,5 +1,6 @@
 // frontend/e2e/editor-layout.spec.ts
 import { test, expect, type Page } from '@playwright/test'
+import { enterEditMode } from './helpers'
 
 const PASSWORD = 'password123'
 
@@ -33,6 +34,7 @@ async function createProjectAndOpen(page: Page, name: string): Promise<string> {
   const created = await (await createResponse).json()
   const projectId = created.id as string
   await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
+  await enterEditMode(page)
   return projectId
 }
 
@@ -169,6 +171,7 @@ test.describe('Editor manual layout persistence', () => {
     // reconciled back onto the parsed nodes (NOT reset to dagre).
     await page.reload()
     await expect(page.locator('.react-flow')).toBeVisible()
+    await enterEditMode(page)
     await expect(
       page.locator('.react-flow__node[data-id="public.users"]'),
     ).toBeVisible()

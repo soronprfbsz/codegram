@@ -158,6 +158,10 @@
   },
   "editLock": {
     "viewerReadOnly": "읽기 전용 (뷰어)",
+    "readingNow": "읽기 전용",
+    "enterEdit": "편집 모드",
+    "editingNow": "편집 중",
+    "exitEdit": "편집 종료",
     "editing": "{{email}} 님이 편집 중",
     "takeover": "편집 이어받기",
     "forceTakeover": "강제 이어받기",

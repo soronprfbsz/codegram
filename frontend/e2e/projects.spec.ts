@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { enterEditMode } from './helpers'
 
 async function registerAndLogin(page: Page, email: string, password: string) {
   await page.goto('/register')
@@ -41,6 +42,7 @@ test.describe('Project CRUD & autosave', () => {
 
     // Creating navigates straight into the editor.
     await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
+    await enterEditMode(page)
     await expect(
       page.getByRole('heading', { name: 'E2E Project' }),
     ).toBeVisible()
@@ -62,6 +64,7 @@ test.describe('Project CRUD & autosave', () => {
     // Reload and confirm the editor still holds the saved DBML.
     await page.reload()
     await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
+    await enterEditMode(page)
     await expect(
       page.getByTestId('dbml-editor').locator('.cm-content'),
     ).toContainText('table users')
@@ -86,6 +89,7 @@ test.describe('Project CRUD & autosave', () => {
     const created = await (await createResponse).json()
     const projectId = created.id as string
     await page.waitForURL((url) => url.pathname === `/editor/${projectId}`)
+    await enterEditMode(page)
 
     // Back to the dashboard via the sidebar. The editor opens with the sidebar
     // collapsed to a rail (logo hidden), so expand it first, then click the logo.
