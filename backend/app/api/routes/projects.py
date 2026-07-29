@@ -42,12 +42,19 @@ def _access_http_error(exc: Exception) -> HTTPException:
 
 
 def _read(
-    project: object, role: str | None = None, owner_email: str | None = None
+    project: object,
+    role: str | None = None,
+    owner_email: str | None = None,
+    last_edited_by_email: str | None = None,
 ) -> ProjectRead:
-    """Validate a project to ProjectRead, attaching the caller's role + owner
-    email (the ORM object carries neither)."""
+    """Validate a project to ProjectRead, attaching the caller's role, the owner
+    email and the last editor's email (the ORM object carries none of them)."""
     return ProjectRead.model_validate(project).model_copy(
-        update={"role": role, "owner_email": owner_email}
+        update={
+            "role": role,
+            "owner_email": owner_email,
+            "last_edited_by_email": last_edited_by_email,
+        }
     )
 
 
@@ -68,7 +75,13 @@ async def create_project(
         dbml_text=payload.dbml_text,
         layout=payload.layout,
     )
-    return _read(project, role=OWNER, owner_email=user.email)
+    # The creator is by definition the last editor of a brand-new project.
+    return _read(
+        project,
+        role=OWNER,
+        owner_email=user.email,
+        last_edited_by_email=user.email,
+    )
 
 
 @router.get("", response_model=list[ProjectRead])
@@ -92,7 +105,9 @@ async def get_project(
         meta = await service.get_viewable_with_meta(project_id, user.id)
     except (ProjectNotFoundError, ProjectForbiddenError) as exc:
         raise _access_http_error(exc) from None
-    return _read(meta.project, meta.role, meta.owner_email)
+    return _read(
+        meta.project, meta.role, meta.owner_email, meta.last_edited_by_email
+    )
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)
@@ -129,7 +144,12 @@ async def update_project(
         raise HTTPException(
             status.HTTP_409_CONFLICT, detail={"reason": "stale_version"}
         ) from None
-    return ProjectRead.model_validate(project)
+    # The save stamp must change WITH the save, so unlike role/owner_email this
+    # one is answered on the write too — the client would otherwise keep showing
+    # the previous editor until the next full read.
+    return _read(
+        project, last_edited_by_email=await service.last_editor_email(project)
+    )
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)

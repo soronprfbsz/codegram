@@ -3,6 +3,7 @@ import { Eye, Pencil } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { SegmentedControl } from '@/shared/ui/segmented-control'
 import { TOPBAR_ICON_SIZE, TOPBAR_ICON_STROKE } from '@/shared/ui/topbar-control'
+import { shortEmail } from '@/shared/lib/email'
 import type { EditLease } from '../api/useEditLease'
 
 export interface LockStatusControlProps {
@@ -12,16 +13,6 @@ export interface LockStatusControlProps {
 }
 
 type Mode = 'read' | 'edit'
-
-/**
- * Show the local part of an address in the bar. A long work address swallowed
- * the sentence around it ("…@example.com 님이 편…"), which loses the only part
- * that carries meaning. The full address stays in the tooltip.
- */
-function shortEmail(email: string): string {
-  const at = email.indexOf('@')
-  return at > 0 ? email.slice(0, at) : email
-}
 
 /**
  * Quiet one-line note beside the switch. No pill, no fill: the switch is the

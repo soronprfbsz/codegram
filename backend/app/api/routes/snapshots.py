@@ -233,7 +233,16 @@ async def restore_snapshot(
         raise HTTPException(
             status.HTTP_409_CONFLICT, detail={"reason": "stale_version"}
         ) from None
-    return ProjectRead.model_validate(project)
+    # A restore is a content write, so it moves the save stamp to whoever ran
+    # it. The client merges this response over its cached project, so leaving
+    # the field out would blank the stamp until the next full read.
+    return ProjectRead.model_validate(project).model_copy(
+        update={
+            "last_edited_by_email": await service.projects.last_editor_email(
+                project
+            )
+        }
+    )
 
 
 def _parse_month(month: str) -> tuple[int, int]:

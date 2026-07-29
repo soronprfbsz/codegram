@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AutosaveStatus } from '@/features/project-autosave'
+import { shortEmail } from '@/shared/lib/email'
 
 export interface ErdTopBarProps {
   /** Project glyph badge (a `<ProjectGlyph/>`) shown left of the title. */
@@ -17,6 +18,8 @@ export interface ErdTopBarProps {
   /** ISO timestamp of the project's last save (updated_at). When present and
    *  not mid-save, the subline stamps this instead of a bare "saved" label. */
   lastModified?: string
+  /** Email of whoever wrote that save — named beside the time on the subline. */
+  lastEditedBy?: string
   /**
    * The Export control (an `<ExportMenu/>`) rendered on the right — the single
    * export hub for the open project (preview · Diagram · Table Doc · SQL).
@@ -63,17 +66,24 @@ function SaveDot({ status }: { status: AutosaveStatus }) {
  *
  * Beside the mode switch the stamp read as one more control competing for the
  * same corner. Under the title it is plainly a property OF this project: the
- * dot next to the name carries the state, the line under it carries when. The
- * DBML `Project` block name rides in front of it — same line, one `·` — so the
- * identity block still says everything it used to.
+ * dot next to the name carries the state, the line under it carries when and
+ * by whom. The DBML `Project` block name rides in front of it — same line, one
+ * `·` — so the identity block still says everything it used to.
+ *
+ * Who saved matters because this document is shared: "마지막 저장 …" alone
+ * cannot tell you whether the version you are reading is your own work or a
+ * colleague's. Only the local part shows (a full work address would swallow the
+ * line); the whole address stays in the tooltip.
  */
 function ProjectSubline({
   status,
   lastModified,
+  lastEditedBy,
   projectMeta,
 }: {
   status: AutosaveStatus
   lastModified?: string
+  lastEditedBy?: string
   projectMeta?: string
 }) {
   const { t, i18n } = useTranslation()
@@ -86,11 +96,19 @@ function ProjectSubline({
       : status === 'error'
         ? t('topbar.saveFailed')
         : settled && when
-          ? t('topbar.lastSaved', { time: when })
+          ? lastEditedBy
+            ? t('topbar.lastSavedBy', { time: when, who: shortEmail(lastEditedBy) })
+            : t('topbar.lastSaved', { time: when })
           : t('topbar.saved')
+  // The full address, only when the line is actually showing a shortened one.
+  const title =
+    settled && when && lastEditedBy
+      ? t('topbar.lastSavedBy', { time: when, who: lastEditedBy })
+      : undefined
 
   return (
     <div
+      title={title}
       style={{
         display: 'flex',
         alignItems: 'baseline',
@@ -145,6 +163,7 @@ export function ErdTopBar({
   projectMeta,
   autosaveStatus,
   lastModified,
+  lastEditedBy,
   exportMenu,
   importMenu,
   searchBox,
@@ -192,6 +211,7 @@ export function ErdTopBar({
           <ProjectSubline
             status={autosaveStatus}
             lastModified={lastModified}
+            lastEditedBy={lastEditedBy}
             projectMeta={projectMeta}
           />
         </div>

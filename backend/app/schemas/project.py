@@ -60,3 +60,8 @@ class ProjectRead(BaseModel):
     # None on action responses (patch/restore) where the client already knows.
     role: str | None = None
     owner_email: str | None = None
+    # Who most recently wrote content, for the editor top bar's save stamp.
+    # Attached by the route (last_edited_by is a UUID column; this resolves it).
+    # Populated by get and patch — the two responses the open editor reads. The
+    # list has no consumer for it, so it does not pay for the extra lookup.
+    last_edited_by_email: str | None = None

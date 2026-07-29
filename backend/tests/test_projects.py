@@ -401,6 +401,57 @@ async def test_create_reports_owner_role(
     assert created.json()["owner_email"] == "alice@example.com"
 
 
+# --- last_edited_by_email (the editor top bar's save stamp) ------------------
+
+
+async def test_get_reports_the_creator_as_last_editor(
+    authenticated_client: AsyncClient,
+) -> None:
+    created = await authenticated_client.post("/api/projects", json={"name": "P"})
+    assert created.json()["last_edited_by_email"] == "alice@example.com"
+
+    got = await authenticated_client.get(f"/api/projects/{created.json()['id']}")
+    assert got.json()["last_edited_by_email"] == "alice@example.com"
+
+
+async def test_content_write_moves_the_stamp_to_the_writer(
+    authenticated_client: AsyncClient,
+    second_authenticated_client: AsyncClient,
+    test_session: AsyncSession,
+) -> None:
+    """A save answers with who saved it — the client shows it without re-reading."""
+    created = await authenticated_client.post("/api/projects", json={"name": "P"})
+    project_id = created.json()["id"]
+    await _share(test_session, project_id, "bob@example.com", "editor")
+
+    patched = await second_authenticated_client.patch(
+        f"/api/projects/{project_id}", json={"dbml_text": "Table t { id int }"}
+    )
+    assert patched.status_code == 200
+    assert patched.json()["last_edited_by_email"] == "bob@example.com"
+
+    # And a fresh read agrees with what the write already reported.
+    got = await authenticated_client.get(f"/api/projects/{project_id}")
+    assert got.json()["last_edited_by_email"] == "bob@example.com"
+
+
+async def test_metadata_only_write_leaves_the_stamp_alone(
+    authenticated_client: AsyncClient,
+    second_authenticated_client: AsyncClient,
+    test_session: AsyncSession,
+) -> None:
+    """Renaming is not saving the document, so it must not claim the stamp."""
+    created = await authenticated_client.post("/api/projects", json={"name": "P"})
+    project_id = created.json()["id"]
+    await _share(test_session, project_id, "bob@example.com", "editor")
+
+    renamed = await second_authenticated_client.patch(
+        f"/api/projects/{project_id}", json={"name": "Renamed"}
+    )
+    assert renamed.status_code == 200
+    assert renamed.json()["last_edited_by_email"] == "alice@example.com"
+
+
 # --- 401 unauthenticated ----------------------------------------------------
 
 

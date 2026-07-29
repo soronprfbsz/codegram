@@ -19,6 +19,7 @@ const project: Project = {
   version: 1,
   role: 'owner',
   owner_email: null,
+  last_edited_by_email: null,
   created_at: '2026-06-19T00:00:00Z',
   updated_at: '2026-06-19T00:00:00Z',
 }

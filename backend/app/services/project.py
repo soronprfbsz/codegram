@@ -43,6 +43,7 @@ class ProjectWithMeta:
     project: Project
     role: str
     owner_email: str | None
+    last_edited_by_email: str | None = None
 
 
 class ProjectService:
@@ -144,8 +145,22 @@ class ProjectService:
         )
         owner = await self.users.get_by_id(project.user_id)
         return ProjectWithMeta(
-            project, role, owner.email if owner is not None else None
+            project,
+            role,
+            owner.email if owner is not None else None,
+            await self.last_editor_email(project),
         )
+
+    async def last_editor_email(self, project: Project) -> str | None:
+        """Resolve who last wrote content to an email, for the save stamp.
+
+        None when the project has never been written (legacy rows) or that
+        account has since been deleted (last_edited_by is ON DELETE SET NULL).
+        """
+        if project.last_edited_by is None:
+            return None
+        editor = await self.users.get_by_id(project.last_edited_by)
+        return editor.email if editor is not None else None
 
     async def update_project(
         self,

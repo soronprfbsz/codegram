@@ -25,6 +25,12 @@ export interface Project {
   role: ProjectRole | null
   /** Owner's email — for the "shared by" badge (null on action responses). */
   owner_email: string | null
+  /**
+   * Who most recently wrote content — the editor top bar's save stamp. Unlike
+   * `role`/`owner_email` this IS answered on writes (patch/restore), because it
+   * changes with the save it reports.
+   */
+  last_edited_by_email: string | null
   created_at: string
   updated_at: string
 }

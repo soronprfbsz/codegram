@@ -41,6 +41,32 @@ describe('ErdTopBar', () => {
     expect(screen.queryByText('저장됨')).toBeNull()
   })
 
+  it('names who saved, shortened, with the full address in the tooltip', () => {
+    renderTopBar({
+      autosaveStatus: 'saved',
+      lastModified: '2026-07-08T05:32:00Z',
+      lastEditedBy: 'hawkeye@example.com',
+    })
+    // Shared document: the time alone cannot say whose version you are reading.
+    const line = screen.getByText(/· hawkeye$/)
+    expect(line).toBeInTheDocument()
+    expect(line.closest('[title]')).toHaveAttribute(
+      'title',
+      expect.stringContaining('hawkeye@example.com'),
+    )
+  })
+
+  it('falls back to the bare time when nobody is attributed', () => {
+    renderTopBar({ autosaveStatus: 'saved', lastModified: '2026-07-08T05:32:00Z' })
+    expect(screen.queryByText(/·\s*$/)).toBeNull()
+    expect(screen.getByText(/^마지막 저장 /)).toBeInTheDocument()
+  })
+
+  it('does not name a saver while saving or after a failure', () => {
+    renderTopBar({ autosaveStatus: 'saving', lastEditedBy: 'hawkeye@example.com' })
+    expect(screen.queryByText(/hawkeye/)).toBeNull()
+  })
+
   it('still shows "저장 중…" (not the time) while saving', () => {
     renderTopBar({ autosaveStatus: 'saving', lastModified: '2026-07-08T05:32:00Z' })
     expect(screen.getByText('저장 중…')).toBeInTheDocument()
