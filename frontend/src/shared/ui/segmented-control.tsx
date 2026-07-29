@@ -19,6 +19,11 @@ export interface SegmentedControlProps<T extends string> {
   ariaLabel: string
   /** `${testId}` on the group, `${testId}-${value}` on each segment. */
   testId?: string
+  /**
+   * Stretch to the container's width instead of hugging the labels. Use inside
+   * a panel column; the top bar wants the hugging default.
+   */
+  block?: boolean
 }
 
 /**
@@ -40,6 +45,7 @@ export function SegmentedControl<T extends string>({
   options,
   ariaLabel,
   testId,
+  block = false,
 }: SegmentedControlProps<T>) {
   const index = Math.max(0, options.findIndex((o) => o.value === value))
   return (
@@ -48,7 +54,10 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       data-testid={testId}
-      style={{ height: TOPBAR_CONTROL_HEIGHT }}
+      style={{
+        height: TOPBAR_CONTROL_HEIGHT,
+        ...(block ? { display: 'flex', width: '100%' } : null),
+      }}
     >
       <span
         className="erd-segmented-thumb"

@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import { PanelRightClose, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog'
+import { SegmentedControl } from '@/shared/ui/segmented-control'
 import { ApiError } from '@/shared/api/client'
 import {
   useSnapshots,
@@ -89,22 +90,20 @@ export function SnapshotHistoryPanel({
         </button>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 4, padding: '8px 12px 0' }}>
-        <TabButton
-          active={tab === 'manual'}
-          onClick={() => setTab('manual')}
-          testId="snapshot-tab-manual"
-        >
-          {t('snapshot.tabManual')}
-        </TabButton>
-        <TabButton
-          active={tab === 'auto'}
-          onClick={() => setTab('auto')}
-          testId="snapshot-tab-auto"
-        >
-          {t('snapshot.tabAuto')}
-        </TabButton>
+      {/* Tabs — the same two-way switch the topbar uses for 읽기/편집, so
+          "pick one of these" looks identical everywhere (F1/G1). */}
+      <div style={{ padding: '8px 12px 0' }}>
+        <SegmentedControl<SnapshotGroup>
+          block
+          testId="snapshot-tab"
+          ariaLabel={t('snapshot.title')}
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'manual', label: t('snapshot.tabManual') },
+            { value: 'auto', label: t('snapshot.tabAuto') },
+          ]}
+        />
       </div>
 
       {tab === 'manual' ? (
@@ -409,40 +408,6 @@ function SnapshotRow({
         )}
       </div>
     </li>
-  )
-}
-
-function TabButton({
-  active,
-  onClick,
-  testId,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  testId: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      data-testid={testId}
-      aria-pressed={active}
-      onClick={onClick}
-      style={{
-        flex: 1,
-        height: 32,
-        borderRadius: 6,
-        border: 'none',
-        fontSize: 'var(--erd-fs-base)',
-        fontWeight: active ? 600 : 500,
-        cursor: 'pointer',
-        background: active ? 'var(--erd-hover)' : 'transparent',
-        color: active ? 'var(--erd-text)' : 'var(--erd-text-3)',
-      }}
-    >
-      {children}
-    </button>
   )
 }
 
