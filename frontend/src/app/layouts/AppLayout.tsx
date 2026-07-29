@@ -8,7 +8,9 @@ import { useSidebarStore } from '@/shared/store/sidebar'
  * The sidebar collapse state is "auto" until the user toggles — auto resolves
  * to the icon rail on the editor (space-tight) and expanded elsewhere.
  *
- * widgets layer: composes widgets/app-sidebar + shared/store.
+ * app layer: routing furniture, not a reusable widget — it is the one place
+ * that assembles the sidebar with the doc-view host, and only the router uses
+ * it. Assembling widgets is what the layers above them are for (F3).
  */
 export function AppLayout() {
   const { pathname } = useLocation()

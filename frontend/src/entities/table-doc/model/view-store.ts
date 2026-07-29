@@ -1,13 +1,18 @@
 import { create } from 'zustand'
-import type { TableDocModel } from '@/entities/table-doc'
+import type { TableDocModel } from './types'
 
 /**
  * Global open-state for the in-app 테이블 정의서 HTML overlay.
  *
  * The overlay is opened from two unrelated places — the editor and the
  * sidebar's per-project "⋯" menu (which can target a project that isn't the
- * one being edited) — so its model + open flag live in a small shared store and
- * the view itself is mounted once in the AppLayout shell.
+ * one being edited) — so its model + open flag live in a small store and the
+ * view itself is mounted once in the app shell.
+ *
+ * It lives on the entity, not on the widget that renders it: the openers and
+ * the view are different widgets, and a widget may not reach across to another
+ * (F3). What they genuinely share is this entity's model, so the handle to it
+ * belongs here.
  */
 interface TableDocViewState {
   /** The model to render; null means closed. */

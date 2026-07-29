@@ -4,10 +4,10 @@ import type { ButtonHTMLAttributes, CSSProperties } from 'react'
 /**
  * Single source of truth for the ERD top bar's control styling.
  *
- * Every top-bar control (table search, 정보 / 버전 기록 toggles, Import / Export
- * dropdown triggers) MUST be built from these tokens / components so the whole
- * bar reads as one design — same height, border, radius, surface, text color,
- * font size and icon size. Do NOT re-style controls inline per call site.
+ * Every top-bar control (table search, 정보 / 버전 기록 toggles, 가져오기 /
+ * 내보내기 dropdown triggers) MUST be built from these tokens / components so
+ * the whole bar reads as one design — same height, border, radius, surface,
+ * text color, font size and icon size. Do NOT re-style controls per call site.
  *
  * shared layer: depended on by widgets (export-menu, table-search) and the
  * editor page alike.
@@ -42,53 +42,25 @@ interface TopbarIconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> 
 }
 
 /**
- * Square icon-only control (정보 / 버전 기록 토글). Pass a single lucide icon
- * sized with {@link TOPBAR_ICON_SIZE} as the child.
+ * Square icon-only control — every control on the bar that is not the search
+ * field or the mode switch (정보 / 버전 기록 토글, 가져오기 / 내보내기 트리거).
+ * Pass a single lucide icon sized with {@link TOPBAR_ICON_SIZE} as the child,
+ * and always an `aria-label` + `title`: with no label, those ARE the label.
  */
 export const TopbarIconButton = forwardRef<HTMLButtonElement, TopbarIconButtonProps>(
-  function TopbarIconButton({ pressed, style, ...rest }, ref) {
+  function TopbarIconButton({ pressed, style, disabled, ...rest }, ref) {
     return (
       <button
         ref={ref}
         type="button"
         className="erd-topbar-btn"
         aria-pressed={pressed}
+        disabled={disabled}
         style={{
           ...topbarFrameStyle,
           width: TOPBAR_CONTROL_HEIGHT,
           display: 'grid',
           placeItems: 'center',
-          cursor: 'pointer',
-          ...style,
-        }}
-        {...rest}
-      />
-    )
-  },
-)
-
-type TopbarButtonProps = ButtonHTMLAttributes<HTMLButtonElement>
-
-/**
- * Labeled control (Import / Export dropdown triggers). Children = leading icon
- * + label (+ optional chevron), all sized with {@link TOPBAR_ICON_SIZE}.
- * forwardRef + prop spread so it works as a Radix `DropdownMenuTrigger asChild`.
- */
-export const TopbarButton = forwardRef<HTMLButtonElement, TopbarButtonProps>(
-  function TopbarButton({ style, disabled, ...rest }, ref) {
-    return (
-      <button
-        ref={ref}
-        type="button"
-        className="erd-topbar-btn"
-        disabled={disabled}
-        style={{
-          ...topbarFrameStyle,
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '0 10px',
-          whiteSpace: 'nowrap',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.5 : 1,
           ...style,

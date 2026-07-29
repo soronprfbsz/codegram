@@ -8,6 +8,7 @@ export {
   flag,
 } from './lib/columns'
 export type { StandardColumnDescriptor } from './lib/columns'
+export { useTableDocViewStore } from './model/view-store'
 export type {
   TableDocColumn,
   TableDocFkTarget,

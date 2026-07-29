@@ -12,7 +12,7 @@ import {
   RequirePasswordOk,
   RequireMustChangePassword,
 } from '@/app/providers/RequireAuth'
-import { AppLayout } from '@/widgets/app-layout'
+import { AppLayout } from '@/app/layouts/AppLayout'
 import { Spinner } from '@/shared/ui/spinner'
 
 // Lazy-load the editor route so @dbml/core, CodeMirror and React Flow are

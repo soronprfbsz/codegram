@@ -10,7 +10,7 @@ import {
 import { downloadBlob } from '@/shared/lib/download'
 import { ExportProgressDialog } from '@/shared/ui/export-progress-dialog'
 import { TableDocView } from './TableDocView'
-import { useTableDocViewStore } from '../model/store'
+import { useTableDocViewStore } from '@/entities/table-doc'
 
 const EMPTY = { tables: [], enums: [], groups: [] }
 

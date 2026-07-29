@@ -15,7 +15,7 @@
 - 색·간격·radius 등 토큰 값은 CSS 변수(`--erd-*`)와 공용 스타일 상수로 표현한다. 매직 넘버를 호출부에 흩지 않는다.
 - 리뷰/리팩터에서 "호출부가 같은 모양을 다시 구현"한 코드는 결함으로 보고 공용 단위로 회수한다.
 - 왜: 호출부 인라인 스타일은 같은 요소가 화면마다 미묘하게 표류하고(폰트·아이콘·색·radius), 수정 시 누락이 생긴다. 실제로 탑바 컨트롤이 제각각(아이콘 13/14/15/16px, 폰트 12/12.5/13px, 색 `--erd-text`/`--erd-text-2`, radius 6/8px)이 되어 이 규칙을 세웠다.
-- 예: 탑바 → `src/shared/ui/topbar-control.tsx`(`topbarFrameStyle`/`TopbarIconButton`/`TopbarButton`/`TOPBAR_ICON_SIZE`).
+- 예: 탑바 → `src/shared/ui/topbar-control.tsx`(`topbarFrameStyle`/`TopbarIconButton`/`TOPBAR_ICON_SIZE`).
 
 ### F2. 디자인 토큰 출처
 - ERD 화면 표면은 `--erd-*` CSS 변수(라이트/다크 모두 `index.css`에 정의)를 쓴다. 임의 hex/색을 박지 않는다.
