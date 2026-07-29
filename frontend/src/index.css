@@ -140,6 +140,10 @@
     /* ERD semantic colors — Light */
     --erd-success: #2e7d46;
     --erd-error: #d83a34;
+    /* "이 문서는 지금 편집 중" 프레임 전용. --primary(골드)를 쓸 수 없다:
+       흰 배경 대비 1.53:1로 WCAG 1.4.11(상태 표시 3:1)에 못 미친다. 이 값은
+       5.02:1. --erd-accent는 이미 선택/강조라 의미가 겹쳐 쓰지 않는다. */
+    --erd-editing: #B45309;
 
     /* ERD accent — Light (Electric Blue) */
     --erd-accent: #3e6ae1;
@@ -244,6 +248,8 @@
     /* ERD semantic colors — Dark */
     --erd-success: #2ead4b;
     --erd-error: #F04438;
+    /* 편집 프레임 — 어두운 배경에선 밝은 쪽으로 뒤집는다(대비 11.13:1). */
+    --erd-editing: #FBBF24;
 
     /* ERD accent — Dark (Electric Blue, lifted for contrast) */
     --erd-accent: #5b86f0;
@@ -467,6 +473,24 @@
 .erd-search-frame:focus-within {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* 편집 모드 프레임 — 편집 중인 동안 본문(탑바 아래 전부)을 두르는 테두리.
+   모드 오인(읽는 줄 알았는데 편집 중)을 막고, 편집 리스가 남의 편집을 막고
+   있다는 사실을 자리를 비운 사이에도 보이게 한다.
+
+   - 색만으로 말하지 않는다(WCAG 1.4.1): 모드 스위치가 이미 글자로 말하고 이건
+     중복 보강이다. 색은 --erd-editing 하나에서만 온다.
+   - `border`가 아니라 오버레이 + inset 그림자다. 테두리를 실제로 넣으면 2px
+     만큼 콘텐츠가 밀리고 React Flow가 리사이즈를 다시 계산한다.
+   - 자식(캔버스·패널)이 불투명해서 컨테이너의 inset 그림자를 덮는다. 그래서
+     맨 위에 뜨는 별도 레이어여야 한다. */
+.erd-editing-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--erd-editing);
 }
 
 /* 키 힌트(key cap) 단일 출처 — 검색창의 "/" 처럼 "이 키를 누르면 된다"를

@@ -524,6 +524,7 @@ export function EditorPage() {
           우측 패널만 애니메이션이 끊겼다(좌측은 같은 트랙의 너비만 바뀌어 정상). */}
       <div
         style={{
+          position: 'relative',
           display: 'grid',
           gridTemplateColumns: `${dbmlOpen ? '340px' : '40px'} 1fr ${
             activePanel ? '320px' : '0px'
@@ -533,6 +534,13 @@ export function EditorPage() {
           minHeight: 0,
         }}
       >
+        {/* 편집 중 표시 — 본문 전체를 두른다. DBML·캔버스뿐 아니라 정보 패널의
+            그룹 편집과 버전 기록의 저장/복원도 진짜 수정이라, 좁게 두르면
+            "여기까지가 편집 대상"이라고 잘못 말하게 된다. 미리보기 중엔 쓰기가
+            멈추므로(autosave suspended) 프레임도 내린다. */}
+        {!readOnly && !previewing && (
+          <div className="erd-editing-frame" data-testid="editing-frame" aria-hidden />
+        )}
         {/* Left: DBML editor — collapsible to a 40px rail via its own header toggle. */}
         <div
           style={{
