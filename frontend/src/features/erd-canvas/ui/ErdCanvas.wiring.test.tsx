@@ -350,6 +350,42 @@ describe('ErdCanvas edge anchor side overrides (좌/우 스왑)', () => {
   })
 })
 
+describe('ErdCanvas read-only canvas (ADR-0025)', () => {
+  const edgeId = 'public.posts.(user_id)>public.users.(id)#0'
+
+  it('읽기 전용이면 레이아웃 쓰기가 밖으로 나가지 않는다 (선 경로·노드 좌표)', () => {
+    const onEdgePathsChange = vi.fn()
+    const onLayoutChange = vi.fn()
+    let handle: ErdCaptureHandle | undefined
+    render(
+      <ErdCanvas
+        schema={schema}
+        readOnly
+        edgePaths={{ [edgeId]: { waypoints: [{ x: 1, y: 2 }] } }}
+        onEdgePathsChange={onEdgePathsChange}
+        onLayoutChange={onLayoutChange}
+        onCaptureReady={(h) => {
+          handle = h
+        }}
+      />,
+    )
+    // 캔버스 밖(패널)에서 들어오는 편집 요청도 읽기 모드에서는 아무 일도 하지 않는다.
+    handle!.resetEdgePath(edgeId)
+    handle!.setEdgeWaypoint(edgeId, 0, 'x', 99)
+    handle!.setNodePositionAbs('public.users', { x: 999, y: 999 })
+    expect(onEdgePathsChange).not.toHaveBeenCalled()
+    expect(onLayoutChange).not.toHaveBeenCalled()
+  })
+
+  it('읽기 전용이면 노드 드래그가 꺼진다', () => {
+    render(<ErdCanvas schema={schema} readOnly />)
+    const props = (globalThis as Record<string, unknown>).__rfProps as {
+      nodesDraggable: boolean
+    }
+    expect(props.nodesDraggable).toBe(false)
+  })
+})
+
 describe('ErdCanvas selection info reporting', () => {
   it('reports node info (absolute coords) for a selected table', async () => {
     const onSelectionInfo = vi.fn()

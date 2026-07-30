@@ -12,6 +12,7 @@ import {
   type ObstacleNode,
 } from './RelationEdge'
 import { EdgePathContext } from '../lib/edgePathContext'
+import { CanvasReadOnlyContext } from '../lib/canvasReadOnly'
 import * as routeLib from '../lib/routeOrthogonal'
 
 describe('orthoPoints route cache (survives virtualization remount)', () => {
@@ -402,6 +403,59 @@ describe('RelationEdge segment drag interaction (Task 5)', () => {
     // ...but an aborted gesture never commits and the path reverts.
     expect(ctx.commitWaypoints).not.toHaveBeenCalled()
     expect(pathD()).toBe(committedD)
+  })
+})
+
+describe('RelationEdge in a read-only canvas (ADR-0025)', () => {
+  /** 선택된 수동 경로 엣지를 읽기 전용 캔버스로 렌더한다. */
+  function renderReadOnlySelectedEdge(ctx: ReturnType<typeof makeCtx>) {
+    const props = {
+      ...baseProps,
+      data: {
+        relation: '1-n',
+        sourceMarker: 'one',
+        targetMarker: 'many',
+        isEdgeSelected: true,
+        waypoints: [
+          { x: 50, y: 0 },
+          { x: 50, y: 100 },
+        ],
+      },
+    } as RelationEdgeProps
+    return render(
+      <ReactFlowProvider>
+        <StoreDomNode />
+        <CanvasReadOnlyContext.Provider value>
+          <EdgePathContext.Provider value={ctx}>
+            <svg>
+              <RelationEdge {...props} />
+            </svg>
+          </EdgePathContext.Provider>
+        </CanvasReadOnlyContext.Provider>
+      </ReactFlowProvider>,
+    )
+  }
+
+  it('선택은 되지만 선을 편집하는 손잡이(세그먼트·끝점·리셋)는 없다', () => {
+    const ctx = makeCtx()
+    const { container } = renderReadOnlySelectedEdge(ctx)
+
+    // 선택 표시(할로 + 흐르는 점선)는 편집이 아니라 정보 — 그대로 보인다.
+    expect(container.querySelector('[data-testid="edge-flow"]')).toBeTruthy()
+    // 편집 어포던스는 전부 사라진다.
+    expect(container.querySelector('[data-testid="edge-handles"]')).toBeNull()
+    expect(container.querySelector('[data-testid^="edge-seg-"]')).toBeNull()
+    expect(container.querySelector('[data-testid="edge-endpoint-source"]')).toBeNull()
+    expect(container.querySelector('[data-testid="edge-endpoint-target"]')).toBeNull()
+    // 리셋 버튼은 EdgeLabelRenderer 포털로 나가므로 container가 아니라 화면에서 찾는다.
+    expect(screen.queryByTestId('edge-reset')).toBeNull()
+  })
+
+  it('편집 가능한 캔버스에서는 같은 엣지가 손잡이를 그대로 갖는다 (대조군)', () => {
+    const ctx = makeCtx()
+    const { container } = renderSelectedEdge(ctx)
+    expect(container.querySelector('[data-testid="edge-handles"]')).toBeTruthy()
+    expect(screen.getByTestId('edge-reset')).toBeTruthy()
   })
 })
 

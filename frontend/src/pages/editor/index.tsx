@@ -777,6 +777,7 @@ export function EditorPage() {
           {selectionInfo && selCardOpen && !previewing && (
             <SelectionCard
               info={selectionInfo}
+              readOnly={readOnly}
               onEditNodePosition={(nodeId, pos) =>
                 captureHandleRef.current?.setNodePositionAbs(nodeId, pos)
               }
@@ -826,14 +827,19 @@ export function EditorPage() {
                 >
                   {t('common.cancel')}
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={handleRestore}
-                  disabled={restore.isPending || !previewSnapshot}
-                  data-testid="snapshot-preview-restore"
-                >
-                  {t('editor.previewRestore')}
-                </Button>
+                {/* 원복은 현재 DBML·레이아웃을 이 버전으로 덮어쓴다 = 편집이다.
+                    읽기 모드에서는 가져오기·자동정렬처럼 아예 제공하지 않는다
+                    (ADR-0025). 편집 모드로 들어와야 보인다. */}
+                {!readOnly && (
+                  <Button
+                    size="sm"
+                    onClick={handleRestore}
+                    disabled={restore.isPending || !previewSnapshot}
+                    data-testid="snapshot-preview-restore"
+                  >
+                    {t('editor.previewRestore')}
+                  </Button>
+                )}
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
                 {previewSnapshot ? (

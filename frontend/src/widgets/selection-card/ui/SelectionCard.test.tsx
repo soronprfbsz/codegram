@@ -80,6 +80,27 @@ describe('SelectionCard — node', () => {
     expect(x).toHaveValue('320')
   })
 
+  it('읽기 전용이면 노드 좌표 입력이 커밋되지 않는다 (ADR-0025)', async () => {
+    const onEditNodePosition = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SelectionCard
+        info={nodeInfo}
+        readOnly
+        onEditNodePosition={onEditNodePosition}
+        onEditEdgeWaypoint={vi.fn()}
+        onResetEdgePath={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    const x = screen.getByTestId('sel-x')
+    expect(x).toHaveAttribute('readonly')
+    // 타이핑해도 값이 바뀌지 않고 커밋도 없다.
+    await user.type(x, '600{Enter}')
+    expect(onEditNodePosition).not.toHaveBeenCalled()
+    expect(x).toHaveValue('320')
+  })
+
   it('X 버튼 클릭이 onClose를 호출한다', async () => {
     const onClose = vi.fn()
     const user = userEvent.setup()
@@ -147,6 +168,29 @@ describe('SelectionCard — edge', () => {
     )
     expect(screen.queryByTestId('edge-reset-panel')).toBeNull()
     expect(screen.getByText('자동')).toBeInTheDocument()
+  })
+
+  it('읽기 전용이면 좌표는 보이지만 편집·리셋은 불가 (ADR-0025)', async () => {
+    const onEditEdgeWaypoint = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <SelectionCard
+        info={edgeInfo}
+        readOnly
+        onEditNodePosition={vi.fn()}
+        onEditEdgeWaypoint={onEditEdgeWaypoint}
+        onResetEdgePath={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+    // 값은 읽고 복사할 수 있어야 한다 — 보이되 커밋되지 않는다.
+    const wp0x = screen.getByTestId('wp-0-x')
+    expect(wp0x).toHaveValue('50')
+    expect(wp0x).toHaveAttribute('readonly')
+    await user.type(wp0x, '70{Enter}')
+    expect(onEditEdgeWaypoint).not.toHaveBeenCalled()
+    // 경로를 되돌리는 것도 편집이다.
+    expect(screen.queryByTestId('edge-reset-panel')).toBeNull()
   })
 
   it('shows "No bends" when the edge has no interior waypoints', () => {

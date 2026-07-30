@@ -11,6 +11,11 @@ export interface SelectionCardProps {
   /** 꺾임점 단일 축 편집 — 자동 경로면 이 커밋으로 수동 전환된다. */
   onEditEdgeWaypoint: (edgeId: string, vertexIndex: number, axis: 'x' | 'y', value: number) => void
   onResetEdgePath: (edgeId: string) => void
+  /**
+   * 읽기 모드(뷰어 / 편집 리스 미보유 / 스냅샷 미리보기, ADR-0025). 좌표는 계속
+   * 보이고 복사할 수 있지만 값을 커밋하거나 경로를 되돌릴 수는 없다.
+   */
+  readOnly?: boolean
   /** X 버튼 — 카드를 닫는다(다음 선택 전까지 숨김). */
   onClose: () => void
 }
@@ -40,15 +45,20 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 }
 
-/** 정수 좌표 입력 — Enter/blur 커밋, 비숫자는 원복. info 갱신 시 재동기화. */
+/**
+ * 정수 좌표 입력 — Enter/blur 커밋, 비숫자는 원복. info 갱신 시 재동기화.
+ * readOnly면 값만 보여준다(선택·복사 가능, 커밋 없음 — DBML 에디터와 같은 방식).
+ */
 function CoordInput({
   value,
   onCommit,
   testid,
+  readOnly,
 }: {
   value: number
   onCommit: (v: number) => void
   testid: string
+  readOnly?: boolean
 }) {
   const [draft, setDraft] = useState(String(value))
   useEffect(() => {
@@ -64,6 +74,7 @@ function CoordInput({
       data-testid={testid}
       value={draft}
       inputMode="numeric"
+      readOnly={readOnly}
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
@@ -90,6 +101,7 @@ export function SelectionCard({
   onEditNodePosition,
   onEditEdgeWaypoint,
   onResetEdgePath,
+  readOnly = false,
   onClose,
 }: SelectionCardProps) {
   const { t } = useTranslation()
@@ -225,7 +237,7 @@ export function SelectionCard({
               ? t('selectionCard.manual')
               : t('selectionCard.auto')}
         </span>
-        {info.kind === 'edge' && info.manual && (
+        {info.kind === 'edge' && info.manual && !readOnly && (
           <button
             data-testid="edge-reset-panel"
             title={t('selectionCard.resetLine')}
@@ -271,12 +283,14 @@ export function SelectionCard({
             <CoordInput
               value={info.x}
               testid="sel-x"
+              readOnly={readOnly}
               onCommit={(v) => onEditNodePosition(info.nodeId, { x: v, y: info.y })}
             />
             <span style={labelStyle}>Y</span>
             <CoordInput
               value={info.y}
               testid="sel-y"
+              readOnly={readOnly}
               onCommit={(v) => onEditNodePosition(info.nodeId, { x: info.x, y: v })}
             />
           </div>
@@ -293,11 +307,13 @@ export function SelectionCard({
               <CoordInput
                 value={p.x}
                 testid={`wp-${i}-x`}
+                readOnly={readOnly}
                 onCommit={(v) => onEditEdgeWaypoint(info.edgeId, i, 'x', v)}
               />
               <CoordInput
                 value={p.y}
                 testid={`wp-${i}-y`}
+                readOnly={readOnly}
                 onCommit={(v) => onEditEdgeWaypoint(info.edgeId, i, 'y', v)}
               />
             </div>

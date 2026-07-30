@@ -279,14 +279,14 @@ test.describe('Project collaboration', () => {
     await expect(viewer.getByTestId('auto-arrange-button')).toBeHidden()
     await expect(viewer.getByTestId('import-menu-button')).toBeHidden()
 
-    // And a refused restore says why instead of failing silently.
+    // (관계선을 만질 수 없다는 것은 edge-path.spec의 읽기 모드 테스트가 본다 —
+    //  이 픽스처는 관계가 없는 20개 테이블이라 엣지가 아예 없다.)
+
+    // 지난 버전은 볼 수 있지만 원복(=현재 문서를 덮어쓰기)은 제공되지 않는다.
     await viewer.getByTestId('snapshot-history-button').click()
     await viewer.locator('[data-testid^="snapshot-row-"]').first().click()
     await expect(viewer.getByTestId('snapshot-preview-overlay')).toBeVisible()
-    await viewer.getByTestId('snapshot-preview-restore').click()
-    await expect(viewer.getByTestId('snapshot-restore-error')).toContainText(
-      '편집 권한이 없어 원복할 수 없습니다',
-    )
+    await expect(viewer.getByTestId('snapshot-preview-restore')).toHaveCount(0)
 
     await viewerCtx.close()
     await ownerCtx.close()

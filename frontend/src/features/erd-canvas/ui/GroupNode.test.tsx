@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { GroupNode, type GroupNodeProps } from './GroupNode'
 import { GroupActionContext } from '../lib/groupActionContext'
+import { CanvasReadOnlyContext } from '../lib/canvasReadOnly'
 
 function renderNode(props: GroupNodeProps) {
   return render(
@@ -71,6 +72,22 @@ describe('GroupNode', () => {
     const handle = container.querySelector('.erd-group-handle') as HTMLElement
     expect(handle).toBeTruthy()
     expect(handle.style.pointerEvents).toBe('auto')
+  })
+
+  it('읽기 전용 캔버스에서는 정렬 버튼이 없다 (ADR-0025)', () => {
+    const onArrangeGroup = vi.fn()
+    const { queryByTestId, getByText } = render(
+      <ReactFlowProvider>
+        <CanvasReadOnlyContext.Provider value>
+          <GroupActionContext.Provider value={{ onArrangeGroup }}>
+            <GroupNode {...({ id: 'group:G', data: { groupName: 'G' } } as unknown as GroupNodeProps)} />
+          </GroupActionContext.Provider>
+        </CanvasReadOnlyContext.Provider>
+      </ReactFlowProvider>,
+    )
+    // 라벨은 읽기용으로 남고, 배치를 바꾸는 버튼만 사라진다.
+    expect(getByText('G')).toBeInTheDocument()
+    expect(queryByTestId('group-arrange-group:G')).toBeNull()
   })
 
   it('정렬 버튼 클릭 시 onArrangeGroup(groupId) 호출', () => {

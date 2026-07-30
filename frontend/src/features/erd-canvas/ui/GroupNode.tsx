@@ -4,6 +4,7 @@ import type { NodeProps } from '@xyflow/react'
 import { LayoutGrid } from 'lucide-react'
 import type { GroupNodeData } from '@/entities/erd'
 import { useGroupActionContext } from '../lib/groupActionContext'
+import { useCanvasReadOnly } from '../lib/canvasReadOnly'
 
 export type GroupNodeProps = NodeProps & { data: GroupNodeData }
 
@@ -12,6 +13,8 @@ export type GroupNodeProps = NodeProps & { data: GroupNodeData }
  * 라벨 크롬(.erd-group-handle)만 interactive: React Flow dragHandle(라벨로만
  * 그룹 드래그 = 멤버 일괄 이동) + hover 시 정렬 버튼(group-arrange-*) 노출.
  * 버튼은 onArrangeGroup(id)로 그룹 제자리 정렬을 트리거하고 드래그 시작은 막는다.
+ * 읽기 전용 캔버스(useCanvasReadOnly, ADR-0025)에서는 정렬 버튼을 그리지 않는다 —
+ * 배치를 바꾸는 것도 편집이다.
  * features layer: shared + entities/erd + @xyflow/react.
  */
 function GroupNodeImpl({ id, data }: GroupNodeProps) {
@@ -20,6 +23,7 @@ function GroupNodeImpl({ id, data }: GroupNodeProps) {
   const borderColor = `color-mix(in srgb, ${color} 50%, transparent)`
   const bgColor = `color-mix(in srgb, ${color} 7%, transparent)`
   const { onArrangeGroup } = useGroupActionContext()
+  const readOnly = useCanvasReadOnly()
 
   return (
     <div
@@ -67,6 +71,7 @@ function GroupNodeImpl({ id, data }: GroupNodeProps) {
           {data.groupName}
         </span>
         {/* 정렬 버튼 — 평소 숨김, .erd-group-handle hover 시 노출(css) */}
+        {!readOnly && (
         <button
           data-testid={`group-arrange-${id}`}
           className="erd-group-arrange"
@@ -91,6 +96,7 @@ function GroupNodeImpl({ id, data }: GroupNodeProps) {
         >
           <LayoutGrid size={12} strokeWidth={2} />
         </button>
+        )}
       </div>
     </div>
   )

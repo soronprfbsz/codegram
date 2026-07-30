@@ -33,6 +33,7 @@ import {
   type CardRect,
 } from '@/entities/layout'
 import { useEdgePathContext } from '../lib/edgePathContext'
+import { useCanvasReadOnly } from '../lib/canvasReadOnly'
 import { useRegisterRoute, useAdjustedRoutes, useObstacleNodes } from '../lib/edgeRoutesContext'
 
 export type RelationEdgeProps = EdgeProps & { data?: RelationEdgeData }
@@ -163,7 +164,9 @@ function markerPath(kind: MarkerKind, side: 'start' | 'end'): string {
  * a segment perpendicular to its orientation; hand cursor ONLY on these
  * handles), endpoint swap buttons (re-anchor an end to the table's other
  * side via ctx.setEdgeSide) plus a floating Reset line button that reverts a
- * manual path back to auto-routing.
+ * manual path back to auto-routing. In a READ-ONLY canvas (useCanvasReadOnly,
+ * ADR-0025) none of those edit affordances render — the line is selectable and
+ * emphasized, but its path cannot be touched.
  * features layer: depends on shared + entities/erd + entities/dbml +
  * @xyflow/react (FSD downward imports).
  */
@@ -363,6 +366,10 @@ function RelationEdgeImpl({
   }, [manualWaypoints, isEnumLink, sourceX, sourceY, targetX, targetY])
 
   const isEdgeSelected = data?.isEdgeSelected ?? false
+  // 읽기 모드에서는 선을 만질 수 없다: 선택 표시(할로·흐르는 점선·꺾임점)는
+  // 정보라 남기고, 경로를 바꾸는 손잡이(세그먼트·끝점·리셋)만 그리지 않는다.
+  const canvasReadOnly = useCanvasReadOnly()
+  const editable = !canvasReadOnly
   const ctx = useEdgePathContext()
   const { screenToFlowPosition } = useReactFlow()
 
@@ -597,7 +604,7 @@ function RelationEdgeImpl({
           }}
         />
       )}
-      {isEdgeSelected && renderedPoints && (
+      {editable && isEdgeSelected && renderedPoints && (
         <g data-testid="edge-handles">
           {/* Draggable endpoints — drag toward a node side to FLIP the anchor. */}
           {([
@@ -668,7 +675,7 @@ function RelationEdgeImpl({
           })}
         </g>
       )}
-      {isEdgeSelected && renderedPoints && (
+      {editable && isEdgeSelected && renderedPoints && (
         <EdgeLabelRenderer>
           {(() => {
             const midPoint = renderedPoints[Math.floor(renderedPoints.length / 2)]

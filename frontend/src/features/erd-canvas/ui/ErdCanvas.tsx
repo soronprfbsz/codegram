@@ -51,6 +51,7 @@ import {
   type EdgePaths,
   type PathPoint,
 } from '@/entities/layout'
+import { CanvasReadOnlyContext } from '../lib/canvasReadOnly'
 import { EdgePathContext, type EdgePathContextValue } from '../lib/edgePathContext'
 import { EdgeRoutesProvider } from '../lib/edgeRoutesContext'
 import { resolveEdgeSides } from '../lib/edgeSides'
@@ -481,6 +482,10 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   onEdgePathsChangeRef.current = onEdgePathsChange
   const onCanvasReadyRef = useRef(onCanvasReady)
   onCanvasReadyRef.current = onCanvasReady
+  // 읽기 전용 여부의 최신값 — 아래 커밋 경로들이 stable identity를 유지하면서
+  // (useMemo([]) / ref로 노출) 현재 모드를 본다.
+  const readOnlyRef = useRef(readOnly)
+  readOnlyRef.current = readOnly
 
   // Rendered full polyline of the SELECTED edge, reported by RelationEdge.
   // Drives SelectionInfo waypoints and panel edits on auto-routed edges.
@@ -492,9 +497,13 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   reportedPathRef.current = reportedPath
 
   // Commit prunes orphans (edges that no longer exist) per ADR-0012.
+  // 읽기 전용이면 경로를 바꾸는 세 커밋(수동 경로·리셋·앵커 스왑)은 아무 일도 하지
+  // 않는다 — 어포던스를 감추는 것과 별개로, 쓰기 경로 자체를 막는 지점이다
+  // (캔버스 손잡이·Selection 카드 편집이 모두 여기로 모인다).
   const edgePathCtx = useMemo<EdgePathContextValue>(
     () => ({
       commitWaypoints: (edgeId, waypoints) => {
+        if (readOnlyRef.current) return
         const rounded = waypoints.map((p) => ({
           x: Math.round(p.x),
           y: Math.round(p.y),
@@ -511,6 +520,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
         )
       },
       resetPath: (edgeId) => {
+        if (readOnlyRef.current) return
         // Reset line drops the WAYPOINTS only — an anchor-side swap is a
         // separate user choice and stays until swapped back.
         const next = { ...edgePathsRef.current }
@@ -528,6 +538,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
         )
       },
       setEdgeSide: (edgeId, end, side) => {
+        if (readOnlyRef.current) return
         const next = { ...edgePathsRef.current }
         const entry = applyEdgeSide(next[edgeId], end, side)
         if (entry) next[edgeId] = entry
@@ -550,6 +561,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   const groupActionCtx = useMemo<GroupActionContextValue>(
     () => ({
       onArrangeGroup: (groupId) => {
+        if (readOnlyRef.current) return
         const current = nodesRef.current
         const movedMemberIds = new Set(
           current.filter((n) => n.parentId === groupId).map((n) => n.id),
@@ -604,6 +616,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
   }, [cardsMeasured, fitView])
 
   function setNodePositionAbsImpl(nodeId: string, pos: XYPosition) {
+    if (readOnly) return // 읽기 모드에선 패널에서 들어오는 좌표 편집도 없다
     const current = nodesRef.current
     const node = current.find((n) => n.id === nodeId)
     if (!node || node.type === 'group') return // 그룹 박스는 파생 — 편집 불가 (Q3)
@@ -947,6 +960,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
 
   // Secondary button style (spec: --erd-surface bg, 1px --erd-border-2, radius 8)
   return (
+    <CanvasReadOnlyContext.Provider value={!!readOnly}>
     <EdgePathContext.Provider value={edgePathCtx}>
     <GroupActionContext.Provider value={groupActionCtx}>
     <EdgeRoutesProvider>
@@ -1087,6 +1101,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     </EdgeRoutesProvider>
     </GroupActionContext.Provider>
     </EdgePathContext.Provider>
+    </CanvasReadOnlyContext.Provider>
   )
 }
 

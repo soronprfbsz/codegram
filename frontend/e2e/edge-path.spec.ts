@@ -314,6 +314,58 @@ test.describe('Manual edge paths', () => {
       .toContain('600px')
   })
 
+  test('읽기 모드에서는 선을 편집할 수 없다 (ADR-0025)', async ({ page }) => {
+    const email = `edgero-${Date.now()}@example.com`
+    await registerAndLogin(page, email, 'password123')
+    await createProjectWithRef(page)
+
+    // 편집 모드에서 나와 읽기로 돌아온다 — 여는 것만으로는 잡지 않는 그 상태.
+    await page.getByTestId('mode-switch-read').click()
+    await expect(page.getByTestId('mode-switch-read')).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+
+    // 선은 여전히 선택된다(선택 강조는 정보다).
+    await clickEdgeMidpoint(page)
+    await expect(page.getByTestId('edge-flow')).toBeVisible()
+
+    // 경로를 바꾸는 손잡이는 하나도 없다 — 세그먼트·끝점·리셋 전부.
+    await expect(page.locator('[data-testid^="edge-seg-"]')).toHaveCount(0)
+    await expect(page.getByTestId('edge-endpoint-source')).toHaveCount(0)
+    await expect(page.getByTestId('edge-endpoint-target')).toHaveCount(0)
+    await expect(page.getByTestId('edge-reset')).toHaveCount(0)
+
+    // 선택 카드도 경로를 되돌리는 버튼을 내주지 않는다.
+    await expect(page.getByTestId('selection-section')).toBeVisible()
+    await expect(page.getByTestId('edge-reset-panel')).toHaveCount(0)
+
+    // 손잡이가 있던 자리(선 위 한 점)를 끌어도 경로는 그대로다.
+    const dBefore = await page
+      .locator('.react-flow__edge-path')
+      .first()
+      .getAttribute('d')
+    const box = (await page.locator('.react-flow__edge').first().boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2 - 80, box.y + box.height / 2 - 80, {
+      steps: 8,
+    })
+    await page.mouse.up()
+    await page.waitForTimeout(800) // autosave 디바운스보다 길게 — 저장될 틈을 준다
+    expect(
+      await page.locator('.react-flow__edge-path').first().getAttribute('d'),
+    ).toBe(dBefore)
+
+    // 노드 좌표도 읽기 전용: 값은 보이지만 고쳐 넣을 수 없다.
+    await page
+      .locator('.react-flow__node')
+      .filter({ hasText: 'users' })
+      .first()
+      .click()
+    await expect(page.getByTestId('sel-x')).toHaveAttribute('readonly', '')
+  })
+
   test('Info panel shows edge waypoints when an edge is selected', async ({ page }) => {
     const email = `edgeinfo-${Date.now()}@example.com`
     await registerAndLogin(page, email, 'password123')

@@ -567,6 +567,95 @@ describe('EditorPage — Phase 5 selection wiring', () => {
   })
 })
 
+describe('EditorPage — 읽기 모드에서는 캔버스도 편집되지 않는다 (ADR-0025)', () => {
+  const usersSelectionInfo = {
+    kind: 'node',
+    nodeId: 'public.users',
+    nodeType: 'table',
+    label: 'users',
+    x: 320,
+    y: 80,
+  } as import('@/entities/erd').SelectionInfo
+
+  const usersSchema = {
+    tables: [
+      {
+        id: 'public.users',
+        name: 'users',
+        schema: 'public',
+        columns: [
+          { id: 'public.users.id', name: 'id', type: 'integer', pk: true, notNull: true, unique: false, increment: false, isFk: false },
+        ],
+        checks: [],
+      },
+    ],
+    refs: [],
+    enums: [],
+    tableGroups: [],
+    notes: [],
+  } as import('@/entities/dbml').DbmlSchema
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        role: 'owner',
+        name: 'My Project',
+        dbml_text: 'Table users {\n  id integer [pk]\n}',
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
+    vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
+      status: 'success',
+      schema: usersSchema,
+      lastValidSchema: usersSchema,
+    })
+    // 캔버스 스텁이 선택 정보를 올려 Selection 카드를 띄운다. 객체는 모듈 상수 —
+    // 렌더마다 새 객체를 올리면 페이지 setState → 재렌더 → 다시 올림으로 무한
+    // 루프가 된다(실제 ErdCanvas는 값 비교로 막는다).
+    vi.spyOn(canvas, 'ErdCanvas').mockImplementation(
+      (props: { onSelectionInfo?: (i: import('@/entities/erd').SelectionInfo | null) => void }) => {
+        props.onSelectionInfo?.(usersSelectionInfo)
+        return <div data-testid="erd-canvas-stub" />
+      },
+    )
+  })
+
+  it('읽기 모드에서는 캔버스가 readOnly로, Selection 카드 좌표는 편집 불가로 내려간다', async () => {
+    const erdSpy = vi.spyOn(canvas, 'ErdCanvas')
+    renderEditor()
+
+    const props = erdSpy.mock.calls.at(-1)?.[0] as { readOnly?: boolean }
+    expect(props.readOnly).toBe(true)
+    // 좌표는 보이지만(읽기·복사) 값을 바꿔 커밋할 수는 없다.
+    const x = await screen.findByTestId('sel-x')
+    expect(x).toHaveAttribute('readonly')
+  })
+
+  it('편집 모드로 들어가면 같은 카드가 편집 가능해진다', async () => {
+    const user = userEvent.setup({
+      pointerEventsCheck: PointerEventsCheckLevel.Never,
+    })
+    const erdSpy = vi.spyOn(canvas, 'ErdCanvas')
+    renderEditor()
+    await enterEditMode(user)
+
+    await waitFor(() => {
+      const props = erdSpy.mock.calls.at(-1)?.[0] as { readOnly?: boolean }
+      expect(props.readOnly).toBe(false)
+    })
+    expect(screen.getByTestId('sel-x')).not.toHaveAttribute('readonly')
+  })
+})
+
 describe('EditorPage — SQL import wiring (topbar)', () => {
   const usersSchema: DbmlSchema = {
     tables: [

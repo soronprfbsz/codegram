@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { enterEditMode } from './helpers'
 
 const PASSWORD = 'password123'
 
@@ -63,6 +64,9 @@ test.describe('Snapshot history', () => {
     await expect(
       page.locator('[data-testid^="snapshot-author-"]'),
     ).toContainText(email)
+
+    // 원복은 현재 문서를 덮어쓰는 편집이라 편집 모드에서만 제공된다 (ADR-0025).
+    await enterEditMode(page)
 
     // Click the row -> preview overlay opens with restore controls.
     await row.click()
