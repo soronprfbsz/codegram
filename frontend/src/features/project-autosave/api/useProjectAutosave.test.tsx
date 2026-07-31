@@ -272,6 +272,87 @@ describe('useProjectAutosave.flush', () => {
     expect(mutateAsyncMock).not.toHaveBeenCalled()
   })
 
+  it('re-sends the PATCH on a flush after a failed save (the retry actually retries)', async () => {
+    // ADR-0027: a failed flush keeps the user in edit mode so they can try
+    // again. Trying again has to reach the server — not re-await the promise
+    // that already rejected, which reports the same failure and sends nothing.
+    mutateAsyncMock.mockRejectedValueOnce(new Error('network down'))
+
+    const { result, rerender } = renderHook(
+      ({ text }: { text: string }) =>
+        useProjectAutosave({ projectId: 'p-1', dbmlText: text, baseline: 'initial' }),
+      { initialProps: { text: 'initial' } },
+    )
+
+    rerender({ text: 'edited' })
+    await expect(
+      act(async () => {
+        await result.current.flush()
+      }),
+    ).rejects.toThrow('network down')
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
+
+    // Same content, no new keystroke: the user just presses Ctrl+S / 읽기 again.
+    await act(async () => {
+      await result.current.flush()
+    })
+
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(2)
+    expect(mutateAsyncMock.mock.calls[1][0]).toMatchObject({ dbml_text: 'edited' })
+    await waitFor(() => expect(result.current.status).toBe('saved'))
+  })
+
+  it('sends content whose debounce was cancelled while suspended (nothing is pending)', async () => {
+    // The snapshot preview suspends autosave, which cancels the pending save.
+    // Leaving edit mode then flushes with no timer armed — the edit is still
+    // only in the browser, so the flush must send it.
+    const { result, rerender } = renderHook(
+      ({ text, suspended }: { text: string; suspended: boolean }) =>
+        useProjectAutosave({
+          projectId: 'p-1',
+          dbmlText: text,
+          baseline: 'initial',
+          suspended,
+        }),
+      { initialProps: { text: 'initial', suspended: false } },
+    )
+
+    rerender({ text: 'edited', suspended: false })
+    rerender({ text: 'edited', suspended: true }) // preview opens → cancel()
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await result.current.flush()
+    })
+
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
+    expect(mutateAsyncMock.mock.calls[0][0]).toMatchObject({ dbml_text: 'edited' })
+  })
+
+  it('does NOT send again once the edit has landed (no debounce, nothing owed)', async () => {
+    const { result, rerender } = renderHook(
+      ({ text }: { text: string }) =>
+        useProjectAutosave({ projectId: 'p-1', dbmlText: text, baseline: 'initial' }),
+      { initialProps: { text: 'initial' } },
+    )
+
+    rerender({ text: 'edited' })
+    await act(async () => {
+      vi.advanceTimersByTime(600)
+    })
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
+
+    // The debounce is spent and the content is exactly what landed.
+    await act(async () => {
+      await result.current.flush()
+    })
+
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
+  })
+
   it('rejects when the save fails, so the caller can refuse to leave edit mode', async () => {
     mutateAsyncMock.mockRejectedValue(new Error('network down'))
 
