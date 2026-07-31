@@ -35,6 +35,7 @@ function StickyNoteImpl({ id, data }: StickyNoteProps) {
           ...(data.headerColor ? { borderTopColor: data.headerColor } : {}),
           background: 'var(--erd-note-bg)',
           fontSize: 'calc(var(--erd-fs-sm) * var(--note-scale))',
+          lineHeight: 'var(--erd-note-lh-body)',
         } as CSSProperties
       }
     >
@@ -44,6 +45,7 @@ function StickyNoteImpl({ id, data }: StickyNoteProps) {
             'calc(var(--erd-note-border-w) * var(--note-scale)) solid var(--erd-note-head-border)',
           padding: PAD,
           fontSize: 'calc(var(--erd-fs-md) * var(--note-scale))',
+          lineHeight: 'var(--erd-note-lh-head)',
           fontWeight: 600,
           color: 'var(--erd-note-head-text)',
         }}

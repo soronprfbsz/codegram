@@ -173,6 +173,11 @@
     --erd-note-border-w: 1px;
     /* 리사이즈 핸들 변. 컨트롤이므로 배율을 곱하지 않는다(조작 표적은 일정해야 한다). */
     --erd-note-handle: 12px;
+    /* 본문/제목 줄높이. Tailwind text-xs/text-sm가 폰트 크기와 함께 주던 비율을
+       그대로 옮긴 것 — 무단위 비율이라 각 요소의 (배율이 곱해진) font-size에
+       비례하므로 배율을 따로 곱하지 않는다. */
+    --erd-note-lh-body: calc(1 / 0.75);
+    --erd-note-lh-head: calc(1.25 / 0.875);
     /* ERD enum node surfaces — Light (amber) */
     --erd-enum-bg: #fffbeb;
     --erd-enum-border: #fcd34d;

@@ -98,4 +98,17 @@ describe('StickyNote', () => {
     expect(card.style.minWidth).toContain('var(--erd-note-min-w)')
     expect(card.style.maxWidth).toContain('var(--erd-note-max-w)')
   })
+
+  it('pins the line-height tokens on the card and its header (Tailwind text-xs/text-sm removal fix)', () => {
+    const { container, getByText } = renderNode({
+      ...baseProps,
+      data: { title: 'Onboarding', content: 'text' },
+    } as StickyNoteProps)
+    const card = container.querySelector<HTMLElement>(
+      '[data-testid="sticky-note-note:Onboarding"]',
+    )!
+    const header = getByText('Onboarding')
+    expect(card.style.lineHeight).toBe('var(--erd-note-lh-body)')
+    expect(header.style.lineHeight).toBe('var(--erd-note-lh-head)')
+  })
 })
