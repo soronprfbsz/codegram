@@ -4,7 +4,13 @@ import type { SnapshotFull } from '../model/types'
 import { snapshotQueryKeys } from './queryKeys'
 
 export interface CreateSnapshotInput {
-  label: string | null
+  /**
+   * 'manual' = a named snapshot the user keeps (ADR-0023).
+   * 'checkpoint' = the save point Ctrl+S records (ADR-0027) — no label, no
+   * overwrite, deduped by content on the server.
+   */
+  kind?: 'manual' | 'checkpoint'
+  label?: string | null
   /**
    * Confirm replacing the manual snapshot that already carries this label
    * (ADR-0023). Without it the API answers 409 with reason 'label_exists'.
@@ -14,11 +20,11 @@ export interface CreateSnapshotInput {
 
 function createSnapshot(
   projectId: string,
-  { label, overwrite = false }: CreateSnapshotInput,
+  { kind = 'manual', label = null, overwrite = false }: CreateSnapshotInput,
 ): Promise<SnapshotFull> {
   return apiFetch<SnapshotFull>(`/projects/${projectId}/snapshots`, {
     method: 'POST',
-    body: JSON.stringify({ label, overwrite }),
+    body: JSON.stringify({ kind, label, overwrite }),
   })
 }
 

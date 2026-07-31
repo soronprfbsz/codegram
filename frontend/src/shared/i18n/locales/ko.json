@@ -332,10 +332,11 @@
   "snapshot": {
     "title": "버전 기록",
     "tabManual": "수동",
-    "tabAuto": "자동",
+    "tabAuto": "기록",
     "kindMonth": "월",
     "kindHalfHour": "30분",
     "kindManual": "수동",
+    "kindCheckpoint": "저장",
     "closePanel": "기록 패널 닫기",
     "saveFailed": "저장에 실패했습니다",
     "restoreFailedTitle": "원복하지 못했습니다",

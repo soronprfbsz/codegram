@@ -332,10 +332,11 @@
   "snapshot": {
     "title": "Version history",
     "tabManual": "Manual",
-    "tabAuto": "Auto",
+    "tabAuto": "Timeline",
     "kindMonth": "Month",
     "kindHalfHour": "30 min",
     "kindManual": "Manual",
+    "kindCheckpoint": "Saved point",
     "closePanel": "Close history panel",
     "saveFailed": "Failed to save",
     "restoreFailedTitle": "Could not restore",

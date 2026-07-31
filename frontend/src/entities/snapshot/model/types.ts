@@ -4,7 +4,7 @@
  */
 
 /** Concrete snapshot kind stored on the row. */
-export type SnapshotKind = 'auto_fine' | 'auto_coarse' | 'manual'
+export type SnapshotKind = 'auto_fine' | 'auto_coarse' | 'checkpoint' | 'manual'
 
 /** UI grouping used by the history panel tabs (maps to one or more kinds). */
 export type SnapshotGroup = 'auto' | 'manual'
