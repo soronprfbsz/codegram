@@ -41,7 +41,7 @@ class ProjectSnapshot(Base):
         nullable=False,
         index=True,
     )
-    # "auto_fine" | "auto_coarse" | "manual" (see module docstring).
+    # "auto_fine" | "auto_coarse" | "checkpoint" | "manual" (see module docstring).
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
     # Only manual snapshots carry a label; auto snapshots are anonymous.
     label: Mapped[str | None] = mapped_column(
