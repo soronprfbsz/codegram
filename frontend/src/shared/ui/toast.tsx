@@ -1,13 +1,16 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Toast } from 'radix-ui'
 import { CheckCircle2, Info, X, XCircle } from 'lucide-react'
 
 /**
  * App-wide transient notification — the single source of "something just
- * happened" feedback (F1). Surfaces, colours and spacing come from the
- * `--erd-*` tokens only; call sites pass a message and nothing else.
+ * happened" feedback (F1). It renders at the app root (see `app/index.tsx`),
+ * so it is a general-purpose control (F2), not an ERD-canvas surface: colours
+ * and shape come from the shadcn semantic tokens/utility classes, matching
+ * the sibling radix wrappers `dialog.tsx`/`popover.tsx`/`select.tsx`. Call
+ * sites pass a message and nothing else.
  *
  * shared layer: depends on nothing upward (FSD rule). Built on the radix Toast
  * primitive that ships inside the already-installed `radix-ui` package, so this
@@ -44,60 +47,27 @@ const ICON_SIZE = 16
 // Module-scoped so ids stay unique across providers without a random source.
 let nextId = 0
 
-const accent: Record<ToastKind, string> = {
-  success: 'var(--erd-success)',
-  error: 'var(--erd-error)',
-  info: 'var(--erd-text-3)',
-}
-
+/** Icon per kind — semantic accent color classes only (F5), no raw hex. */
 const Icon: Record<ToastKind, typeof CheckCircle2> = {
   success: CheckCircle2,
   error: XCircle,
   info: Info,
 }
 
-const viewportStyle: CSSProperties = {
-  position: 'fixed',
-  bottom: 16,
-  right: 16,
-  zIndex: 60,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-  width: 320,
-  maxWidth: 'calc(100vw - 32px)',
-  margin: 0,
-  padding: 0,
-  listStyle: 'none',
-  outline: 'none',
+const accentClass: Record<ToastKind, string> = {
+  success: 'text-success',
+  error: 'text-destructive',
+  info: 'text-muted-foreground',
 }
 
-function rootStyle(kind: ToastKind): CSSProperties {
-  return {
-    display: 'grid',
-    gridTemplateColumns: 'auto 1fr auto',
-    alignItems: 'center',
-    gap: 10,
-    padding: '10px 12px',
-    borderRadius: 8,
-    background: 'var(--erd-surface)',
-    border: '1px solid var(--erd-border)',
-    borderLeft: `3px solid ${accent[kind]}`,
-    boxShadow: 'var(--erd-shadow)',
-    color: 'var(--erd-text)',
-    fontSize: 'var(--erd-fs-sm)',
-  }
-}
+const viewportClassName =
+  'fixed bottom-4 right-4 z-50 m-0 flex w-80 max-w-[calc(100vw-2rem)] list-none flex-col gap-2 p-0 outline-none'
 
-const closeStyle: CSSProperties = {
-  display: 'grid',
-  placeItems: 'center',
-  background: 'transparent',
-  border: 'none',
-  padding: 2,
-  cursor: 'pointer',
-  color: 'var(--erd-text-3)',
-}
+const rootClassName =
+  'grid grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-md border border-border bg-popover p-3 text-sm text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0'
+
+const closeClassName =
+  'grid place-items-center rounded border-0 bg-transparent p-0.5 text-muted-foreground cursor-pointer hover:text-foreground'
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
@@ -125,24 +95,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <Toast.Root
               key={item.id}
+              data-slot="toast"
               data-testid="toast"
               data-kind={item.kind}
-              style={rootStyle(item.kind)}
+              className={rootClassName}
               onOpenChange={(open) => {
                 if (!open) {
                   setItems((prev) => prev.filter((i) => i.id !== item.id))
                 }
               }}
             >
-              <Glyph size={ICON_SIZE} color={accent[item.kind]} aria-hidden />
-              <Toast.Title>{item.message}</Toast.Title>
-              <Toast.Close aria-label={t('common.close')} style={closeStyle}>
+              <Glyph size={ICON_SIZE} className={accentClass[item.kind]} aria-hidden />
+              <Toast.Title data-slot="toast-title">{item.message}</Toast.Title>
+              <Toast.Close
+                data-slot="toast-close"
+                aria-label={t('common.close')}
+                className={closeClassName}
+              >
                 <X size={14} aria-hidden />
               </Toast.Close>
             </Toast.Root>
           )
         })}
-        <Toast.Viewport style={viewportStyle} />
+        <Toast.Viewport
+          data-slot="toast-viewport"
+          label={t('toast.viewportLabel')}
+          className={viewportClassName}
+        />
       </Toast.Provider>
     </ToastContext.Provider>
   )

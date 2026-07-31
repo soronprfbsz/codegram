@@ -200,7 +200,8 @@
   "toast": {
     "saved": "Saved",
     "saveFailed": "Couldn't save",
-    "editModeRequired": "Enter edit mode to save"
+    "editModeRequired": "Enter edit mode to save",
+    "viewportLabel": "Notifications ({hotkey})"
   },
   "editor": {
     "loading": "Loading…",
