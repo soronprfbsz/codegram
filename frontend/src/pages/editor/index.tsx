@@ -134,6 +134,9 @@ export function EditorPage() {
   const previewing = previewId !== null
   // Role-based access (ADR-0015): editors/owners can edit; viewers are read-only.
   const canEdit = project?.role === 'owner' || project?.role === 'editor'
+  // useEditLease는 flush를 필요로 하고 useProjectAutosave는 lease의 readOnly를
+  // 필요로 한다. ref로 한 방향을 늦게 연결해 순환을 끊는다.
+  const flushRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const lease = useEditLease(id, {
     canEdit,
     isOwner: project?.role === 'owner',
@@ -149,6 +152,11 @@ export function EditorPage() {
       setBaseline(fresh.dbml_text)
       reseed(fresh.layout)
     },
+    // 리스를 놓기 전에 대기 중인 저장을 끝낸다. 여기서 실패하면 exitEditMode가
+    // 편집 모드를 유지하므로 사용자가 다시 시도할 수 있다(ADR-0027).
+    onExiting: async () => {
+      await flushRef.current()
+    },
   })
   // Read-only when the role can't edit OR the caller doesn't hold the live lock.
   const readOnly = !canEdit || lease.readOnly
@@ -163,7 +171,7 @@ export function EditorPage() {
     setActivePanel((p) => (p === 'history' ? null : 'history'))
     setPreviewId(null)
   }
-  const { status } = useProjectAutosave({
+  const { status, flush } = useProjectAutosave({
     projectId: id,
     dbmlText,
     baseline,
@@ -175,6 +183,7 @@ export function EditorPage() {
     version: project?.version,
     onConflict: lease.reportConflict,
   })
+  flushRef.current = flush
   // Full body of the snapshot being previewed (fetched on demand).
   const { data: previewSnapshot } = useSnapshot(id, previewId)
   const restore = useRestoreSnapshot(id)
