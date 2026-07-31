@@ -1,6 +1,6 @@
 # 수동 저장은 되돌아올 지점을 선언한다 — 자동저장은 유실만 막고, Ctrl+S가 `checkpoint`를 남긴다
 
-> **Status**: Proposed · **Tags**: `collaboration` · **Date**: 2026-07-31 · **Supersedes**: — · **Related**: ADR-0014, ADR-0023, ADR-0024, ADR-0025
+> **Status**: Accepted · **Tags**: `collaboration` · **Date**: 2026-07-31 · **Supersedes**: — · **Related**: ADR-0014, ADR-0023, ADR-0024, ADR-0025
 
 프로젝트 콘텐츠는 600ms 디바운스 자동저장으로만 서버에 반영된다. 여기에 **명시적 저장(Ctrl+S)** 을 얹되, 자동저장과 기능이 겹치지 않도록 역할을 나눈다.
 
