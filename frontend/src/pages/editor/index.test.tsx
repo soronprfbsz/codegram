@@ -13,6 +13,7 @@ import type { DbmlSchema } from '@/entities/dbml'
 import * as sqlImport from '@/features/sql-import'
 import * as dbImport from '@/features/db-import'
 import * as editLockApi from '@/features/edit-lock/api/editLock'
+import { ToastProvider } from '@/shared/ui/toast'
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -24,7 +25,9 @@ function renderEditor() {
   )
   return render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>,
   )
 }

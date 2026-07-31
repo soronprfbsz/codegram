@@ -8,6 +8,7 @@ import {
   RefreshCw,
   History,
   Settings,
+  Save,
 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Spinner } from '@/shared/ui/spinner'
@@ -26,6 +27,7 @@ import { useProject, ProjectGlyph } from '@/entities/project'
 import {
   useProjectAutosave,
 } from '@/features/project-autosave'
+import { useManualSave } from '@/features/manual-save'
 import {
   DbmlEditor,
   useDbmlParse,
@@ -184,6 +186,12 @@ export function EditorPage() {
     onConflict: lease.reportConflict,
   })
   flushRef.current = flush
+  const manualSave = useManualSave({
+    projectId: id,
+    canEdit,
+    editable: !readOnly && !previewing,
+    flush,
+  })
   // Full body of the snapshot being previewed (fetched on demand).
   const { data: previewSnapshot } = useSnapshot(id, previewId)
   const restore = useRestoreSnapshot(id)
@@ -469,6 +477,19 @@ export function EditorPage() {
         lastModified={project.updated_at}
         lastEditedBy={project.last_edited_by_email ?? undefined}
         lockStatus={<LockStatusControl canEdit={canEdit} lease={lease} />}
+        saveButton={
+          readOnly ? null : (
+            <TopbarIconButton
+              data-testid="manual-save-button"
+              aria-label={t('topbar.save')}
+              title={`${t('topbar.save')} (Ctrl+S)`}
+              disabled={manualSave.saving}
+              onClick={() => void manualSave.save()}
+            >
+              <Save size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
+            </TopbarIconButton>
+          )
+        }
         searchBox={<TableSearch schema={schema} onNavigate={focusTable} />}
         infoButton={
           <TopbarIconButton

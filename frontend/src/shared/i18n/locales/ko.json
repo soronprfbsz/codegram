@@ -190,6 +190,7 @@
     "lastSavedBy": "마지막 저장 {{time}} · {{who}}",
     "saving": "저장 중…",
     "saveFailed": "저장 실패",
+    "save": "저장",
     "info": "정보",
     "history": "버전 기록",
     "import": "가져오기",

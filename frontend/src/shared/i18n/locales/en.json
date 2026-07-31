@@ -190,6 +190,7 @@
     "lastSavedBy": "Last saved {{time}} by {{who}}",
     "saving": "Saving…",
     "saveFailed": "Save failed",
+    "save": "Save",
     "info": "Info",
     "history": "Version history",
     "import": "Import",
