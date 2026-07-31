@@ -52,4 +52,50 @@ describe('StickyNote', () => {
     } as StickyNoteProps)
     expect(container.querySelectorAll('.react-flow__handle')).toHaveLength(0)
   })
+
+  it('carries the note scale as an inline custom property', () => {
+    const { container } = renderNode({
+      ...baseProps,
+      data: { title: 'Onboarding', content: 'text', scale: 1.8 },
+    } as StickyNoteProps)
+    const card = container.querySelector<HTMLElement>(
+      '[data-testid="sticky-note-note:Onboarding"]',
+    )!
+    expect(card.style.getPropertyValue('--note-scale')).toBe('1.8')
+  })
+
+  it('defaults to scale 1 when the note has none', () => {
+    const { container } = renderNode({
+      ...baseProps,
+      data: { title: 'Onboarding', content: 'text' },
+    } as StickyNoteProps)
+    const card = container.querySelector<HTMLElement>(
+      '[data-testid="sticky-note-note:Onboarding"]',
+    )!
+    expect(card.style.getPropertyValue('--note-scale')).toBe('1')
+  })
+
+  it('clamps a corrupt stored scale into range', () => {
+    const { container } = renderNode({
+      ...baseProps,
+      data: { title: 'Onboarding', content: 'text', scale: 99 },
+    } as StickyNoteProps)
+    const card = container.querySelector<HTMLElement>(
+      '[data-testid="sticky-note-note:Onboarding"]',
+    )!
+    expect(card.style.getPropertyValue('--note-scale')).toBe('3')
+  })
+
+  it('derives every dimension from the scale (no raw px in the card)', () => {
+    const { container } = renderNode({
+      ...baseProps,
+      data: { title: 'Onboarding', content: 'text', scale: 2 },
+    } as StickyNoteProps)
+    const card = container.querySelector<HTMLElement>(
+      '[data-testid="sticky-note-note:Onboarding"]',
+    )!
+    expect(card.style.fontSize).toContain('var(--note-scale)')
+    expect(card.style.minWidth).toContain('var(--erd-note-min-w)')
+    expect(card.style.maxWidth).toContain('var(--erd-note-max-w)')
+  })
 })
