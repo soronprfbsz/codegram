@@ -1153,7 +1153,7 @@ git commit -m "test(e2e): 노트 배율을 실 브라우저에서 잰다"
 | 통로 (NoteScaleContext) | Task 4 |
 | 변경 파일 표 9개 | Task 1(3) · 2(2) · 3(2) · 4(4) — 전부 포함 |
 | 부수 효과: 엣지 라우팅 무변경 | 코드 변경 없음, Task 5 회귀로 확인 |
-| 부수 효과: auto-arrange 배율 보존 | Task 2 Step 1 |
+| 부수 효과: auto-arrange 배율 보존 | ~~Task 2 Step 1~~ — 실제로는 Task 2 Step 1이 커버하지 않았다(최종 리뷰 Finding 1로 확인: `handleAutoArrange`가 스키마 파생 노드를 빈 stored로 reconcile해 배율이 소실됐다). `seedNoteScales`(entities/layout) + `ErdCanvas.handleAutoArrange`의 사전 seeding + `note-scale.spec.ts` 5번째 E2E 시나리오로 최종 수정 웨이브에서 커버 |
 | 테스트 1~6 (단위) | Task 1(1·2·3) · 2(4·6) · 3(5) · 4(5) |
 | 테스트 7~10 (E2E) | Task 5 |
 
