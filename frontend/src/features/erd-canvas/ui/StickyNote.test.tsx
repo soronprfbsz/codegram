@@ -159,6 +159,11 @@ describe('StickyNote resize handle', () => {
     expect(screen.queryByTestId('note-resize-note:Onboarding')).toBeNull()
   })
 
+  it('carries nodrag so React Flow does not node-drag the card while resizing', () => {
+    renderWithScaleCtx(noteProps, () => {})
+    expect(screen.getByTestId('note-resize-note:Onboarding')).toHaveClass('nodrag')
+  })
+
   it('previews while dragging and commits on release', () => {
     stubCardWidth(200)
     const calls: Array<[string, number, boolean]> = []

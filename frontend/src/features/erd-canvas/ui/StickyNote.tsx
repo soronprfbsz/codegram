@@ -101,6 +101,10 @@ function StickyNoteImpl({ id, data }: StickyNoteProps) {
       {!readOnly && (
         <div
           data-testid={`note-resize-${id}`}
+          // RF의 d3-drag는 캡처 단계에서 이벤트를 가로채 stopPropagation보다 먼저
+          // 노드 드래그를 건다. noDragClassName 기본값이 'nodrag'이므로 이 클래스를
+          // 달아 RF가 이 요소 위 드래그를 아예 노드 이동으로 보지 않게 한다.
+          className="nodrag"
           title={t('note.resize')}
           aria-label={t('note.resize')}
           onPointerDown={startResize}
