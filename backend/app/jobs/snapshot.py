@@ -13,6 +13,9 @@ The capture/prune functions take an explicit session so they are unit-testable;
 the run_* wrappers open their own session from async_session_maker (the jobs run
 outside any request, so get_session — request-scoped — is not usable) and own
 the commit.
+
+Checkpoints (ADR-0027) are created by the user, not by these jobs, but they are
+pruned here on the fine retain window.
 """
 from datetime import datetime, timedelta, timezone
 
@@ -24,6 +27,7 @@ from app.db.session import async_session_maker
 from app.models.project import Project
 from app.repositories.project_snapshot import ProjectSnapshotRepository
 from app.services.project_snapshot import (
+    KIND_CHECKPOINT,
     KIND_COARSE,
     KIND_FINE,
     compute_content_hash,
@@ -64,7 +68,10 @@ async def prune_snapshots(
     fine_retain_days: int | None = None,
     coarse_retain_days: int | None = None,
 ) -> int:
-    """Delete auto snapshots past their retain window. Manual is never pruned.
+    """Delete snapshots past their retain window. Manual is never pruned.
+
+    Checkpoints (ADR-0027) share the fine window: they are save points, not an
+    archive, and the named manual snapshot is what a user keeps for good.
 
     Returns the number of snapshots removed.
     """
@@ -74,9 +81,9 @@ async def prune_snapshots(
     if coarse_retain_days is None:
         coarse_retain_days = settings.snapshot_coarse_retain_days
     repo = ProjectSnapshotRepository(session)
-    removed = await repo.delete_older_than(
-        KIND_FINE, now - timedelta(days=fine_retain_days)
-    )
+    fine_cutoff = now - timedelta(days=fine_retain_days)
+    removed = await repo.delete_older_than(KIND_FINE, fine_cutoff)
+    removed += await repo.delete_older_than(KIND_CHECKPOINT, fine_cutoff)
     removed += await repo.delete_older_than(
         KIND_COARSE, now - timedelta(days=coarse_retain_days)
     )

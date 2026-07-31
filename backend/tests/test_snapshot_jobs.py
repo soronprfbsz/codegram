@@ -10,6 +10,7 @@ from app.models.project_snapshot import ProjectSnapshot
 from app.models.user import User
 from app.services.project import ProjectService
 from app.services.project_snapshot import (
+    KIND_CHECKPOINT,
     KIND_COARSE,
     KIND_FINE,
     KIND_MANUAL,
@@ -155,3 +156,38 @@ async def test_auto_snapshot_author_null_when_never_edited(
         )
     ).scalar_one()
     assert snap.created_by is None
+
+
+async def test_prune_expires_checkpoints_on_the_fine_window(
+    test_session: AsyncSession,
+) -> None:
+    """A checkpoint is a save point, not an archive: it ages out like a fine one."""
+    user_id = await _make_user(test_session, "prune-cp@example.com")
+    project = await ProjectService(test_session).create_project(
+        user_id=user_id, name="P", dbml_text="table a {}"
+    )
+    now = datetime(2026, 7, 31, tzinfo=timezone.utc)
+    for age_days, kind in (
+        (100, KIND_CHECKPOINT),  # past the 90-day window -> pruned
+        (10, KIND_CHECKPOINT),   # inside the window -> kept
+        (100, KIND_MANUAL),      # manual is never pruned
+    ):
+        snap = ProjectSnapshot(
+            project_id=project.id,
+            kind=kind,
+            label="keep" if kind == KIND_MANUAL else None,
+            dbml_text="table a {}",
+            layout={},
+            content_hash=compute_content_hash("table a {}", {}),
+            created_at=now - timedelta(days=age_days),
+        )
+        test_session.add(snap)
+    await test_session.flush()
+
+    removed = await prune_snapshots(
+        test_session, now=now, fine_retain_days=90, coarse_retain_days=730
+    )
+
+    assert removed == 1
+    assert await _count(test_session, project.id, KIND_CHECKPOINT) == 1
+    assert await _count(test_session, project.id, KIND_MANUAL) == 1
