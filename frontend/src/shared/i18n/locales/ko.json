@@ -277,6 +277,9 @@
   "group": {
     "arrange": "이 그룹 정렬"
   },
+  "note": {
+    "resize": "크기 조절 — 드래그, 더블클릭하면 기본 크기"
+  },
   "tableSearch": {
     "placeholder": "테이블 · 컬럼 · 주석 검색",
     "searchAria": "테이블 검색",

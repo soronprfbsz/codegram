@@ -56,6 +56,7 @@ import { EdgePathContext, type EdgePathContextValue } from '../lib/edgePathConte
 import { EdgeRoutesProvider } from '../lib/edgeRoutesContext'
 import { resolveEdgeSides } from '../lib/edgeSides'
 import { GroupActionContext, type GroupActionContextValue } from '../lib/groupActionContext'
+import { NoteScaleContext, type NoteScaleContextValue } from '../lib/noteScaleContext'
 import { getHelperLines } from '../lib/helperLines'
 import { TableNode } from './TableNode'
 import { EnumNode } from './EnumNode'
@@ -586,6 +587,24 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     [flow.edges, onLayoutChange, setNodes],
   )
 
+  // 노트 표시 배율(ADR-0026). 정본은 노드 data.scale이고 layout은 영속 사본이므로
+  // 미리보기는 setNodes만, 커밋은 nodesToLayout까지 태운다(좌표 커밋과 같은 리듬).
+  const noteScaleCtx = useMemo<NoteScaleContextValue>(
+    () => ({
+      onNoteScale: (nodeId, scale, commit) => {
+        if (readOnlyRef.current) return
+        const next = nodesRef.current.map((n) =>
+          n.id === nodeId && n.type === 'sticky'
+            ? { ...n, data: { ...n.data, scale } }
+            : n,
+        )
+        setNodes(next)
+        if (commit) onLayoutChange?.(nodesToLayout(next))
+      },
+    }),
+    [onLayoutChange, setNodes],
+  )
+
   const rf = useReactFlow()
   const { fitView } = rf
 
@@ -963,6 +982,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
     <CanvasReadOnlyContext.Provider value={!!readOnly}>
     <EdgePathContext.Provider value={edgePathCtx}>
     <GroupActionContext.Provider value={groupActionCtx}>
+    <NoteScaleContext.Provider value={noteScaleCtx}>
     <EdgeRoutesProvider>
     <ReactFlow
       nodes={displayNodes}
@@ -1099,6 +1119,7 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
       </DialogContent>
     </Dialog>
     </EdgeRoutesProvider>
+    </NoteScaleContext.Provider>
     </GroupActionContext.Provider>
     </EdgePathContext.Provider>
     </CanvasReadOnlyContext.Provider>

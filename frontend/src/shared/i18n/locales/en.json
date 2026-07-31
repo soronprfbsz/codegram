@@ -277,6 +277,9 @@
   "group": {
     "arrange": "Arrange this group"
   },
+  "note": {
+    "resize": "Resize — drag, double-click to reset"
+  },
   "tableSearch": {
     "placeholder": "Search tables · columns · notes",
     "searchAria": "Search tables",
