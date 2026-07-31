@@ -150,6 +150,8 @@ test.describe('note display scale (ADR-0026)', () => {
     const capped = await noteWidth(page)
     await dragHandle(page, 3000)
     expect(await noteWidth(page)).toBeCloseTo(capped, 0)
+    // 상한에 걸렸다는 것이 "아무 일도 없었다"와 구별되어야 한다 — 실제로 3배 근처까지 컸다.
+    expect(capped).toBeGreaterThan(before * 2.5)
     // 상한 3배 — 캔버스 줌이 1이면 폭도 약 3배다.
     expect(capped).toBeLessThan(before * 3.2)
   })
