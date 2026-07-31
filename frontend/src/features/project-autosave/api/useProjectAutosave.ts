@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDebouncedCallback } from '@/shared/hooks/useDebounce'
 import { useUpdateProject } from '@/entities/project'
 import { ApiError } from '@/shared/api/client'
@@ -46,6 +46,12 @@ interface UseProjectAutosaveOptions {
 
 interface UseProjectAutosaveResult {
   status: AutosaveStatus
+  /**
+   * Send a pending save NOW and wait for the PATCH to land. Resolves at once
+   * when nothing is pending. REJECTS when the save fails — the caller decides
+   * what that means (the exit path refuses to hand back the lease).
+   */
+  flush: () => Promise<void>
 }
 
 /**
@@ -57,6 +63,9 @@ interface UseProjectAutosaveResult {
  * dbmlText equals the server baseline (so the seed and a project re-seed never
  * save), and on a projectId change it cancels any pending save and re-arms so a
  * stale PATCH can't fire against the previous project.
+ *
+ * `flush()` is the imperative escape hatch: it sends a pending save now and
+ * waits for it, so leaving edit mode cannot drop the last edit (ADR-0027).
  */
 export function useProjectAutosave({
   projectId,
@@ -94,32 +103,47 @@ export function useProjectAutosave({
     [layoutBaseline],
   )
 
-  const debouncedSave = useDebouncedCallback(() => {
+  // The save currently in flight, so flush() can await a PATCH the debounce
+  // already fired instead of sending a second one.
+  const inFlightRef = useRef<Promise<unknown> | null>(null)
+
+  const runSave = useCallback((): Promise<unknown> => {
     setStatus('saving')
-    updateMutation.mutate(
-      {
+    const promise = updateMutation
+      .mutateAsync({
         dbml_text: dbmlText,
         layout: layout as Record<string, unknown> | undefined,
         version: versionRef.current,
-      },
-      {
-        onSuccess: () => {
-          if (aliveRef.current) {
-            setStatus('saved')
-          }
+      })
+      .then(
+        (result) => {
+          if (aliveRef.current) setStatus('saved')
+          return result
         },
-        onError: (error) => {
-          if (aliveRef.current) {
-            setStatus('error')
-          }
+        (error: unknown) => {
+          if (aliveRef.current) setStatus('error')
           // 409 = edit lock taken over or stale version → let the editor react.
           if (error instanceof ApiError && error.status === 409) {
             onConflictRef.current?.(error.reason)
           }
+          throw error
         },
-      },
-    )
+      )
+    inFlightRef.current = promise
+    return promise
+  }, [updateMutation, dbmlText, layout])
+
+  const debouncedSave = useDebouncedCallback(() => {
+    // The automatic path reports failure through `status` / onConflict; swallow
+    // the rejection here so it never surfaces as an unhandled promise.
+    void runSave().catch(() => {})
   }, delayMs)
+
+  const flush = useCallback(async () => {
+    // Fires the pending call synchronously, which sets inFlightRef.
+    debouncedSave.flush()
+    if (inFlightRef.current) await inFlightRef.current
+  }, [debouncedSave])
 
   // Re-arm on project switch: drop any pending save (it would PATCH the old
   // project) and treat the next render's seed as a fresh mount, not an edit.
@@ -155,5 +179,5 @@ export function useProjectAutosave({
     debouncedSave()
   }, [dbmlText, baseline, layoutKey, layoutBaselineKey, debouncedSave, suspended])
 
-  return { status }
+  return { status, flush }
 }

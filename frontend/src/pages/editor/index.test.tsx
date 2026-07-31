@@ -80,7 +80,7 @@ describe('EditorPage', () => {
     vi.restoreAllMocks()
     autosaveSpy = vi
       .spyOn(autosave, 'useProjectAutosave')
-      .mockReturnValue({ status: 'idle' })
+      .mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
   })
 
   it('shows the project name and seeds the editor with dbml_text', () => {
@@ -400,7 +400,7 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
       status: 'success',
       schema: usersSchema,
@@ -489,7 +489,7 @@ describe('EditorPage — Phase 5 selection wiring', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -597,7 +597,7 @@ describe('EditorPage — 읽기 모드에서는 캔버스도 편집되지 않는
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -700,7 +700,7 @@ describe('EditorPage — SQL import wiring (topbar)', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
       status: 'success',
       schema: usersSchema,
@@ -805,7 +805,7 @@ describe('EditorPage — DB Sync wiring', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(canvas, 'ErdCanvas').mockImplementation(
       (props: { onCaptureReady?: (h: canvas.ErdCaptureHandle) => void }) => {
         props.onCaptureReady?.({

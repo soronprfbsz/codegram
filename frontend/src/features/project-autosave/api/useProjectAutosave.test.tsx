@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { StoredLayout } from '@/entities/layout'
 
-const mutateMock = vi.fn()
+const mutateAsyncMock = vi.fn((_payload: Record<string, unknown>) => Promise.resolve({}))
 
 vi.mock('@/entities/project', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/entities/project')>()
   return {
     ...actual,
     useUpdateProject: () => ({
-      mutate: mutateMock,
+      mutateAsync: mutateAsyncMock,
     }),
   }
 })
@@ -19,7 +19,8 @@ import { useProjectAutosave } from './useProjectAutosave'
 describe('useProjectAutosave', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    mutateMock.mockReset()
+    mutateAsyncMock.mockReset()
+    mutateAsyncMock.mockResolvedValue({})
   })
 
   afterEach(() => {
@@ -34,10 +35,10 @@ describe('useProjectAutosave', () => {
     act(() => {
       vi.advanceTimersByTime(1000)
     })
-    expect(mutateMock).not.toHaveBeenCalled()
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
   })
 
-  it('saves the edited dbml_text after the debounce window', () => {
+  it('saves the edited dbml_text after the debounce window', async () => {
     const { rerender } = renderHook(
       ({ text }: { text: string }) =>
         useProjectAutosave({ projectId: 'p-1', dbmlText: text }),
@@ -45,22 +46,19 @@ describe('useProjectAutosave', () => {
     )
 
     rerender({ text: 'edited' })
-    expect(mutateMock).not.toHaveBeenCalled()
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
 
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(600)
     })
 
-    expect(mutateMock).toHaveBeenCalledTimes(1)
-    const [payload] = mutateMock.mock.calls[0]
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
+    const [payload] = mutateAsyncMock.mock.calls[0]
     expect(payload).toEqual({ dbml_text: 'edited', layout: undefined })
   })
 
   it('reports saving then saved across the mutation lifecycle', async () => {
-    // Drive the mutation callbacks manually to assert the status transitions.
-    mutateMock.mockImplementation((_payload, opts) => {
-      opts.onSuccess()
-    })
+    mutateAsyncMock.mockResolvedValue({})
 
     const { result, rerender } = renderHook(
       ({ text }: { text: string }) =>
@@ -71,7 +69,7 @@ describe('useProjectAutosave', () => {
     expect(result.current.status).toBe('idle')
 
     rerender({ text: 'edited' })
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(600)
     })
 
@@ -93,10 +91,10 @@ describe('useProjectAutosave', () => {
       vi.advanceTimersByTime(1000)
     })
 
-    expect(mutateMock).not.toHaveBeenCalled()
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
   })
 
-  it('saves a real edit (dbmlText diverges from the baseline)', () => {
+  it('saves a real edit (dbmlText diverges from the baseline)', async () => {
     const { rerender } = renderHook(
       ({ text, baseline }: { text: string; baseline: string }) =>
         useProjectAutosave({ projectId: 'p-1', dbmlText: text, baseline }),
@@ -108,19 +106,19 @@ describe('useProjectAutosave', () => {
     act(() => {
       vi.advanceTimersByTime(1000)
     })
-    expect(mutateMock).not.toHaveBeenCalled()
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
 
     rerender({ text: 'seeded + edit', baseline: 'seeded' })
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(600)
     })
 
-    expect(mutateMock).toHaveBeenCalledTimes(1)
-    const [payload] = mutateMock.mock.calls[0]
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
+    const [payload] = mutateAsyncMock.mock.calls[0]
     expect(payload).toEqual({ dbml_text: 'seeded + edit', layout: undefined })
   })
 
-  it('re-seeds on a project switch without saving the old or new value', () => {
+  it('re-seeds on a project switch without saving the old or new value', async () => {
     const { rerender } = renderHook(
       ({
         projectId,
@@ -141,20 +139,20 @@ describe('useProjectAutosave', () => {
     })
 
     // No save for the switch itself (neither the old nor the new seed value).
-    expect(mutateMock).not.toHaveBeenCalled()
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
 
     // A real edit on the new project still saves the new project's value.
     rerender({ projectId: 'p-2', text: 'b-text edited', baseline: 'b-text' })
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(600)
     })
 
-    expect(mutateMock).toHaveBeenCalledTimes(1)
-    const [payload] = mutateMock.mock.calls[0]
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
+    const [payload] = mutateAsyncMock.mock.calls[0]
     expect(payload).toEqual({ dbml_text: 'b-text edited', layout: undefined })
   })
 
-  it('saves on a layout-only change (dbmlText unchanged) when layout diverges from its baseline', () => {
+  it('saves on a layout-only change (dbmlText unchanged) when layout diverges from its baseline', async () => {
     const seed: StoredLayout = { version: 1, positions: { 'public.users': { x: 0, y: 0 } } }
     const moved: StoredLayout = { version: 1, positions: { 'public.users': { x: 320, y: 80 } } }
 
@@ -174,16 +172,16 @@ describe('useProjectAutosave', () => {
     act(() => {
       vi.advanceTimersByTime(1000)
     })
-    expect(mutateMock).not.toHaveBeenCalled()
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
 
     // A drag changes only the layout; dbmlText still equals the baseline.
     rerender({ layout: moved })
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(600)
     })
 
-    expect(mutateMock).toHaveBeenCalledTimes(1)
-    const [payload] = mutateMock.mock.calls[0]
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
+    const [payload] = mutateAsyncMock.mock.calls[0]
     expect(payload).toEqual({ dbml_text: 'table users {}', layout: moved })
   })
 
@@ -209,7 +207,7 @@ describe('useProjectAutosave', () => {
       vi.advanceTimersByTime(1000)
     })
 
-    expect(mutateMock).not.toHaveBeenCalled()
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
   })
 
   it('does NOT loop when layoutBaseline is omitted but a new-identity layout object arrives', () => {
@@ -232,6 +230,63 @@ describe('useProjectAutosave', () => {
       vi.advanceTimersByTime(1000)
     })
 
-    expect(mutateMock).not.toHaveBeenCalled()
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('useProjectAutosave.flush', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    mutateAsyncMock.mockReset()
+    mutateAsyncMock.mockResolvedValue({})
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('sends a pending save immediately instead of waiting out the debounce', async () => {
+    const { result, rerender } = renderHook(
+      ({ text }: { text: string }) =>
+        useProjectAutosave({ projectId: 'p-1', dbmlText: text, baseline: 'initial' }),
+      { initialProps: { text: 'initial' } },
+    )
+
+    rerender({ text: 'edited' })
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      await result.current.flush()
+    })
+
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
+    expect(mutateAsyncMock.mock.calls[0][0]).toMatchObject({ dbml_text: 'edited' })
+  })
+
+  it('resolves without sending anything when there is nothing pending', async () => {
+    const { result } = renderHook(() =>
+      useProjectAutosave({ projectId: 'p-1', dbmlText: 'initial', baseline: 'initial' }),
+    )
+
+    await act(async () => {
+      await result.current.flush()
+    })
+
+    expect(mutateAsyncMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects when the save fails, so the caller can refuse to leave edit mode', async () => {
+    mutateAsyncMock.mockRejectedValue(new Error('network down'))
+
+    const { result, rerender } = renderHook(
+      ({ text }: { text: string }) =>
+        useProjectAutosave({ projectId: 'p-1', dbmlText: text, baseline: 'initial' }),
+      { initialProps: { text: 'initial' } },
+    )
+
+    rerender({ text: 'edited' })
+
+    await expect(
+      act(async () => {
+        await result.current.flush()
+      }),
+    ).rejects.toThrow('network down')
   })
 })
