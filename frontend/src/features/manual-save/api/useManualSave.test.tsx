@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
+import { ApiError } from '@/shared/api/client'
 
 const mutateAsyncMock = vi.fn(() => Promise.resolve({}))
 const successMock = vi.fn()
@@ -79,6 +80,47 @@ describe('useManualSave', () => {
 
     expect(errorMock).toHaveBeenCalled()
     expect(successMock).not.toHaveBeenCalled()
+  })
+
+  it('suppresses the toast on a 409 — autosave already raises the conflict dialog', async () => {
+    const flush = vi.fn(async () => {
+      throw new ApiError('conflict', 409)
+    })
+    const { result } = renderHook(() =>
+      useManualSave({ projectId: 'p-1', canEdit: true, editable: true, flush }),
+    )
+    await act(async () => {
+      await result.current.save()
+    })
+
+    expect(errorMock).not.toHaveBeenCalled()
+    expect(successMock).not.toHaveBeenCalled()
+  })
+
+  it('ignores a second press while a save is in flight (no duplicate checkpoint)', async () => {
+    // A controllable gate: flush stays pending until the test releases it, so
+    // the second save() genuinely lands while the first is still in flight —
+    // not just "after it happened to finish".
+    let releaseFlush: () => void = () => {}
+    const flushGate = new Promise<void>((resolve) => {
+      releaseFlush = resolve
+    })
+    const flush = vi.fn(() => flushGate)
+
+    const { result } = renderHook(() =>
+      useManualSave({ projectId: 'p-1', canEdit: true, editable: true, flush }),
+    )
+
+    await act(async () => {
+      const save = result.current.save
+      const first = save()
+      const second = save()
+      releaseFlush()
+      await Promise.all([first, second])
+    })
+
+    expect(flush).toHaveBeenCalledTimes(1)
+    expect(mutateAsyncMock).toHaveBeenCalledTimes(1)
   })
 
   it('Ctrl+S saves and blocks the browser save dialog', async () => {
