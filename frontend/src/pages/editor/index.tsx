@@ -43,6 +43,7 @@ import { useLayoutPersistence } from '@/features/layout-persistence'
 import { type DiagramExportContext } from '@/features/export-diagram'
 import { SqlImportDialog } from '@/features/sql-import'
 import { AlertDialog } from '@/shared/ui/alert-dialog'
+import { useToast } from '@/shared/ui/toast'
 import { ApiError } from '@/shared/api/client'
 import { ErdTopBar } from '@/widgets/erd-topbar'
 import { ExportMenu } from '@/widgets/export-menu'
@@ -120,6 +121,7 @@ export function EditorPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const toast = useToast()
   const { data: project, isLoading, isError, refetch: refetchProject } = useProject(id)
   const [dbmlText, setDbmlText] = useState('')
   // The last server-seeded value; autosave skips while dbmlText still equals it.
@@ -157,7 +159,19 @@ export function EditorPage() {
     // 리스를 놓기 전에 대기 중인 저장을 끝낸다. 여기서 실패하면 exitEditMode가
     // 편집 모드를 유지하므로 사용자가 다시 시도할 수 있다(ADR-0027).
     onExiting: async () => {
-      await flushRef.current()
+      try {
+        await flushRef.current()
+      } catch (error) {
+        // 실패는 반드시 눈에 보여야 한다 — 알리지 않으면 "읽기를 눌렀는데 아무
+        // 일도 없다"로 보인다. 단 409는 이미 충돌 다이얼로그가 같은 말을 하므로
+        // 토스트를 겹치지 않는다(useManualSave와 같은 규칙).
+        if (!(error instanceof ApiError && error.status === 409)) {
+          toast.error(t('toast.saveFailed'))
+        }
+        // 다시 던져야 exitEditMode가 편집 모드를 유지한다. 삼키면 미저장분을
+        // 안은 채 리스를 반납하게 되고, 그것이 이 분기가 존재하는 이유다.
+        throw error
+      }
     },
   })
   // Read-only when the role can't edit OR the caller doesn't hold the live lock.
