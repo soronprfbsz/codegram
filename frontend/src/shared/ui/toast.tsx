@@ -60,8 +60,11 @@ const accentClass: Record<ToastKind, string> = {
   info: 'text-muted-foreground',
 }
 
+// z-toast (defined in src/index.css) sits strictly above the z-50 overlay
+// layer: unlike Dialog/Popover/Select, this viewport is not portaled, so at
+// an equal z-index a later-opened dialog's portal would paint over it.
 const viewportClassName =
-  'fixed bottom-4 right-4 z-50 m-0 flex w-80 max-w-[calc(100vw-2rem)] list-none flex-col gap-2 p-0 outline-none'
+  'fixed bottom-4 right-4 z-toast m-0 flex w-80 max-w-[calc(100vw-2rem)] list-none flex-col gap-2 p-0 outline-none'
 
 const rootClassName =
   'grid grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-md border border-border bg-popover p-3 text-sm text-popover-foreground shadow-md outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0'
