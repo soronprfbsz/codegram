@@ -80,13 +80,13 @@ function StickyNoteImpl({ id, data }: StickyNoteProps) {
       }
     >
       <div
+        className="font-semibold"
         style={{
           borderBottom:
             'calc(var(--erd-note-border-w) * var(--note-scale)) solid var(--erd-note-head-border)',
           padding: PAD,
           fontSize: 'calc(var(--erd-fs-md) * var(--note-scale))',
           lineHeight: 'var(--erd-note-lh-head)',
-          fontWeight: 600,
           color: 'var(--erd-note-head-text)',
         }}
       >
@@ -123,9 +123,10 @@ function StickyNoteImpl({ id, data }: StickyNoteProps) {
             width: 'var(--erd-note-handle)',
             height: 'var(--erd-note-handle)',
             cursor: 'nwse-resize',
-            // 우하단 코너를 채우는 삼각형 — 테두리 색을 그대로 쓴다(F2).
+            // 우하단 코너를 채우는 삼각형 — 다크 테마에서 배경과 거의 구분되지 않던
+            // --erd-note-border 대신, 대비를 위해 만든 전용 토큰을 쓴다(F2/F5).
             background:
-              'linear-gradient(135deg, transparent 50%, var(--erd-note-border) 50%)',
+              'linear-gradient(135deg, transparent 50%, var(--erd-note-handle-fg) 50%)',
             touchAction: 'none',
           }}
         />
