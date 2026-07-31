@@ -39,10 +39,17 @@ export interface EditLease {
   editMode: boolean
   /** Take the lease and start editing. No-op for viewers / when held by another. */
   enterEditMode: () => void
-  /** Hand the lease back and return to reading. */
-  exitEditMode: () => void
+  /**
+   * Save, then hand the lease back and return to reading. Saving happens FIRST
+   * and is awaited: the backend takes a free lease on any content write, so a
+   * PATCH landing after the release would revive the lock (ADR-0027). If the
+   * save fails, edit mode is kept — leaving with unsaved work loses it.
+   */
+  exitEditMode: () => Promise<void>
   /** An enter attempt is in flight. */
   entering: boolean
+  /** An exit is in flight (the pre-exit save is running). */
+  exiting: boolean
   /**
    * The last attempt to enter edit mode was refused because someone else got
    * the lease first. Distinct from `bumped`: nothing was being edited and
@@ -85,6 +92,7 @@ export function useEditLease(
     canEdit,
     isOwner,
     onEntered,
+    onExiting,
   }: {
     canEdit: boolean
     isOwner: boolean
@@ -95,6 +103,11 @@ export function useEditLease(
      * edit would either be rejected as a stale version or quietly fight it.
      */
     onEntered?: () => Promise<void> | void
+    /**
+     * Awaited BEFORE the lease goes back — the caller flushes pending saves
+     * here. Throwing cancels the exit and keeps the caller in edit mode.
+     */
+    onExiting?: () => Promise<void> | void
   },
 ): EditLease {
   const qc = useQueryClient()
@@ -104,6 +117,7 @@ export function useEditLease(
   // only, so "opening a project reads it" holds without exception (ADR-0025).
   const [editMode, setEditMode] = useState(false)
   const [enterBlocked, setEnterBlocked] = useState(false)
+  const [exiting, setExiting] = useState(false)
   const bumped = conflict !== null
 
   const statusQuery = useQuery({
@@ -230,6 +244,8 @@ export function useEditLease(
 
   const onEnteredRef = useRef(onEntered)
   onEnteredRef.current = onEntered
+  const onExitingRef = useRef(onExiting)
+  onExitingRef.current = onExiting
 
   const enterEditMode = useCallback(() => {
     setEnterBlocked(false)
@@ -255,7 +271,19 @@ export function useEditLease(
     })
   }, [acquire, statusQuery])
 
-  const exitEditMode = useCallback(() => {
+  const exitEditMode = useCallback(async () => {
+    setExiting(true)
+    try {
+      // Still editMode=true here, so autosave is not suspended and the lease is
+      // still ours — the save can actually land.
+      await onExitingRef.current?.()
+    } catch {
+      // Could not save. Staying in edit mode is the only way the user can retry;
+      // the caller surfaces the failure (409 goes to the conflict dialog).
+      return
+    } finally {
+      setExiting(false)
+    }
     setEditMode(false)
     setLostLease(false)
     // Giving it up on purpose is not losing it: clear the "was holding" mark so
@@ -288,6 +316,7 @@ export function useEditLease(
     enterEditMode,
     exitEditMode,
     entering: acquire.isPending,
+    exiting,
     enterBlocked,
     clearEnterBlocked: () => setEnterBlocked(false),
     takeover: enterEditMode,
