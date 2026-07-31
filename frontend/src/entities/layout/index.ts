@@ -1,4 +1,5 @@
 export { reconcileLayout, nodesToLayout } from './lib/reconcile'
+export { seedNoteScales } from './lib/seedNoteScales'
 export { fitGroupBoxes } from './lib/groupBox'
 export { computeSyncedPositions } from './lib/placeNewTables'
 export type {

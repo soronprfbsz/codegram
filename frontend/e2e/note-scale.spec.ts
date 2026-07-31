@@ -148,12 +148,58 @@ test.describe('note display scale (ADR-0026)', () => {
 
     await dragHandle(page, 3000)
     const capped = await noteWidth(page)
+    // 핸들이 뷰포트 밖으로 나가 두 번째 드래그가 아무것도 잡지 못해도 폭 비교는
+    // 우연히 통과할 수 있다 — --note-scale이 실제로 상한(3)에 고정됐는지로
+    // "클램프됨"과 "제스처가 아예 안 먹힘"을 구별한다.
+    expect(await noteScaleVar(page)).toBeCloseTo(3, 2)
     await dragHandle(page, 3000)
-    expect(await noteWidth(page)).toBeCloseTo(capped, 0)
+    expect(await noteScaleVar(page)).toBeCloseTo(3, 2)
     // 상한에 걸렸다는 것이 "아무 일도 없었다"와 구별되어야 한다 — 실제로 3배 근처까지 컸다.
     expect(capped).toBeGreaterThan(before * 2.5)
     // 상한 3배 — 캔버스 줌이 1이면 폭도 약 3배다.
     expect(capped).toBeLessThan(before * 3.2)
+  })
+
+  test('auto-arrange preserves the note scale (and re-persists it)', async ({ page }) => {
+    // Finding 1 (final review): handleAutoArrange reconciles a fresh,
+    // schema-derived node set (no data.scale) against an EMPTY stored set, so
+    // without seeding the scale back in, one auto-arrange silently resets the
+    // note to 1.0 on screen AND persists that scale-less layout — erasing it.
+    await registerAndLogin(page, `note-arrange-${Date.now()}@example.com`)
+    const projectId = await createProjectAndOpen(page, 'note arrange')
+    await typeDbml(page, DBML)
+
+    await expect(page.getByTestId(`sticky-note-${NOTE_ID}`)).toBeVisible({ timeout: 20000 })
+
+    const growPatch = page.waitForResponse(
+      (r) =>
+        r.url().includes(`/api/projects/${projectId}`) &&
+        r.request().method() === 'PATCH' &&
+        r.status() === 200,
+    )
+    await dragHandle(page, 120)
+    await growPatch
+    const grownScale = await noteScaleVar(page)
+    expect(grownScale).toBeGreaterThan(1)
+
+    const arrangePatch = page.waitForResponse(
+      (r) =>
+        r.url().includes(`/api/projects/${projectId}`) &&
+        r.request().method() === 'PATCH' &&
+        r.status() === 200,
+    )
+    await page.getByTestId('auto-arrange-button').click()
+    await page.getByTestId('auto-arrange-confirm-ok').click()
+
+    await expect(page.getByTestId(`sticky-note-${NOTE_ID}`)).toBeVisible({ timeout: 20000 })
+    // Still enlarged on screen after auto-arrange recomputed every position.
+    expect(await noteScaleVar(page)).toBeCloseTo(grownScale, 2)
+
+    // ...and the autosave PATCH that follows auto-arrange still carries it.
+    const body = (await arrangePatch).request().postDataJSON() as {
+      layout?: { positions: Record<string, { scale?: number }> }
+    }
+    expect(body.layout?.positions[NOTE_ID]?.scale).toBeCloseTo(grownScale, 2)
   })
 
   test('read-only canvas offers no resize handle', async ({ page }) => {

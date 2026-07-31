@@ -42,6 +42,7 @@ import {
 import {
   reconcileLayout,
   nodesToLayout,
+  seedNoteScales,
   pruneEdgePaths,
   applyEdgeSide,
   editVertexAxis,
@@ -736,7 +737,12 @@ function ErdCanvasInner({ schema, savedPositions, edgePaths, onEdgePathsChange, 
 
   function handleAutoArrange() {
     // Discard ALL saved positions: reconcile with an EMPTY set => pure dagre.
-    const dagreNodes = reconcileLayout(flow.nodes, flow.edges, {})
+    // flow.nodes is freshly derived from the DBML text (schemaToFlow), so it
+    // carries no data.scale for sticky notes — re-seed it from the LIVE nodes
+    // first, or a note's display scale is silently reset to 1.0 and that
+    // scale-less layout gets persisted right after (ADR-0026).
+    const seeded = seedNoteScales(flow.nodes, nodesRef.current)
+    const dagreNodes = reconcileLayout(seeded, flow.edges, {})
     setNodes(dagreNodes)
     onLayoutChange?.(nodesToLayout(dagreNodes))
     // Auto-arrange recomputes every position — stale manual paths are cleared (ADR-0012).
