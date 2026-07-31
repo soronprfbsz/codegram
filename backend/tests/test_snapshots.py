@@ -10,6 +10,7 @@ from app.models.project_snapshot import ProjectSnapshot
 from app.models.user import User
 from app.services.project import ProjectService
 from app.services.project_snapshot import (
+    KIND_CHECKPOINT,
     KIND_COARSE,
     KIND_FINE,
     KIND_MANUAL,
@@ -566,3 +567,120 @@ async def test_restore_safety_snapshot_attributed_to_restorer(
     ).json()
     assert len(autos) == 1
     assert autos[0]["created_by_email"] == "alice@example.com"
+
+
+# --- checkpoint (ADR-0027) -------------------------------------------------
+async def test_create_checkpoint_returns_201_without_label(
+    authenticated_client: AsyncClient,
+) -> None:
+    project_id = await _create_project(authenticated_client)
+    resp = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"kind": "checkpoint"}
+    )
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["kind"] == KIND_CHECKPOINT
+    assert body["label"] is None
+    assert body["dbml_text"] == "table a {}"
+
+
+async def test_checkpoint_ignores_label_from_the_client(
+    authenticated_client: AsyncClient,
+) -> None:
+    """A checkpoint is identified by its time, never by a name (ADR-0027)."""
+    project_id = await _create_project(authenticated_client)
+    resp = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots",
+        json={"kind": "checkpoint", "label": "ignored"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["label"] is None
+
+
+async def test_unchanged_checkpoint_does_not_add_a_row(
+    authenticated_client: AsyncClient,
+) -> None:
+    project_id = await _create_project(authenticated_client)
+    first = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"kind": "checkpoint"}
+    )
+    second = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"kind": "checkpoint"}
+    )
+    assert first.status_code == 201 and second.status_code == 201
+    # Same content -> the same row comes back, not a new one.
+    assert second.json()["id"] == first.json()["id"]
+
+    listed = await authenticated_client.get(
+        f"/api/projects/{project_id}/snapshots?group=auto"
+    )
+    assert listed.status_code == 200
+    checkpoints = [s for s in listed.json() if s["kind"] == KIND_CHECKPOINT]
+    assert len(checkpoints) == 1
+
+
+async def test_changed_content_adds_a_new_checkpoint(
+    authenticated_client: AsyncClient,
+) -> None:
+    project_id = await _create_project(authenticated_client)
+    first = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"kind": "checkpoint"}
+    )
+    patched = await authenticated_client.patch(
+        f"/api/projects/{project_id}", json={"dbml_text": "table b {}"}
+    )
+    assert patched.status_code == 200
+    second = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"kind": "checkpoint"}
+    )
+    assert second.json()["id"] != first.json()["id"]
+    assert second.json()["dbml_text"] == "table b {}"
+
+
+async def test_checkpoints_are_not_capped_like_manual_snapshots(
+    test_session: AsyncSession,
+) -> None:
+    """`snapshot_manual_max` bounds named manual snapshots only (ADR-0027)."""
+    original = config_module.settings.snapshot_manual_max
+    config_module.settings.snapshot_manual_max = 2
+    try:
+        user_id = await _make_user(test_session, "cap-checkpoint@example.com")
+        project = await ProjectService(test_session).create_project(
+            user_id=user_id, name="P", dbml_text="table a {}"
+        )
+        service = ProjectSnapshotService(test_session)
+        for i in range(5):
+            await ProjectService(test_session).update_project(
+                project.id, user_id, dbml_text=f"table t{i} {{}}"
+            )
+            await service.create_checkpoint(project.id, user_id)
+        listed = await service.list_snapshots(project.id, user_id, group="auto")
+        assert len([s for s, _ in listed if s.kind == KIND_CHECKPOINT]) == 5
+    finally:
+        config_module.settings.snapshot_manual_max = original
+
+
+async def test_checkpoint_is_not_user_deletable(
+    authenticated_client: AsyncClient,
+) -> None:
+    """Checkpoints expire on their own; only named manual snapshots are deleted."""
+    project_id = await _create_project(authenticated_client)
+    created = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"kind": "checkpoint"}
+    )
+    resp = await authenticated_client.delete(
+        f"/api/projects/{project_id}/snapshots/{created.json()['id']}"
+    )
+    assert resp.status_code == 409
+
+
+async def test_manual_snapshot_is_the_default_kind(
+    authenticated_client: AsyncClient,
+) -> None:
+    """Existing clients send no `kind` and must keep getting a manual snapshot."""
+    project_id = await _create_project(authenticated_client)
+    resp = await authenticated_client.post(
+        f"/api/projects/{project_id}/snapshots", json={"label": "v1"}
+    )
+    assert resp.status_code == 201
+    assert resp.json()["kind"] == KIND_MANUAL

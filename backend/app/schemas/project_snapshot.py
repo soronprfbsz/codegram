@@ -6,14 +6,17 @@ or restoring a single snapshot. Both validate straight from the ORM object.
 """
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProjectSnapshotCreate(BaseModel):
-    """Body for POST .../snapshots (manual snapshot)."""
+    """Body for POST .../snapshots (manual snapshot or checkpoint)."""
 
+    # "manual" = a named snapshot the user keeps (ADR-0023). "checkpoint" = a
+    # save point Ctrl+S records (ADR-0027); label/overwrite are ignored for it.
+    kind: Literal["manual", "checkpoint"] = "manual"
     label: str | None = Field(default=None, max_length=255)
     # A label identifies a manual snapshot within its project (ADR-0023): saving
     # under an existing label conflicts (409) unless the caller confirms the
