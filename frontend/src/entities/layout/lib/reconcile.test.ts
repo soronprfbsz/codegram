@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { reconcileLayout, nodesToLayout } from './reconcile'
-import type { ErdFlowNode, ErdFlowEdge } from '@/entities/erd'
+import type { ErdFlowNode, ErdFlowEdge, StickyNodeData } from '@/entities/erd'
 import { GROUP_PAD_X, GROUP_PAD_TOP } from '@/entities/erd'
 import type { LayoutPositions } from '@/entities/layout/model/types'
 
@@ -279,5 +279,63 @@ describe('nodesToLayout', () => {
   it('includes enum + sticky nodes', () => {
     const out = nodesToLayout([enumNode('enum:public.role')])
     expect(out.positions['enum:public.role']).toEqual({ x: 40, y: 80 })
+  })
+})
+
+/** Standalone note node. Notes are never grouped, so always top-level. */
+function stickyNode(id: string, scale?: number): ErdFlowNode {
+  return {
+    id,
+    type: 'sticky',
+    position: { x: 0, y: 0 },
+    data: { title: id, content: 'memo', ...(scale !== undefined ? { scale } : {}) },
+  }
+}
+
+describe('note display scale (ADR-0026)', () => {
+  it('records a sticky note scale above 1 in its position entry', () => {
+    const note = stickyNode('note:history', 1.8)
+    note.position = { x: 40, y: 60 }
+    const out = nodesToLayout([note])
+    expect(out.positions['note:history']).toEqual({ x: 40, y: 60, scale: 1.8 })
+  })
+
+  it('omits scale when the note is at the default size', () => {
+    const plain = stickyNode('note:plain')
+    const explicitOne = stickyNode('note:one', 1)
+    const out = nodesToLayout([plain, explicitOne])
+    expect('scale' in out.positions['note:plain']).toBe(false)
+    expect('scale' in out.positions['note:one']).toBe(false)
+  })
+
+  it('never records scale for non-sticky nodes', () => {
+    const table = tableNode('public.users')
+    const out = nodesToLayout([table])
+    expect('scale' in out.positions['public.users']).toBe(false)
+  })
+
+  it('injects a stored scale into the note data on reconcile', () => {
+    const out = reconcileLayout([stickyNode('note:history')], [], {
+      'note:history': { x: 40, y: 60, scale: 2.5 },
+    })
+    const note = out.find((n) => n.id === 'note:history')!
+    expect((note.data as StickyNodeData).scale).toBe(2.5)
+    expect(note.position).toEqual({ x: 40, y: 60 })
+  })
+
+  it('leaves note data untouched when nothing is stored', () => {
+    const out = reconcileLayout([stickyNode('note:history')], [], {})
+    const note = out.find((n) => n.id === 'note:history')!
+    expect((note.data as StickyNodeData).scale).toBeUndefined()
+    expect((note.data as StickyNodeData).title).toBe('note:history')
+  })
+
+  it('round-trips the scale through save and restore', () => {
+    const note = stickyNode('note:history', 2.25)
+    note.position = { x: 10, y: 20 }
+    const saved = nodesToLayout([note])
+    const restored = reconcileLayout([stickyNode('note:history')], [], saved.positions)
+    const back = restored.find((n) => n.id === 'note:history')!
+    expect((back.data as StickyNodeData).scale).toBe(2.25)
   })
 })

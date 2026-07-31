@@ -27,6 +27,11 @@ export interface StoredPosition {
   y: number
   /** Group node id this position is relative to, if the node was grouped at save time. */
   parentId?: string
+  /**
+   * 노트의 표시 배율(ADR-0026). 1.0(기본 크기) 초과일 때만 기록한다 — 없음 = 1.0.
+   * 노트 전용이며 다른 노드 종류에는 기록되지 않는다.
+   */
+  scale?: number
 }
 
 /** Map of node id -> persisted position. Node id == ADR-0004 name key. */

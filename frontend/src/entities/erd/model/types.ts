@@ -69,6 +69,8 @@ export interface StickyNodeData {
   title: string
   content: string
   headerColor?: string
+  /** 표시 배율(ADR-0026). 없음 = 1.0. 정본은 이 필드이고 layout은 영속 사본이다. */
+  scale?: number
   [key: string]: unknown
 }
 

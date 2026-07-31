@@ -15,7 +15,7 @@
  * entities/layout types. NO React, NO React Flow runtime (FSD downward imports).
  */
 import { autoLayout } from '@/entities/erd'
-import type { ErdFlowNode, ErdFlowEdge } from '@/entities/erd'
+import type { ErdFlowNode, ErdFlowEdge, StickyNodeData } from '@/entities/erd'
 import { fitGroupBoxes } from './groupBox'
 import { placeSatelliteEnums } from './placeSatelliteEnums'
 import type { LayoutPositions, StoredLayout } from '@/entities/layout/model/types'
@@ -54,7 +54,16 @@ export function reconcileLayout(
     if (!entry) return node
     if (node.type === 'group') return { ...node, position: { x: entry.x, y: entry.y } }
     if (!frameMatches(node, entry)) return node // unpositioned -> keep dagre baseline
-    return { ...node, position: { x: entry.x, y: entry.y } }
+    const positioned = { ...node, position: { x: entry.x, y: entry.y } }
+    // 노트만 표시 배율을 갖는다(ADR-0026). 노트는 그룹 멤버가 될 수 없으므로 프레임 가드
+    // 통과 여부와 무관하게 이 지점에서만 주입하면 충분하다.
+    if (node.type === 'sticky' && typeof entry.scale === 'number') {
+      return {
+        ...positioned,
+        data: { ...(node.data as StickyNodeData), scale: entry.scale },
+      }
+    }
+    return positioned
   })
 
   // 3. Re-fit each group node to its (possibly moved) members. Done BEFORE the
@@ -82,10 +91,13 @@ export function nodesToLayout(nodes: ErdFlowNode[]): StoredLayout {
       positions[node.id] = { x: node.position.x, y: node.position.y }
       continue
     }
+    const scale = node.type === 'sticky' ? (node.data as StickyNodeData).scale : undefined
     positions[node.id] = {
       x: node.position.x,
       y: node.position.y,
       ...(node.parentId ? { parentId: node.parentId } : {}),
+      // 기본 크기(1.0)는 기록하지 않는다 — 저장 최소화 + 기존 프로젝트와 동일 형태 유지.
+      ...(typeof scale === 'number' && scale > 1 ? { scale } : {}),
     }
   }
   return { version: 1, positions }
