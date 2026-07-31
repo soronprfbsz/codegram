@@ -492,7 +492,9 @@ export function EditorPage() {
         lastEditedBy={project.last_edited_by_email ?? undefined}
         lockStatus={<LockStatusControl canEdit={canEdit} lease={lease} />}
         saveButton={
-          readOnly ? null : (
+          // 미리보기 중에는 저장이 불가능하다(useManualSave의 editable과 같은
+          // 조건) — 버튼을 남겨두면 눌렀을 때 "편집 모드에서만"이라고 잘못 말한다.
+          readOnly || previewing ? null : (
             <TopbarIconButton
               data-testid="manual-save-button"
               aria-label={t('topbar.save')}

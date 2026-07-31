@@ -15,6 +15,8 @@ import * as dbImport from '@/features/db-import'
 import * as editLockApi from '@/features/edit-lock/api/editLock'
 import { ToastProvider } from '@/shared/ui/toast'
 import { ApiError } from '@/shared/api/client'
+import * as snapshotHistory from '@/widgets/snapshot-history'
+import * as snapshotEntity from '@/entities/snapshot'
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -991,5 +993,59 @@ describe('EditorPage — 편집 종료 flush 실패', () => {
     )
     expect(screen.queryByTestId('toast')).toBeNull()
     expect(release).not.toHaveBeenCalled()
+  })
+})
+
+describe('EditorPage — 스냅샷 미리보기 중 저장 버튼', () => {
+  const setup = () =>
+    userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({
+      status: 'idle',
+      flush: () => Promise.resolve(),
+    })
+    vi.spyOn(canvas, 'ErdCanvas').mockImplementation(() => <div data-testid="erd-canvas-stub" />)
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        role: 'owner',
+        name: 'My Project',
+        dbml_text: 'Table users {\n  id int [pk]\n}',
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
+    // The panel's own fetching is not what this test is about — stub it down to
+    // the one thing the page reacts to: "preview this snapshot".
+    vi.spyOn(snapshotHistory, 'SnapshotHistoryPanel').mockImplementation(
+      (props: { onPreview: (id: string) => void }) => (
+        <button onClick={() => props.onPreview('s-1')}>fire-preview</button>
+      ),
+    )
+    vi.spyOn(snapshotEntity, 'useSnapshot').mockReturnValue({
+      data: undefined,
+    } as unknown as ReturnType<typeof snapshotEntity.useSnapshot>)
+  })
+
+  it('hides the Save button while previewing (saving is impossible there)', async () => {
+    // useManualSave gets `editable: !readOnly && !previewing` — a visible button
+    // would answer "편집 모드에서만 저장할 수 있습니다" to someone who IS in edit mode.
+    const user = setup()
+    renderEditor()
+
+    await enterEditMode(user)
+    expect(screen.getByTestId('manual-save-button')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('snapshot-history-button'))
+    await user.click(await screen.findByRole('button', { name: 'fire-preview' }))
+
+    expect(screen.queryByTestId('manual-save-button')).toBeNull()
   })
 })
