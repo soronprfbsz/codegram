@@ -338,4 +338,19 @@ describe('note display scale (ADR-0026)', () => {
     const back = restored.find((n) => n.id === 'note:history')!
     expect((back.data as StickyNodeData).scale).toBe(2.25)
   })
+
+  it('clamps a hand-edited out-of-range stored scale on injection', () => {
+    const out = reconcileLayout([stickyNode('note:history')], [], {
+      'note:history': { x: 40, y: 60, scale: 500 },
+    })
+    const note = out.find((n) => n.id === 'note:history')!
+    expect((note.data as StickyNodeData).scale).toBe(3)
+  })
+
+  it('clamps a hand-edited out-of-range live scale on persist, instead of rewriting it forever', () => {
+    const note = stickyNode('note:history', 500)
+    note.position = { x: 10, y: 20 }
+    const out = nodesToLayout([note])
+    expect(out.positions['note:history'].scale).toBe(3)
+  })
 })

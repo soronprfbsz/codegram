@@ -14,7 +14,7 @@
  * entities layer: imports only entities/erd (autoLayout + TYPES) and the
  * entities/layout types. NO React, NO React Flow runtime (FSD downward imports).
  */
-import { autoLayout } from '@/entities/erd'
+import { autoLayout, clampNoteScale } from '@/entities/erd'
 import type { ErdFlowNode, ErdFlowEdge, StickyNodeData } from '@/entities/erd'
 import { fitGroupBoxes } from './groupBox'
 import { placeSatelliteEnums } from './placeSatelliteEnums'
@@ -41,29 +41,41 @@ export function reconcileLayout(
 ): ErdFlowNode[] {
   if (flowNodes.length === 0) return []
 
+  // 0. Seed each sticky node's data.scale from the stored entry, CLAMPED,
+  //    before dagre ever runs. dagre's size estimate (nodeSize) reads
+  //    data.scale directly, so injecting it only after autoLayout (as this
+  //    used to do) means dagre always measures a bare 220x120 note — the
+  //    scaled footprint was never actually reserved on the reload path
+  //    (ADR-0026 requires dagre to see it). Notes are never grouped, so there
+  //    is no frame guard to satisfy here — unlike position, scale doesn't
+  //    depend on which frame the node lands in. A caller that reconciles
+  //    against an EMPTY stored set (auto-arrange) must seed the scale onto
+  //    flowNodes itself first — see seedNoteScales.
+  const seeded = flowNodes.map((node) => {
+    if (node.type !== 'sticky') return node
+    const entry = stored[node.id]
+    if (!entry || typeof entry.scale !== 'number') return node
+    return {
+      ...node,
+      data: { ...(node.data as StickyNodeData), scale: clampNoteScale(entry.scale) },
+    }
+  })
+
   // 1. Full-graph dagre baseline (positions + initial group sizing). The group
   //    sizing here is only a starting point: step-3 overrides can move members,
   //    invalidating it, which is exactly why fitGroupBoxes re-fits afterward.
-  const baseline = autoLayout(flowNodes, flowEdges)
+  const baseline = autoLayout(seeded, flowEdges)
 
-  // 2. Override nodes that have a frame-matching stored entry.
-  //    Groups are positioned by their absolute stored coord; members use
-  //    the relative stored coord + frame guard (ADR-0004).
+  // 2. Override nodes that have a frame-matching stored entry with the stored
+  //    POSITION. Groups use their absolute stored coord; members use the
+  //    relative stored coord + frame guard (ADR-0004). Scale was already
+  //    seeded in step 0, so there is nothing left to inject here.
   const overridden = baseline.map((node) => {
     const entry = stored[node.id]
     if (!entry) return node
     if (node.type === 'group') return { ...node, position: { x: entry.x, y: entry.y } }
     if (!frameMatches(node, entry)) return node // unpositioned -> keep dagre baseline
-    const positioned = { ...node, position: { x: entry.x, y: entry.y } }
-    // 노트만 표시 배율을 갖는다(ADR-0026). 노트는 그룹 멤버가 될 수 없으므로 프레임 가드
-    // 통과 여부와 무관하게 이 지점에서만 주입하면 충분하다.
-    if (node.type === 'sticky' && typeof entry.scale === 'number') {
-      return {
-        ...positioned,
-        data: { ...(node.data as StickyNodeData), scale: entry.scale },
-      }
-    }
-    return positioned
+    return { ...node, position: { x: entry.x, y: entry.y } }
   })
 
   // 3. Re-fit each group node to its (possibly moved) members. Done BEFORE the
@@ -91,7 +103,11 @@ export function nodesToLayout(nodes: ErdFlowNode[]): StoredLayout {
       positions[node.id] = { x: node.position.x, y: node.position.y }
       continue
     }
-    const scale = node.type === 'sticky' ? (node.data as StickyNodeData).scale : undefined
+    // CLAMP before persisting — a hand-edited layout row (or any other stray
+    // out-of-range value) must not survive a save; otherwise it would keep
+    // getting rewritten forever (ADR-0026).
+    const rawScale = node.type === 'sticky' ? (node.data as StickyNodeData).scale : undefined
+    const scale = typeof rawScale === 'number' ? clampNoteScale(rawScale) : undefined
     positions[node.id] = {
       x: node.position.x,
       y: node.position.y,
