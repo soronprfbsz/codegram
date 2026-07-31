@@ -11,6 +11,7 @@ export {
   GROUP_PAD_TOP,
   GROUP_PAD_BOTTOM,
 } from './lib/nodeSize'
+export { NOTE_SCALE_MIN, NOTE_SCALE_MAX, clampNoteScale } from './lib/noteScale'
 export type {
   ErdNodeType,
   ErdColumn,

@@ -147,3 +147,25 @@ describe('autoLayout', () => {
     expect(out.find((n) => n.id === 'public.a')!.parentId).toBe('group:core')
   })
 })
+
+describe('autoLayout (note scale)', () => {
+  it('preserves a note display scale while repositioning', () => {
+    const nodes = [
+      {
+        id: 'public.users',
+        type: 'table' as const,
+        position: { x: 0, y: 0 },
+        data: { tableName: 'public.users', tableId: 'public.users', columns: [] },
+      },
+      {
+        id: 'note:history',
+        type: 'sticky' as const,
+        position: { x: 0, y: 0 },
+        data: { title: 'history', content: 'memo', scale: 2.5 },
+      },
+    ]
+    const out = autoLayout(nodes, [])
+    const note = out.find((n) => n.id === 'note:history')!
+    expect((note.data as { scale?: number }).scale).toBe(2.5)
+  })
+})

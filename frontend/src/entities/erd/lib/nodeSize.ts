@@ -8,6 +8,7 @@
  * entities layer: imports only entities/erd types. PURE, no side effects (FSD).
  */
 import type { ErdFlowNode } from '@/entities/erd/model/types'
+import { clampNoteScale } from './noteScale'
 
 /** Conservative node-size estimates fed to dagre (dagre needs dims up front). */
 export const TABLE_WIDTH = 240
@@ -63,6 +64,11 @@ export function nodeSize(node: ErdFlowNode): { width: number; height: number } {
       : 0
     return { width: ENUM_WIDTH, height: HEADER_HEIGHT + vals * ROW_HEIGHT }
   }
-  // sticky + group fall back to fixed boxes (group is re-sized post-layout).
+  if (node.type === 'sticky') {
+    // 노트는 배율만큼 실제로 커진다(ADR-0026) — dagre가 그 크기로 여유를 잡아야 한다.
+    const s = clampNoteScale((node.data as { scale?: number }).scale)
+    return { width: STICKY_WIDTH * s, height: STICKY_HEIGHT * s }
+  }
+  // group falls back to a fixed box (re-sized post-layout).
   return { width: STICKY_WIDTH, height: STICKY_HEIGHT }
 }
