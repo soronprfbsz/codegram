@@ -197,6 +197,11 @@
     "syncFromDb": "DB에서 동기화",
     "export": "내보내기"
   },
+  "toast": {
+    "saved": "저장되었습니다",
+    "saveFailed": "저장하지 못했습니다",
+    "editModeRequired": "편집 모드에서만 저장할 수 있습니다"
+  },
   "editor": {
     "loading": "불러오는 중…",
     "loadingErd": "ERD 불러오는 중…",

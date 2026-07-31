@@ -197,6 +197,11 @@
     "syncFromDb": "Sync from database",
     "export": "Export"
   },
+  "toast": {
+    "saved": "Saved",
+    "saveFailed": "Couldn't save",
+    "editModeRequired": "Enter edit mode to save"
+  },
   "editor": {
     "loading": "Loading…",
     "loadingErd": "Loading ERD…",
