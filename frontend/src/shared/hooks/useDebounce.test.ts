@@ -60,3 +60,39 @@ describe('useDebouncedCallback', () => {
     expect(callback).not.toHaveBeenCalled()
   })
 })
+
+describe('useDebouncedCallback.flush', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('runs a pending call immediately', () => {
+    const fn = vi.fn()
+    const { result } = renderHook(() => useDebouncedCallback(fn, 600))
+
+    result.current('a')
+    expect(fn).not.toHaveBeenCalled()
+
+    result.current.flush()
+    expect(fn).toHaveBeenCalledTimes(1)
+    expect(fn).toHaveBeenCalledWith('a')
+  })
+
+  it('does nothing when nothing is pending', () => {
+    const fn = vi.fn()
+    const { result } = renderHook(() => useDebouncedCallback(fn, 600))
+
+    result.current.flush()
+    expect(fn).not.toHaveBeenCalled()
+  })
+
+  it('does not fire again when the timer elapses after a flush', () => {
+    const fn = vi.fn()
+    const { result } = renderHook(() => useDebouncedCallback(fn, 600))
+
+    result.current('a')
+    result.current.flush()
+    vi.advanceTimersByTime(1000)
+
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+})

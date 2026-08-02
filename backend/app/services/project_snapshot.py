@@ -35,7 +35,14 @@ from app.services.project import ProjectService
 KIND_FINE = "auto_fine"
 KIND_COARSE = "auto_coarse"
 KIND_MANUAL = "manual"
+# A save point the user asked for (ADR-0027): unlabelled, deduped by content,
+# pruned on the fine retain window. Distinct from KIND_FINE so the history
+# panel can say who chose to record this moment.
+KIND_CHECKPOINT = "checkpoint"
 AUTO_KINDS = (KIND_FINE, KIND_COARSE)
+# The kinds behind the history panel's time-ordered tab. Not AUTO_KINDS: that
+# name means "captured by the scheduler" and the prune job depends on it.
+TIMELINE_KINDS = (KIND_FINE, KIND_COARSE, KIND_CHECKPOINT)
 
 SnapshotGroup = Literal["auto", "manual"]
 
@@ -55,7 +62,7 @@ def compute_content_hash(dbml_text: str, layout: dict[str, Any]) -> str:
 def _kinds_for_group(group: SnapshotGroup | None) -> Sequence[str] | None:
     """Map a UI group ('auto'/'manual') to the concrete kinds it spans."""
     if group == "auto":
-        return AUTO_KINDS
+        return TIMELINE_KINDS
     if group == "manual":
         return (KIND_MANUAL,)
     return None
@@ -201,6 +208,33 @@ class ProjectSnapshotService:
             project_id=project_id,
             kind=KIND_MANUAL,
             label=label or None,
+            dbml_text=project.dbml_text,
+            layout=project.layout,
+            content_hash=content_hash,
+            created_by=user_id,
+        )
+
+    async def create_checkpoint(
+        self, project_id: uuid.UUID, user_id: uuid.UUID
+    ) -> ProjectSnapshot:
+        """Record the current project state as a user-chosen save point.
+
+        A checkpoint has no label — its time identifies it (ADR-0027). Saving
+        again with nothing changed returns the existing row instead of adding a
+        duplicate, and the manual-snapshot cap does not apply: checkpoints are
+        pruned on the fine retain window like auto snapshots.
+        """
+        project, _role = await self.projects.get_authorized(
+            project_id, user_id, Capability.CREATE_SNAPSHOT
+        )
+        content_hash = compute_content_hash(project.dbml_text, project.layout)
+        latest = await self.repo.latest_of_kind(project_id, KIND_CHECKPOINT)
+        if latest is not None and latest.content_hash == content_hash:
+            return latest
+        return await self.repo.create(
+            project_id=project_id,
+            kind=KIND_CHECKPOINT,
+            label=None,
             dbml_text=project.dbml_text,
             layout=project.layout,
             content_hash=content_hash,

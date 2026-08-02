@@ -18,6 +18,7 @@ function lease(over: Partial<EditLease> = {}): EditLease {
     enterBlocked: false,
     clearEnterBlocked: vi.fn(),
     entering: false,
+    exiting: false,
     lostLease: false,
     conflictReason: null,
     takeover: vi.fn(),

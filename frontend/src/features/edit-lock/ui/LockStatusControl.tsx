@@ -79,20 +79,22 @@ export function LockStatusControl({ canEdit, lease }: LockStatusControlProps) {
         testId="mode-switch"
         ariaLabel={t('editLock.modeSwitch')}
         value={mode}
-        onChange={(next) =>
-          next === 'edit' ? lease.enterEditMode() : lease.exitEditMode()
-        }
+        onChange={(next) => {
+          if (next === 'edit') lease.enterEditMode()
+          else void lease.exitEditMode()
+        }}
         options={[
           {
             value: 'read',
             label: t('editLock.modeRead'),
             icon: <Eye size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />,
+            disabled: lease.exiting,
           },
           {
             value: 'edit',
             label: t('editLock.modeEdit'),
             icon: <Pencil size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />,
-            disabled: Boolean(blockedReason) || lease.entering,
+            disabled: Boolean(blockedReason) || lease.entering || lease.exiting,
             title: blockedTitle ?? undefined,
           },
         ]}

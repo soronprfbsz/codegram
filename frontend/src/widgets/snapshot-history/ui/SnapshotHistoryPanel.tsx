@@ -49,9 +49,11 @@ function fmtDateTime(iso: string): string {
   })
 }
 
-function kindBadge(kind: SnapshotMeta['kind'], t: TFunction): string {
+export function kindBadge(kind: SnapshotMeta['kind'], t: TFunction): string {
   if (kind === 'auto_coarse') return t('snapshot.kindMonth')
   if (kind === 'auto_fine') return t('snapshot.kindHalfHour')
+  // A save point the user chose — not one the scheduler took (ADR-0027).
+  if (kind === 'checkpoint') return t('snapshot.kindCheckpoint')
   return t('snapshot.kindManual')
 }
 

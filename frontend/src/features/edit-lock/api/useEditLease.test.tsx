@@ -96,7 +96,9 @@ describe('useEditLease', () => {
     const { result, enterEditMode, pollReturns } = renderLease()
     await enterEditMode()
 
-    act(() => result.current.exitEditMode())
+    await act(async () => {
+      await result.current.exitEditMode()
+    })
     expect(api.releaseLock).toHaveBeenCalledWith(PROJECT)
     expect(result.current.editMode).toBe(false)
     expect(result.current.readOnly).toBe(true)
@@ -108,6 +110,69 @@ describe('useEditLease', () => {
     pollReturns(FREE)
     await waitFor(() => expect(result.current.isHolder).toBe(false))
     expect(result.current.lostLease).toBe(false)
+  })
+
+  it('saves BEFORE handing the lease back', async () => {
+    // The backend takes a free lease on any content write, so a PATCH that
+    // lands after the release would revive the lock we just gave up.
+    const calls: string[] = []
+    vi.mocked(api.releaseLock).mockImplementation(() => {
+      calls.push('release')
+    })
+    const onExiting = vi.fn(async () => {
+      calls.push('flush')
+    })
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { result } = renderHook(
+      () => useEditLease(PROJECT, { canEdit: true, isOwner: true, onExiting }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+        ),
+      },
+    )
+    await act(async () => {
+      result.current.enterEditMode()
+    })
+    await waitFor(() => expect(result.current.editMode).toBe(true))
+
+    await act(async () => {
+      await result.current.exitEditMode()
+    })
+
+    expect(calls).toEqual(['flush', 'release'])
+    expect(result.current.editMode).toBe(false)
+  })
+
+  it('stays in edit mode when the save fails', async () => {
+    vi.mocked(api.releaseLock).mockClear()
+    const onExiting = vi.fn(async () => {
+      throw new Error('save failed')
+    })
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const { result } = renderHook(
+      () => useEditLease(PROJECT, { canEdit: true, isOwner: true, onExiting }),
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+        ),
+      },
+    )
+    await act(async () => {
+      result.current.enterEditMode()
+    })
+    await waitFor(() => expect(result.current.editMode).toBe(true))
+
+    await act(async () => {
+      await result.current.exitEditMode()
+    })
+
+    expect(result.current.editMode).toBe(true)
+    expect(api.releaseLock).not.toHaveBeenCalled()
   })
 
   it('refuses to enter when someone else holds the lease', async () => {

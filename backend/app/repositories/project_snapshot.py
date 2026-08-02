@@ -164,6 +164,22 @@ class ProjectSnapshotRepository:
         result = await self.session.execute(stmt)
         return int(result.scalar_one())
 
+    async def latest_of_kind(
+        self, project_id: uuid.UUID, kind: str
+    ) -> ProjectSnapshot | None:
+        """Return the newest snapshot of a kind for a project, or None."""
+        stmt = (
+            select(ProjectSnapshot)
+            .where(
+                ProjectSnapshot.project_id == project_id,
+                ProjectSnapshot.kind == kind,
+            )
+            .order_by(ProjectSnapshot.created_at.desc())
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
     async def latest_hash(
         self, project_id: uuid.UUID, kind: str
     ) -> str | None:

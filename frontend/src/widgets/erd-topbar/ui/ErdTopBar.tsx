@@ -35,6 +35,8 @@ export interface ErdTopBarProps {
   historyButton?: ReactNode
   /** Edit-lock status (read-only / "editing: X" / takeover), left of the Save pill. */
   lockStatus?: ReactNode
+  /** Explicit save control (Ctrl+S's twin), rendered with the action group. */
+  saveButton?: ReactNode
 }
 
 /** Format an ISO timestamp as a compact localized date+time for the save pill. */
@@ -170,6 +172,7 @@ export function ErdTopBar({
   infoButton,
   historyButton,
   lockStatus,
+  saveButton,
 }: ErdTopBarProps) {
   return (
     <header
@@ -238,6 +241,7 @@ export function ErdTopBar({
             and tears the hairline away from it. */}
         {searchBox}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {saveButton}
           {infoButton}
           {historyButton}
           {importMenu}

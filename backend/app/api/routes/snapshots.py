@@ -67,14 +67,17 @@ async def create_snapshot(
     user: User = Depends(require_password_ok),
     service: ProjectSnapshotService = Depends(get_snapshot_service),
 ) -> ProjectSnapshotRead:
-    """Create a manual snapshot of the project's current state."""
+    """Create a manual snapshot or a checkpoint of the project's current state."""
     try:
-        snapshot = await service.create_manual(
-            project_id,
-            user.id,
-            label=payload.label,
-            overwrite=payload.overwrite,
-        )
+        if payload.kind == "checkpoint":
+            snapshot = await service.create_checkpoint(project_id, user.id)
+        else:
+            snapshot = await service.create_manual(
+                project_id,
+                user.id,
+                label=payload.label,
+                overwrite=payload.overwrite,
+            )
     except ProjectForbiddenError:
         raise _forbidden() from None
     except ProjectNotFoundError:

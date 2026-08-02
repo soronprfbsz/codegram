@@ -190,12 +190,19 @@
     "lastSavedBy": "Last saved {{time}} by {{who}}",
     "saving": "Saving…",
     "saveFailed": "Save failed",
+    "save": "Save",
     "info": "Info",
     "history": "Version history",
     "import": "Import",
     "importSql": "Import SQL",
     "syncFromDb": "Sync from database",
     "export": "Export"
+  },
+  "toast": {
+    "saved": "Saved",
+    "saveFailed": "Couldn't save",
+    "editModeRequired": "Enter edit mode to save",
+    "viewportLabel": "Notifications ({hotkey})"
   },
   "editor": {
     "loading": "Loading…",
@@ -326,10 +333,11 @@
   "snapshot": {
     "title": "Version history",
     "tabManual": "Manual",
-    "tabAuto": "Auto",
+    "tabAuto": "Timeline",
     "kindMonth": "Month",
     "kindHalfHour": "30 min",
     "kindManual": "Manual",
+    "kindCheckpoint": "Saved point",
     "closePanel": "Close history panel",
     "saveFailed": "Failed to save",
     "restoreFailedTitle": "Could not restore",

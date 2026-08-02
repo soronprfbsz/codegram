@@ -13,6 +13,10 @@ import type { DbmlSchema } from '@/entities/dbml'
 import * as sqlImport from '@/features/sql-import'
 import * as dbImport from '@/features/db-import'
 import * as editLockApi from '@/features/edit-lock/api/editLock'
+import { ToastProvider } from '@/shared/ui/toast'
+import { ApiError } from '@/shared/api/client'
+import * as snapshotHistory from '@/widgets/snapshot-history'
+import * as snapshotEntity from '@/entities/snapshot'
 
 function renderEditor() {
   const queryClient = new QueryClient({
@@ -24,7 +28,9 @@ function renderEditor() {
   )
   return render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>,
   )
 }
@@ -80,7 +86,7 @@ describe('EditorPage', () => {
     vi.restoreAllMocks()
     autosaveSpy = vi
       .spyOn(autosave, 'useProjectAutosave')
-      .mockReturnValue({ status: 'idle' })
+      .mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
   })
 
   it('shows the project name and seeds the editor with dbml_text', () => {
@@ -400,7 +406,7 @@ describe('EditorPage — Diagram export wiring (TopBar)', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
       status: 'success',
       schema: usersSchema,
@@ -489,7 +495,7 @@ describe('EditorPage — Phase 5 selection wiring', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -597,7 +603,7 @@ describe('EditorPage — 읽기 모드에서는 캔버스도 편집되지 않는
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(project, 'useProject').mockReturnValue({
       data: {
         id: 'p-1',
@@ -700,7 +706,7 @@ describe('EditorPage — SQL import wiring (topbar)', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(dbmlEditor, 'useDbmlParse').mockReturnValue({
       status: 'success',
       schema: usersSchema,
@@ -805,7 +811,7 @@ describe('EditorPage — DB Sync wiring', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle' })
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({ status: 'idle', flush: () => Promise.resolve() })
     vi.spyOn(canvas, 'ErdCanvas').mockImplementation(
       (props: { onCaptureReady?: (h: canvas.ErdCaptureHandle) => void }) => {
         props.onCaptureReady?.({
@@ -919,5 +925,127 @@ describe('EditorPage — DB Sync wiring', () => {
       expect(screen.getByTestId('tablelist-row-old')).toBeInTheDocument()
     })
     expect(screen.queryByTestId('tablelist-row-synced')).toBeNull()
+  })
+})
+
+describe('EditorPage — 편집 종료 flush 실패', () => {
+  function mockLoadedProject() {
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        role: 'owner',
+        name: 'My Project',
+        dbml_text: 'Table users {\n  id int [pk]\n}',
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
+  }
+
+  const setup = () =>
+    userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
+
+  /** Mount with a flush that always fails the way `error` says. */
+  function renderWithFailingFlush(error: unknown) {
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({
+      status: 'error',
+      flush: () => Promise.reject(error),
+    })
+    mockLoadedProject()
+    const release = vi.spyOn(editLockApi, 'releaseLock').mockResolvedValue(undefined)
+    renderEditor()
+    return release
+  }
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.spyOn(canvas, 'ErdCanvas').mockImplementation(() => <div data-testid="erd-canvas-stub" />)
+  })
+
+  it('says so with a toast and keeps the user in edit mode, lease unreleased', async () => {
+    // ADR-0027: 저장하지 못했으면 나가지 않는다. 그리고 실패는 알린다 —
+    // 아무 말도 하지 않으면 "읽기를 눌렀는데 아무 일도 없다"로 보인다.
+    const release = renderWithFailingFlush(new Error('network down'))
+    const user = setup()
+
+    await enterEditMode(user)
+    await user.click(screen.getByTestId('mode-switch-read'))
+
+    expect(await screen.findByTestId('toast')).toHaveTextContent('저장하지 못했습니다')
+    expect(screen.getByTestId('mode-switch-edit')).toHaveAttribute('aria-checked', 'true')
+    expect(release).not.toHaveBeenCalled()
+  })
+
+  it('does NOT toast on a 409 — the conflict dialog already says it', async () => {
+    const release = renderWithFailingFlush(new ApiError('conflict', 409, 'edit_locked'))
+    const user = setup()
+
+    await enterEditMode(user)
+    await user.click(screen.getByTestId('mode-switch-read'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('mode-switch-edit')).toHaveAttribute('aria-checked', 'true'),
+    )
+    expect(screen.queryByTestId('toast')).toBeNull()
+    expect(release).not.toHaveBeenCalled()
+  })
+})
+
+describe('EditorPage — 스냅샷 미리보기 중 저장 버튼', () => {
+  const setup = () =>
+    userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.spyOn(autosave, 'useProjectAutosave').mockReturnValue({
+      status: 'idle',
+      flush: () => Promise.resolve(),
+    })
+    vi.spyOn(canvas, 'ErdCanvas').mockImplementation(() => <div data-testid="erd-canvas-stub" />)
+    vi.spyOn(project, 'useProject').mockReturnValue({
+      data: {
+        id: 'p-1',
+        user_id: 'u-1',
+        role: 'owner',
+        name: 'My Project',
+        dbml_text: 'Table users {\n  id int [pk]\n}',
+        layout: {},
+        created_at: '2026-06-05T00:00:00Z',
+        updated_at: '2026-06-05T00:00:00Z',
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn().mockResolvedValue({ data: undefined }),
+    } as unknown as ReturnType<typeof project.useProject>)
+    // The panel's own fetching is not what this test is about — stub it down to
+    // the one thing the page reacts to: "preview this snapshot".
+    vi.spyOn(snapshotHistory, 'SnapshotHistoryPanel').mockImplementation(
+      (props: { onPreview: (id: string) => void }) => (
+        <button onClick={() => props.onPreview('s-1')}>fire-preview</button>
+      ),
+    )
+    vi.spyOn(snapshotEntity, 'useSnapshot').mockReturnValue({
+      data: undefined,
+    } as unknown as ReturnType<typeof snapshotEntity.useSnapshot>)
+  })
+
+  it('hides the Save button while previewing (saving is impossible there)', async () => {
+    // useManualSave gets `editable: !readOnly && !previewing` — a visible button
+    // would answer "편집 모드에서만 저장할 수 있습니다" to someone who IS in edit mode.
+    const user = setup()
+    renderEditor()
+
+    await enterEditMode(user)
+    expect(screen.getByTestId('manual-save-button')).toBeInTheDocument()
+
+    await user.click(screen.getByTestId('snapshot-history-button'))
+    await user.click(await screen.findByRole('button', { name: 'fire-preview' }))
+
+    expect(screen.queryByTestId('manual-save-button')).toBeNull()
   })
 })

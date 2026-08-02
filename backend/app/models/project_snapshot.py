@@ -1,10 +1,12 @@
 """ProjectSnapshot ORM model: an immutable past state of a project (ADR-0014).
 
 A snapshot copies a project's dbml_text + layout at a point in time so the
-project can be fully restored to it later. Three kinds:
+project can be fully restored to it later. Four kinds:
 - "auto_fine":   periodic snapshot of a changed project; pruned after a short
                  retain window.
 - "auto_coarse": monthly snapshot of a changed project; kept far longer.
+- "checkpoint":  a save point the user asked for (Ctrl+S, ADR-0027); no label,
+                 deduped by content, pruned on the fine retain window.
 - "manual":      user-created with an optional label; never auto-pruned.
 
 Snapshots have a created_at but no updated_at. Auto snapshots are write-once; a
@@ -39,7 +41,7 @@ class ProjectSnapshot(Base):
         nullable=False,
         index=True,
     )
-    # "auto_fine" | "auto_coarse" | "manual" (see module docstring).
+    # "auto_fine" | "auto_coarse" | "checkpoint" | "manual" (see module docstring).
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
     # Only manual snapshots carry a label; auto snapshots are anonymous.
     label: Mapped[str | None] = mapped_column(

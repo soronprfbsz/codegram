@@ -60,3 +60,4 @@
 | [0024](0024-edit-lease-handover-is-announced-not-discovered.md) | 편집 리스는 닫을 때 즉시 반납, 뺏김은 저장 실패가 아니라 알림으로 | `collaboration` | Accepted · Related: 0015 |
 | [0025](0025-editing-is-a-mode-you-enter.md) | 편집은 들어가는 모드 — 열면 언제나 읽기 전용, 명시적 진입 시에만 리스 획득 | `collaboration` | Accepted · Related: 0015, 0024 |
 | [0026](0026-note-display-scale-in-layout.md) | 노트 표시 크기 = 배율 하나(1.0~3.0)로 Layout에 저장, 종횡비는 콘텐츠가 정한다 | `rendering`, `data-model` | Accepted · Related: 0001, 0004, 0012, 0020 |
+| [0027](0027-manual-save-is-a-checkpoint.md) | 수동 저장(Ctrl+S)은 체크포인트를 남긴다 — 자동저장은 유실만 막고, 편집 종료 시 강제 flush | `collaboration` | Accepted · Related: 0014, 0023, 0024, 0025 |

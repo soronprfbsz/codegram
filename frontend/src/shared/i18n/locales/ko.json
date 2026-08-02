@@ -190,12 +190,19 @@
     "lastSavedBy": "마지막 저장 {{time}} · {{who}}",
     "saving": "저장 중…",
     "saveFailed": "저장 실패",
+    "save": "저장",
     "info": "정보",
     "history": "버전 기록",
     "import": "가져오기",
     "importSql": "SQL 가져오기",
     "syncFromDb": "DB에서 동기화",
     "export": "내보내기"
+  },
+  "toast": {
+    "saved": "저장되었습니다",
+    "saveFailed": "저장하지 못했습니다",
+    "editModeRequired": "편집 모드에서만 저장할 수 있습니다",
+    "viewportLabel": "알림 ({hotkey})"
   },
   "editor": {
     "loading": "불러오는 중…",
@@ -326,10 +333,11 @@
   "snapshot": {
     "title": "버전 기록",
     "tabManual": "수동",
-    "tabAuto": "자동",
+    "tabAuto": "기록",
     "kindMonth": "월",
     "kindHalfHour": "30분",
     "kindManual": "수동",
+    "kindCheckpoint": "저장",
     "closePanel": "기록 패널 닫기",
     "saveFailed": "저장에 실패했습니다",
     "restoreFailedTitle": "원복하지 못했습니다",

@@ -8,6 +8,7 @@ import {
   RefreshCw,
   History,
   Settings,
+  Save,
 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Spinner } from '@/shared/ui/spinner'
@@ -26,6 +27,7 @@ import { useProject, ProjectGlyph } from '@/entities/project'
 import {
   useProjectAutosave,
 } from '@/features/project-autosave'
+import { useManualSave } from '@/features/manual-save'
 import {
   DbmlEditor,
   useDbmlParse,
@@ -41,6 +43,7 @@ import { useLayoutPersistence } from '@/features/layout-persistence'
 import { type DiagramExportContext } from '@/features/export-diagram'
 import { SqlImportDialog } from '@/features/sql-import'
 import { AlertDialog } from '@/shared/ui/alert-dialog'
+import { useToast } from '@/shared/ui/toast'
 import { ApiError } from '@/shared/api/client'
 import { ErdTopBar } from '@/widgets/erd-topbar'
 import { ExportMenu } from '@/widgets/export-menu'
@@ -118,6 +121,7 @@ export function EditorPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const toast = useToast()
   const { data: project, isLoading, isError, refetch: refetchProject } = useProject(id)
   const [dbmlText, setDbmlText] = useState('')
   // The last server-seeded value; autosave skips while dbmlText still equals it.
@@ -134,6 +138,9 @@ export function EditorPage() {
   const previewing = previewId !== null
   // Role-based access (ADR-0015): editors/owners can edit; viewers are read-only.
   const canEdit = project?.role === 'owner' || project?.role === 'editor'
+  // useEditLease는 flush를 필요로 하고 useProjectAutosave는 lease의 readOnly를
+  // 필요로 한다. ref로 한 방향을 늦게 연결해 순환을 끊는다.
+  const flushRef = useRef<() => Promise<void>>(() => Promise.resolve())
   const lease = useEditLease(id, {
     canEdit,
     isOwner: project?.role === 'owner',
@@ -149,6 +156,23 @@ export function EditorPage() {
       setBaseline(fresh.dbml_text)
       reseed(fresh.layout)
     },
+    // 리스를 놓기 전에 대기 중인 저장을 끝낸다. 여기서 실패하면 exitEditMode가
+    // 편집 모드를 유지하므로 사용자가 다시 시도할 수 있다(ADR-0027).
+    onExiting: async () => {
+      try {
+        await flushRef.current()
+      } catch (error) {
+        // 실패는 반드시 눈에 보여야 한다 — 알리지 않으면 "읽기를 눌렀는데 아무
+        // 일도 없다"로 보인다. 단 409는 이미 충돌 다이얼로그가 같은 말을 하므로
+        // 토스트를 겹치지 않는다(useManualSave와 같은 규칙).
+        if (!(error instanceof ApiError && error.status === 409)) {
+          toast.error(t('toast.saveFailed'))
+        }
+        // 다시 던져야 exitEditMode가 편집 모드를 유지한다. 삼키면 미저장분을
+        // 안은 채 리스를 반납하게 되고, 그것이 이 분기가 존재하는 이유다.
+        throw error
+      }
+    },
   })
   // Read-only when the role can't edit OR the caller doesn't hold the live lock.
   const readOnly = !canEdit || lease.readOnly
@@ -163,7 +187,7 @@ export function EditorPage() {
     setActivePanel((p) => (p === 'history' ? null : 'history'))
     setPreviewId(null)
   }
-  const { status } = useProjectAutosave({
+  const { status, flush } = useProjectAutosave({
     projectId: id,
     dbmlText,
     baseline,
@@ -174,6 +198,13 @@ export function EditorPage() {
     suspended: previewing || readOnly,
     version: project?.version,
     onConflict: lease.reportConflict,
+  })
+  flushRef.current = flush
+  const manualSave = useManualSave({
+    projectId: id,
+    canEdit,
+    editable: !readOnly && !previewing,
+    flush,
   })
   // Full body of the snapshot being previewed (fetched on demand).
   const { data: previewSnapshot } = useSnapshot(id, previewId)
@@ -460,6 +491,21 @@ export function EditorPage() {
         lastModified={project.updated_at}
         lastEditedBy={project.last_edited_by_email ?? undefined}
         lockStatus={<LockStatusControl canEdit={canEdit} lease={lease} />}
+        saveButton={
+          // 미리보기 중에는 저장이 불가능하다(useManualSave의 editable과 같은
+          // 조건) — 버튼을 남겨두면 눌렀을 때 "편집 모드에서만"이라고 잘못 말한다.
+          readOnly || previewing ? null : (
+            <TopbarIconButton
+              data-testid="manual-save-button"
+              aria-label={t('topbar.save')}
+              title={`${t('topbar.save')} (Ctrl+S)`}
+              disabled={manualSave.saving}
+              onClick={() => void manualSave.save()}
+            >
+              <Save size={TOPBAR_ICON_SIZE} strokeWidth={TOPBAR_ICON_STROKE} />
+            </TopbarIconButton>
+          )
+        }
         searchBox={<TableSearch schema={schema} onNavigate={focusTable} />}
         infoButton={
           <TopbarIconButton

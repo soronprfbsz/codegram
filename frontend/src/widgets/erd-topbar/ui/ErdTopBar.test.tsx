@@ -98,4 +98,15 @@ describe('ErdTopBar', () => {
     renderTopBar()
     expect(screen.queryByRole('button', { name: '테마 전환' })).toBeNull()
   })
+
+  it('renders the save slot when the page supplies one', () => {
+    render(
+      <ErdTopBar
+        projectName="P"
+        autosaveStatus="idle"
+        saveButton={<button data-testid="manual-save-button">save</button>}
+      />,
+    )
+    expect(screen.getByTestId('manual-save-button')).toBeInTheDocument()
+  })
 })
