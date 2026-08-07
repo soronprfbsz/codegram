@@ -403,6 +403,70 @@ def test_sanitize_check_constraints_noop_without_backticks():
     assert _sanitize_check_constraints(md) == []
 
 
+from sqlalchemy import Text as _Text
+from app.services.introspect import _repair_check_constraint_parens
+
+
+def test_repair_check_parens_restores_overstripped_pair():
+    """SQLAlchemy's PG CHECK reflection over-strips `CHECK ((a IS NULL) = (b IS
+    NULL))` to the unbalanced `a IS NULL) = (b IS NULL`; re-wrapping is the exact
+    inverse and makes CreateTable emit valid, @dbml/core-parseable SQL."""
+    md = MetaData()
+    Table(
+        "rack_placements",
+        md,
+        Column("u_start", Integer),
+        Column("u_size", Integer),
+        _CheckConstraint("u_start IS NULL) = (u_size IS NULL", name="ck_pair"),
+    )
+
+    repaired, dropped = _repair_check_constraint_parens(md)
+    assert repaired == ["rack_placements.ck_pair"]
+    assert dropped == []
+
+    ddl = build_ddl(md, _pg.dialect())
+    assert "CHECK ((u_start IS NULL) = (u_size IS NULL))" in ddl
+
+
+def test_repair_check_parens_leaves_balanced_clauses_untouched():
+    """A well-formed clause — including parens inside a string literal — is not
+    a repair candidate (the literal's parens must not be counted)."""
+    md = MetaData()
+    Table(
+        "t",
+        md,
+        Column("price", Integer, nullable=False),
+        Column("name", _Text),
+        _CheckConstraint("price > 0", name="ck_price"),
+        _CheckConstraint("name ~ '^(a|b)$'", name="ck_name"),
+    )
+    assert _repair_check_constraint_parens(md) == ([], [])
+    ddl = build_ddl(md, _pg.dialect())
+    assert "price > 0" in ddl
+    assert "name ~ '^(a|b)$'" in ddl
+
+
+def test_repair_check_parens_drops_unrepairable_clause():
+    """A clause that re-wrapping cannot balance is dropped, and the rest of the
+    table still emits: one missing CHECK beats losing the whole import."""
+    md = MetaData()
+    Table(
+        "t",
+        md,
+        Column("a", Integer),
+        _CheckConstraint("a > 0)", name="ck_broken"),
+        _CheckConstraint("a < 10", name="ck_ok"),
+    )
+
+    repaired, dropped = _repair_check_constraint_parens(md)
+    assert repaired == []
+    assert dropped == ["t.ck_broken"]
+
+    ddl = build_ddl(md, _pg.dialect())
+    assert "a > 0)" not in ddl
+    assert "a < 10" in ddl
+
+
 def test_list_schemas_mariadb_returns_empty():
     """MariaDB has no schema concept (the database is the scope) — no connect."""
     from app.services.introspect import list_schemas
