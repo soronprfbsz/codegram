@@ -283,6 +283,60 @@ def _sanitize_check_constraints(metadata: MetaData) -> list[str]:
     return cleaned
 
 
+def _paren_balanced(expr: str) -> bool:
+    """True when the parentheses OUTSIDE single-quoted literals are balanced.
+    Literals are skipped so a regex/text default like `'^(a|b)$'` is not read as
+    structure (a doubled `''` toggles out and back in, which is correct here)."""
+    depth = 0
+    in_literal = False
+    for ch in expr:
+        if ch == "'":
+            in_literal = not in_literal
+        elif not in_literal:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth < 0:
+                    return False
+    return depth == 0
+
+
+def _repair_check_constraint_parens(metadata: MetaData) -> tuple[list[str], list[str]]:
+    """Restore the parenthesis pair SQLAlchemy's PostgreSQL CHECK reflection
+    over-strips (SQLAlchemy 2.0.50).
+
+    Reflection unwraps `pg_get_constraintdef(oid, pretty)` with two successive
+    regexes; the second removes a LEADING "(" and a TRAILING ")" even when they
+    are not each other's match. So `CHECK ((a IS NULL) = (b IS NULL))` reflects
+    as the unbalanced `a IS NULL) = (b IS NULL`, and CreateTable emits broken SQL
+    — `CHECK (a IS NULL) = (b IS NULL)` — which @dbml/core rejects ("mismatched
+    input '=' expecting ')'"), failing the WHOLE import over one clause.
+    Re-wrapping in parens is the exact inverse of the over-strip.
+
+    A clause that re-wrapping still cannot balance is dropped: a missing CHECK
+    costs one detail, an unparseable one costs the entire ERD. Mutates metadata
+    in place; returns (repaired, dropped) identifiers for logging.
+    """
+    repaired: list[str] = []
+    dropped: list[str] = []
+    for table in metadata.tables.values():
+        for constraint in list(table.constraints):
+            if not isinstance(constraint, CheckConstraint):
+                continue
+            expr = str(constraint.sqltext)
+            if _paren_balanced(expr):
+                continue
+            identifier = f"{table.name}.{constraint.name or 'check'}"
+            if _paren_balanced(f"({expr})"):
+                constraint.sqltext = text(f"({expr})")
+                repaired.append(identifier)
+            else:
+                table.constraints.discard(constraint)
+                dropped.append(identifier)
+    return repaired, dropped
+
+
 class IntrospectError(Exception):
     """Base for introspection failures surfaced to the user."""
 
@@ -446,6 +500,19 @@ def introspect_to_ddl(req: IntrospectRequest) -> IntrospectResult:
                 "introspect: sanitized %d CHECK constraint(s) for DBML: %s",
                 len(sanitized),
                 ", ".join(sanitized),
+            )
+        repaired, dropped = _repair_check_constraint_parens(metadata)
+        if repaired:
+            logger.info(
+                "introspect: repaired %d CHECK clause(s) with unbalanced parens: %s",
+                len(repaired),
+                ", ".join(repaired),
+            )
+        if dropped:
+            logger.warning(
+                "introspect: dropped %d unparseable CHECK clause(s): %s",
+                len(dropped),
+                ", ".join(dropped),
             )
         return IntrospectResult(
             import_dialect=import_dialect,
