@@ -8,6 +8,13 @@
 name: Deploy frontend
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - frontend/**
+      - deploy/docker-compose.prod.yml
+      - deploy/scripts/write-prod-env.sh
+      - .github/workflows/deploy-frontend.yml
   workflow_dispatch:
 
 concurrency:

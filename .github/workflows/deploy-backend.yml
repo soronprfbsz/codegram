@@ -10,6 +10,13 @@
 name: Deploy backend
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - deploy/docker-compose.prod.yml
+      - deploy/scripts/write-prod-env.sh
+      - .github/workflows/deploy-backend.yml
   workflow_dispatch:
 
 concurrency:
