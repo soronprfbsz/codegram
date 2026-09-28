@@ -1,0 +1,82 @@
+# ========================================
+# Codegram frontend — build + deploy to 10.140.1.40 (replaces .gitlab-ci.yml).
+# Path-selective like the old pipeline: only frontend changes redeploy the frontend.
+# Runs on the codegram-only self-hosted runner (label codegram-140) and deploys
+# with the host docker. postgres is never touched here.
+# ========================================
+
+name: Deploy frontend
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-codegram
+  cancel-in-progress: false
+
+env:
+  COMPOSE: docker compose -p codegram --env-file .env -f deploy/docker-compose.prod.yml
+  DEPLOY_HOST: 10.140.1.40
+  FRONTEND_HOST_PORT: "4001"
+  BACKEND_HOST_PORT: "4002"
+  POSTGRES_HOST_PORT: "45432"
+  POSTGRES_USER: codegram
+  POSTGRES_DB: codegram
+  CORS_ORIGINS: http://10.140.1.40:4001
+  FRONTEND_IMAGE: ts/codegram-frontend:latest
+  BACKEND_IMAGE: ts/codegram-backend:latest
+
+jobs:
+  deploy:
+    # Also pushed to the PUBLIC mirror (soronprfbsz/codegram) — never run there.
+    if: github.repository_owner == 'tscorp-dev2'
+    runs-on: [self-hosted, codegram-140]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Production bundle only. Type safety is gated separately (`npm run
+      # type-check`); `npm run build` couples `tsc -b`, whose build-mode
+      # type-check of test files is pre-existing-broken.
+      - name: Build dist
+        working-directory: frontend
+        run: |
+          npm ci
+          npx vite build
+
+      - name: Build image
+        run: |
+          docker build -f frontend/Dockerfile.ci \
+            -t ${FRONTEND_IMAGE} \
+            --label git-sha=${GITHUB_SHA} \
+            frontend
+
+      - name: Deploy frontend
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: |
+          deploy/scripts/write-prod-env.sh
+          ${COMPOSE} up -d --no-deps frontend
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "http://${DEPLOY_HOST}:${FRONTEND_HOST_PORT}/health" >/dev/null; then
+              echo "✅ frontend up → http://${DEPLOY_HOST}:${FRONTEND_HOST_PORT}"; exit 0
+            fi
+            echo "  대기 ($i/30)"; sleep 2
+          done
+          echo "✗ frontend 헬스체크 실패"; docker logs --tail 50 codegram-frontend; exit 1
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f .env
+          docker image prune -f --filter "label=project=codegram-frontend" >/dev/null 2>&1 || true
+          docker ps --filter "name=codegram-frontend" --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"

@@ -18,8 +18,11 @@ COPY nginx.conf /etc/nginx/templates/default.conf.template
 # time by nginx (see nginx.conf resolver). Overridable via compose.
 ENV API_BACKEND=backend:8000
 
+# 127.0.0.1, not localhost: nginx listens on IPv4 only, but localhost also maps
+# to ::1 in the container and busybox wget tries IPv6 first → "Connection
+# refused" → permanently unhealthy while the service itself is fine.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/health || exit 1
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1/health || exit 1
 
 EXPOSE 80
 
