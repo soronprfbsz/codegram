@@ -1,0 +1,87 @@
+# ========================================
+# Codegram backend — build + deploy to 10.140.1.40 (replaces .gitlab-ci.yml).
+# Path-selective like the old pipeline: only backend changes redeploy the backend.
+# Runs on the codegram-only self-hosted runner (label codegram-140) and deploys
+# with the host docker. postgres is created once and otherwise left running
+# (data persists at /data/codegram/postgres); migrations run in the backend
+# container entrypoint.
+# ========================================
+
+name: Deploy backend
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-codegram
+  cancel-in-progress: false
+
+env:
+  COMPOSE: docker compose -p codegram --env-file .env -f deploy/docker-compose.prod.yml
+  DEPLOY_HOST: 10.140.1.40
+  FRONTEND_HOST_PORT: "4001"
+  BACKEND_HOST_PORT: "4002"
+  POSTGRES_HOST_PORT: "45432"
+  POSTGRES_USER: codegram
+  POSTGRES_DB: codegram
+  CORS_ORIGINS: http://10.140.1.40:4001
+  FRONTEND_IMAGE: ts/codegram-frontend:latest
+  BACKEND_IMAGE: ts/codegram-backend:latest
+
+jobs:
+  deploy:
+    # Also pushed to the PUBLIC mirror (soronprfbsz/codegram) — never run there.
+    if: github.repository_owner == 'tscorp-dev2'
+    runs-on: [self-hosted, codegram-140]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: |
+          docker build -f backend/Dockerfile.ci \
+            -t ${BACKEND_IMAGE} \
+            --label git-sha=${GITHUB_SHA} \
+            backend
+
+      - name: Write .env
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        run: deploy/scripts/write-prod-env.sh
+
+      - name: Ensure postgres
+        run: |
+          # Never recreate a running postgres — only start it when it is down.
+          if docker ps --format '{{.Names}}' | grep -q '^codegram-postgres$'; then
+            echo "✓ postgres 실행 중"
+          elif docker ps -a --format '{{.Names}}' | grep -q '^codegram-postgres$'; then
+            docker start codegram-postgres
+          else
+            ${COMPOSE} up -d --no-deps postgres
+          fi
+          for i in $(seq 1 30); do
+            st=$(docker inspect -f '{{.State.Health.Status}}' codegram-postgres 2>/dev/null || echo "")
+            if [ "$st" = "healthy" ]; then echo "✓ postgres healthy"; exit 0; fi
+            echo "  대기 ($i/30) [$st]"; sleep 2
+          done
+          echo "✗ postgres 헬스체크 실패"; docker logs --tail 30 codegram-postgres; exit 1
+
+      - name: Deploy backend
+        run: ${COMPOSE} up -d --no-deps backend
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS "http://${DEPLOY_HOST}:${BACKEND_HOST_PORT}/api/health" >/dev/null; then
+              echo "✅ backend up → http://${DEPLOY_HOST}:${BACKEND_HOST_PORT}/api/health"; exit 0
+            fi
+            echo "  대기 ($i/40)"; sleep 3
+          done
+          echo "✗ backend 헬스체크 실패"; docker logs --tail 80 codegram-backend; exit 1
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f .env
+          docker image prune -f --filter "label=project=codegram-backend" >/dev/null 2>&1 || true
+          docker ps --filter "name=codegram-backend" --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"

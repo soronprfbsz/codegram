@@ -1,9 +1,9 @@
 # ========================================
-# Production stack (built images, run by GitLab CI deploy jobs).
+# Production stack (built images, run by the GitHub Actions deploy workflows).
 # - Dedicated network `ts-codegram` ties together ONLY codegram services.
 # - All host bind mounts live under /data/codegram (postgres included).
-# - Images come from Harbor (CI sets *_IMAGE); local default tag falls back.
-# Run via: docker-compose -p codegram --env-file <root>/.env -f deploy/docker-compose.prod.yml ...
+# - Images are built on the deploy host (ts/codegram-*:latest, *_IMAGE in .env).
+# Run via: docker compose -p codegram --env-file <root>/.env -f deploy/docker-compose.prod.yml ...
 # ========================================
 name: codegram
 
