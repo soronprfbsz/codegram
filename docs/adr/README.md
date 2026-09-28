@@ -28,7 +28,7 @@
 | `collaboration` | 협업·버전관리 | 0014, 0015, 0023, 0024, 0025 |
 | `architecture` | 코드베이스 구조 | 0007, 0017, 0019, 0022 |
 | `frontend` | 프론트엔드 횡단(국제화·디자인토큰 등) | 0017, 0020 |
-| `deployment` | 배포·CI/CD·인프라 | 0019 |
+| `deployment` | 배포·CI/CD·인프라 | 0019, 0028 |
 
 ## 시간순 (전체 로그)
 
@@ -52,7 +52,7 @@
 | [0016](0016-rbac-account-management-and-password-reset.md) | 전역 RBAC(admin/user) + 관리자 발급 일회성 비번 + 강제 변경 | `auth` | Accepted · Related: 0015, 0006 |
 | [0017](0017-i18n-react-i18next.md) | 사용자 문자열은 react-i18next ko/en 단일 출처로 국제화 | `architecture`, `frontend` | Accepted · Related: 0007 |
 | [0018](0018-table-groups-in-dbml.md) | 테이블 그룹은 DBML TableGroup에 진실, 편집은 텍스트 국소 수술 | `data-model`, `rendering` | Accepted · Related: 0001, 0010, 0011 |
-| [0019](0019-deployment-compose-gitlab-ci.md) | 배포 = docker compose 3-파일 + GitLab CI 경로선택 재배포 | `deployment`, `architecture` | Accepted · Related: 0006, 0007 |
+| [0019](0019-deployment-compose-gitlab-ci.md) | 배포 = docker compose 3-파일 + GitLab CI 경로선택 재배포 | `deployment`, `architecture` | Accepted (CI/CD 부분 Superseded-by: 0028) · Related: 0006, 0007 |
 | [0020](0020-design-token-only-styling.md) | 시각 스타일은 디자인 토큰으로만 + raw 하드코딩 금지(타이포 스케일 토큰화) | `frontend`, `architecture` | Accepted · Related: 0007, 0017 |
 | [0021](0021-clickhouse-introspection-structured-columns.md) | ClickHouse 인트로스펙션 = 구조화 컬럼(JSON)→프론트 DBML 직접생성, 테이블·컬럼만 | `db-integration` | Accepted · Related: 0008, 0002, 0009 |
 | [0022](0022-request-unit-of-work-commits-before-response.md) | 요청 단위 작업의 커밋은 응답 전송 전에 끝낸다(`scope="function"`) | `architecture` | Accepted · Related: 0006, 0007 |
@@ -61,3 +61,4 @@
 | [0025](0025-editing-is-a-mode-you-enter.md) | 편집은 들어가는 모드 — 열면 언제나 읽기 전용, 명시적 진입 시에만 리스 획득 | `collaboration` | Accepted · Related: 0015, 0024 |
 | [0026](0026-note-display-scale-in-layout.md) | 노트 표시 크기 = 배율 하나(1.0~3.0)로 Layout에 저장, 종횡비는 콘텐츠가 정한다 | `rendering`, `data-model` | Accepted · Related: 0001, 0004, 0012, 0020 |
 | [0027](0027-manual-save-is-a-checkpoint.md) | 수동 저장(Ctrl+S)은 체크포인트를 남긴다 — 자동저장은 유실만 막고, 편집 종료 시 강제 flush | `collaboration` | Accepted · Related: 0014, 0023, 0024, 0025 |
+| [0028](0028-deployment-github-actions-self-hosted-runner.md) | 배포 CI = GitHub Actions + 배포 호스트(10.140.1.40) 전용 self-hosted runner, 레지스트리 없이 호스트 빌드 | `deployment` | Accepted · Supersedes: 0019 (CI/CD 부분) |

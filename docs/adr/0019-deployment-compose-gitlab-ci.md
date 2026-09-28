@@ -1,6 +1,6 @@
 # 배포는 docker compose(base/override/prod) 3-파일 + GitLab CI로 경로 선택 재배포한다
 
-> **Status**: Accepted · **Tags**: `deployment`, `architecture` · **Date**: 2026-07-15 · **Supersedes**: — · **Related**: ADR-0006, ADR-0007
+> **Status**: Accepted (CI/CD 부분은 Superseded) · **Tags**: `deployment`, `architecture` · **Date**: 2026-07-15 · **Supersedes**: — · **Superseded-by**: ADR-0028 (CI/CD 부분) · **Related**: ADR-0006, ADR-0007
 
 Codegram 스택(postgres + backend + frontend)은 `deploy/`의 **docker compose 3-파일**(`docker-compose.yml` base · `.override.yml` 로컬 · `.prod.yml` 운영)로 구성하고, **GitLab CI/CD**가 main push 시 **모노레포 경로 선택 재배포**(프론트 변경→프론트만, 백엔드 변경→백엔드만, postgres는 상주)한다. 컨테이너·포트·환경 결합의 결정을 기록한다.
 
