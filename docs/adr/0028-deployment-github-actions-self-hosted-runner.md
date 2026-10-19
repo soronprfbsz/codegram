@@ -38,4 +38,4 @@
 
 ### 공개 미러
 
-- 저장소는 PUBLIC 미러(`soronprfbsz/codegram`)에도 push되므로 모든 job에 `if: github.repository_owner == 'tscorp-dev2'`를 두어 미러에서는 실행하지 않는다(미러에는 runner·secret도 없다).
+- 저장소는 PUBLIC 미러(`soronprfbsz/codegram`)에도 push되므로 모든 job에 `if: github.repository_owner == 'tsf-dev2-team'`를 두어 미러에서는 실행하지 않는다(미러에는 runner·secret도 없다). (2026-10-19 저장소가 `tscorp-dev2` → `tsf-dev2-team` 조직으로 transfer되어 조건의 조직명만 갱신. repo 단위 runner 등록·secrets는 transfer를 따라와 그대로다.)
