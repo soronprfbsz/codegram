@@ -36,7 +36,7 @@ env:
 jobs:
   deploy:
     # Also pushed to the PUBLIC mirror (soronprfbsz/codegram) — never run there.
-    if: github.repository_owner == 'tscorp-dev2'
+    if: github.repository_owner == 'tsf-dev2-team'
     runs-on: [self-hosted, codegram-140]
     steps:
       - uses: actions/checkout@v4
